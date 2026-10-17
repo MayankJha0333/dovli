@@ -1,0 +1,20 @@
+{
+  "name": "dovli",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@dovli/web",
+    "dev:mobile": "pnpm --filter @dovli/mobile start",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules .turbo"
+  },
+  "devDependencies": {
+    "turbo": "^2.11.9",
+    "typescript": "~6.0.3"
+  }
+}

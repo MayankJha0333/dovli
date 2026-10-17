@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Dovli",
+    "slug": "dovli",
+    "scheme": "dovli",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.dovli"
+    },
+    "android": {
+      "package": "app.dovli",
+      "adaptiveIcon": {
+        "backgroundColor": "#1C2A6B",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      }
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

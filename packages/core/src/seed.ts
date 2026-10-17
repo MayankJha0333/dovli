@@ -1,0 +1,183 @@
+import type { Page } from "./types";
+import { h2, h3, p, li, num, todo, toggle, quote, table, subpage, divider, flowchart, embed } from "./blocks";
+import { userFlowSkeleton } from "./templates";
+
+const HOUR = 3600_000;
+
+/** The sample workspace a new visitor sees. Every page can be edited or deleted. */
+export function seedPages(): Record<string, Page> {
+  const now = Date.now();
+  const page = (p: Omit<Page, "createdAt" | "updatedAt"> & { ago: number }): Page => {
+    const { ago, ...rest } = p;
+    return { ...rest, createdAt: now - ago - 6 * HOUR, updatedAt: now - ago };
+  };
+
+  const pages: Page[] = [
+    page({
+      id: "welcome",
+      parentId: null,
+      kind: "doc",
+      title: "Welcome to Dovli",
+      mark: "✦",
+      style: "cobalt",
+      order: 0,
+      ago: 0.05 * HOUR,
+      expanded: true,
+      blocks: [
+        p("Dovli is a quiet place to write. Everything here is an example page, so change it, move things around, or delete it."),
+        h2("Start writing"),
+        li("Type **/** on an empty line to add headings, to-dos, toggles, tables, quotes, code and more."),
+        li("Select text to make it **bold**, *italic*, or a link."),
+        li("Drag the handle on the left of any block to move it."),
+        h2("Pages inside pages"),
+        p("Type **/page** to create a sub-page right where your cursor is. Sub-pages also show in the sidebar under their parent."),
+        subpage("shortcuts"),
+        h2("Sketch on a whiteboard"),
+        p("Type **/whiteboard** for a canvas with shapes, arrows and free drawing. Arrows stay attached when you move shapes."),
+        h2("Flowcharts inside a page"),
+        p("Type **/flowchart** to draw boxes and arrows right where you're writing. Click **Edit** to change it."),
+        flowchart(),
+        h2("Link previews"),
+        p("Paste a link on an empty line and it becomes a preview card. YouTube, Vimeo and Loom links play right in the page, and image or video file links show the file itself."),
+        embed("https://github.com/excalidraw/excalidraw"),
+        h2("Start from a template"),
+        p("Open **Templates** in the sidebar. Meeting notes, project briefs, journals, user flows and more."),
+        divider(),
+        p("*Your pages are saved in this browser as you type. Clearing your browser data removes them.*"),
+      ],
+    }),
+    page({
+      id: "shortcuts",
+      parentId: "welcome",
+      kind: "doc",
+      title: "Keyboard shortcuts",
+      mark: "⌘",
+      order: 0,
+      ago: 3 * HOUR,
+      blocks: [
+        p("The ones worth learning first."),
+        table([
+          ["Action", "Mac", "Windows"],
+          ["Bold", "⌘ B", "Ctrl B"],
+          ["Italic", "⌘ I", "Ctrl I"],
+          ["Heading 1 / 2 / 3", "⌘ ⌥ 1 / 2 / 3", "Ctrl Alt 1 / 2 / 3"],
+          ["To-do list", "⌘ ⇧ 9", "Ctrl Shift 9"],
+          ["Indent a block", "Tab", "Tab"],
+          ["Undo", "⌘ Z", "Ctrl Z"],
+        ]),
+        h3("Markdown shortcuts"),
+        p("Start a line with `#` for a heading, `-` for a bullet, `1.` for a numbered list, `[]` for a to-do or `>` for a quote."),
+      ],
+    }),
+    page({
+      id: "launch",
+      parentId: null,
+      kind: "doc",
+      title: "Shared spaces launch",
+      mark: "§",
+      order: 1,
+      ago: 2 * HOUR,
+      expanded: true,
+      blocks: [
+        p("*Example project. Shared spaces let a small team keep notes in one place.*"),
+        table([
+          ["Owner", "Product team"],
+          ["Launch", "25 November"],
+          ["Status", "In design"],
+        ]),
+        h2("Problem"),
+        p("Teams of 2 to 10 people copy notes between personal workspaces. In interviews, 7 of 12 said they lose track of which copy is current."),
+        h2("Goal"),
+        li("**Success looks like:** 30% of new teams create a shared space in their first week."),
+        li("**We'll measure it by:** spaces created per new team, weekly."),
+        h2("Scope"),
+        toggle("In for launch", [li("Invite by email"), li("One shared space per team"), li("Page-level comments")]),
+        toggle("Not in this version", [li("Permissions per page"), li("Guest access")]),
+        h2("Plan"),
+        subpage("checklist"),
+        subpage("flow"),
+      ],
+    }),
+    page({
+      id: "checklist",
+      parentId: "launch",
+      kind: "doc",
+      title: "Launch checklist",
+      mark: "☐",
+      order: 0,
+      ago: 5 * HOUR,
+      blocks: [
+        h3("Two weeks before"),
+        todo("Final design review", true),
+        todo("Invite flow tested on mobile", true),
+        todo("Help article drafted"),
+        h3("Launch week"),
+        todo("Turn on for 10% of new teams"),
+        todo("Watch invite-sent rate daily"),
+        todo("Announcement post"),
+      ],
+    }),
+    page({
+      id: "flow",
+      parentId: "launch",
+      kind: "board",
+      title: "Invite flow",
+      mark: "△",
+      order: 1,
+      ago: 26 * HOUR,
+      board: { skeleton: userFlowSkeleton() },
+    }),
+    page({
+      id: "reading",
+      parentId: null,
+      kind: "doc",
+      title: "Reading notes: The Design of Everyday Things",
+      mark: "❡",
+      style: "linen",
+      order: 2,
+      ago: 30 * HOUR,
+      blocks: [
+        table([
+          ["Author", "Don Norman"],
+          ["Started", "3 October"],
+          ["Rating", "5 / 5"],
+        ]),
+        h2("The book in three sentences"),
+        p("When people struggle with an object, the design is usually at fault, not the person. Good design makes the possible actions visible and shows clearly what happened after each one. Most everyday frustration comes from missing signals, confusing controls and silent results."),
+        h2("Key ideas"),
+        num("**Affordances** are what an object lets you do; **signifiers** are the cues that tell you."),
+        num("**Mapping**: controls should be laid out like the things they control."),
+        num("**Feedback** must be immediate and clear, or people repeat the action."),
+        num("**Constraints** prevent errors before they happen."),
+        h2("My own takeaway"),
+        quote("If a button needs a label explaining how to use it, the button is the problem."),
+        h2("How I'll use this"),
+        todo("Audit our empty states for missing signifiers"),
+        todo("Add a visible saved state to the editor", true),
+      ],
+    }),
+    page({
+      id: "weekly",
+      parentId: null,
+      kind: "doc",
+      title: "Weekly review, week 42",
+      mark: "◐",
+      style: "sage",
+      order: 3,
+      ago: 50 * HOUR,
+      blocks: [
+        h2("What went well"),
+        li("Shipped the template gallery"),
+        li("Two good user interviews"),
+        h2("What slipped"),
+        li("Mobile sidebar polish, moved to next week"),
+        h2("Top three for next week"),
+        todo("Finish invite flow designs"),
+        todo("Write the launch post"),
+        todo("Clean up the backlog"),
+      ],
+    }),
+  ];
+
+  return Object.fromEntries(pages.map((p) => [p.id, p]));
+}

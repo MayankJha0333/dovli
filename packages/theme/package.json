@@ -1,0 +1,17 @@
+{
+  "name": "@dovli/theme",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Page styles and design tokens shared by the Dovli web and phone apps.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@dovli/config": "workspace:*",
+    "typescript": "~6.0.3"
+  }
+}

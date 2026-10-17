@@ -1,0 +1,4 @@
+{
+  "extends": "@dovli/config/tsconfig/base.json",
+  "include": ["src"]
+}

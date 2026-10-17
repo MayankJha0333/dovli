@@ -1,0 +1,17 @@
+{
+  "name": "@dovli/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Page types, sample pages, templates and link helpers shared by every Dovli app.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@dovli/config": "workspace:*",
+    "typescript": "~6.0.3"
+  }
+}

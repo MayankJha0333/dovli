@@ -1,0 +1,12 @@
+# React Native's tooling expects a flat node_modules folder, like npm makes.
+nodeLinker: hoisted
+
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Packages that are allowed to run install scripts (pnpm blocks the rest by default).
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
