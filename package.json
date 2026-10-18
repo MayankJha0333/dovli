@@ -12,7 +12,9 @@
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rm -rf node_modules .turbo",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "emulators": "npx firebase-tools@15.34.0 emulators:start --project demo-dovli",
+    "deploy:rules": "npx firebase-tools@15.34.0 deploy --only firestore:rules"
   },
   "devDependencies": {
     "turbo": "^2.11.9",

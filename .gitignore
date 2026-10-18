@@ -62,3 +62,7 @@ Thumbs.db
 
 # Excalidraw worker files, copied from node_modules by apps/web/next.config.ts
 apps/web/public/excalidraw/
+
+# Firebase server keys (the JSON you download from the console)
+*-firebase-adminsdk-*.json
+.sync/

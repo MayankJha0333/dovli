@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { Factor } from "@supabase/supabase-js";
 import { timeAgo } from "@dovli/core";
 import { APP_THEMES, getTheme, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, type ThemePreference } from "@dovli/theme";
 import { Button, Field, Icon, Input, Kbd, Pill, RadioCard, RadioCards, Segmented, Spinner, Switch, cn, modKey, toast } from "@dovli/ui";
@@ -112,106 +111,14 @@ export function Appearance() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Account and two-step login                                          */
+/* Account                                                             */
 /* ------------------------------------------------------------------ */
-
-function TwoStep() {
-  const [factors, setFactors] = useState<Factor[] | null>(null);
-  const [setup, setSetup] = useState<{ factorId: string; qr: string; secret: string } | null>(null);
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const load = () => auth.factors().then(setFactors).catch(() => setFactors([]));
-  useEffect(() => {
-    void load();
-  }, []);
-  const verified = factors?.filter((f) => f.status === "verified") ?? [];
-
-  if (factors === null) return <Spinner />;
-  if (setup)
-    return (
-      <div className="flex flex-col gap-3 rounded-lg bg-well p-4">
-        <p className="m-0 text-sm text-ink-2">
-          1. Scan this with an authenticator app (Google Authenticator, 1Password, Authy…). Or type the key by hand.
-        </p>
-        <div className="flex flex-wrap items-center gap-4">
-          <img src={setup.qr} alt="QR code for your authenticator app" className="size-40 rounded-md bg-white p-2" />
-          <code className="select-all break-all rounded-sm bg-panel px-2 py-1 font-mono text-xs text-ink">{setup.secret}</code>
-        </div>
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              await auth.verifyAuthenticator(setup.factorId, code);
-              toast("Two-step login is on");
-              setSetup(null);
-              setCode("");
-              void load();
-            } catch (err) {
-              toast(errText(err), { tone: "danger" });
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Field label="2. Type the 6-digit code it shows" className="flex-1">
-            {(p) => <Input {...p} inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="font-mono tracking-[0.3em]" />}
-          </Field>
-          <Button type="submit" variant="primary" disabled={busy || code.length !== 6}>
-            Turn on
-          </Button>
-          <Button variant="ghost" onClick={() => setSetup(null)}>
-            Cancel
-          </Button>
-        </form>
-      </div>
-    );
-
-  return verified.length ? (
-    <Row label="Two-step login is on" hint="You'll be asked for a code from your authenticator app when you sign in.">
-      <Button
-        variant="dangerGhost"
-        onClick={async () => {
-          try {
-            for (const f of verified) await auth.removeAuthenticator(f.id);
-            toast("Two-step login is off");
-            void load();
-          } catch (err) {
-            toast(errText(err), { tone: "danger" });
-          }
-        }}
-      >
-        Turn off
-      </Button>
-    </Row>
-  ) : (
-    <Row label="Two-step login" hint="Ask for a code from your phone as well as your sign-in, so a stolen password or email isn't enough.">
-      <Button
-        icon="shield"
-        disabled={busy}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            setSetup(await auth.enrollAuthenticator());
-          } catch (err) {
-            toast(errText(err), { tone: "danger" });
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        Set up
-      </Button>
-    </Row>
-  );
-}
 
 export function Account() {
   const a = useAuth((x) => x);
   if (a.status !== "signed-in" || !a.account)
     return (
-      <Group title="Sign in" description="Optional. Dovli works fully without an account; signing in adds sync across devices and share links.">
+      <Group title="Sign in" description="Optional. Dovli works fully without an account.">
         {a.status === "loading" ? <Spinner /> : <SignInPanel />}
       </Group>
     );
@@ -229,7 +136,7 @@ export function Account() {
             <p className="m-0 truncate font-semibold text-ink">{acc.name ?? acc.email}</p>
             <p className="m-0 truncate text-sm text-ink-3">
               {acc.email}
-              {acc.provider && acc.provider !== "email" ? ` · signed in with ${acc.provider[0].toUpperCase()}${acc.provider.slice(1)}` : ""}
+              {acc.provider === "google" ? " · signed in with Google" : " · signed in with an email code"}
             </p>
           </div>
           <Button icon="logout" onClick={() => void auth.signOut().then(() => toast("Signed out. Your pages stay on this device."))}>
@@ -237,8 +144,10 @@ export function Account() {
           </Button>
         </div>
       </Group>
-      <Group title="Security">
-        <TwoStep />
+      <Group title="Sync between devices">
+        <p className="m-0 rounded-lg bg-well p-4 text-sm text-ink-2">
+          Your account is ready. Pages are still saved on each device for now; syncing them through your account is the next step.
+        </p>
       </Group>
     </div>
   );
@@ -249,7 +158,7 @@ export function Account() {
 /* ------------------------------------------------------------------ */
 
 const STATE_TEXT: Record<string, string> = {
-  "local-only": "Saved on this device only. Accounts aren't set up on this copy of Dovli.",
+  "local-only": "Saved on this device. Syncing between devices is coming soon.",
   "signed-out": "Saved on this device. Sign in to sync with your other devices.",
   offline: "You're offline. Changes are saved here and will sync when you're back.",
   syncing: "Syncing your changes…",
@@ -555,7 +464,7 @@ export function Privacy() {
   const [busy, setBusy] = useState(false);
   const promises = [
     "Your pages are saved on this device first, and work without internet.",
-    "When you sign in, they travel encrypted (HTTPS) and are stored encrypted in the cloud (Supabase encrypts data at rest).",
+    "Signing in uses Firebase Authentication (Google). Dovli never sees a password: you sign in with Google or a one-time email code.",
     "Only you can read your pages. Share links show one page, only to people with the link, and you can turn them off any time.",
     "Dovli never uses your notes to train AI, and never sells your data.",
     "You can export everything, or delete everything, at any time.",
@@ -573,13 +482,13 @@ export function Privacy() {
         </ul>
       </Group>
       <Group title="Delete data">
-        <Row label="Delete everything on this device" hint={a.status === "signed-in" ? "Your account and cloud copy stay. You can sign in again to get them back." : "Pages, files and backups here are removed for good."}>
+        <Row label="Delete everything on this device" hint={a.status === "signed-in" ? "Your account stays; only this device is cleared." : "Pages, files and backups here are removed for good."}>
           <Button variant="dangerGhost" onClick={() => setConfirm("device")}>
             Delete
           </Button>
         </Row>
         {a.status === "signed-in" && (
-          <Row label="Delete my account" hint="Removes your account and every page, file and share link in the cloud, for good.">
+          <Row label="Delete my account" hint="Removes your Dovli account for good. Pages on this device stay unless you delete them too.">
             <Button variant="dangerGhost" onClick={() => setConfirm("account")}>
               Delete account
             </Button>
@@ -588,7 +497,7 @@ export function Privacy() {
         {confirm && (
           <div role="alertdialog" aria-label="Confirm delete" className="flex flex-wrap items-center gap-2 rounded-lg bg-danger-soft p-4">
             <p className="m-0 flex-1 text-sm font-medium text-danger">
-              {confirm === "device" ? "Delete all pages, files and backups on this device?" : "Delete your account and everything in the cloud? This can't be undone."}
+              {confirm === "device" ? "Delete all pages, files and backups on this device?" : "Delete your Dovli account? This can't be undone."}
             </p>
             <Button variant="ghost" onClick={() => setConfirm(null)}>
               Cancel
@@ -604,7 +513,7 @@ export function Privacy() {
                     const res = await fetch("/api/account/delete", { method: "POST", headers: { authorization: `Bearer ${token}` } });
                     const data = await res.json().catch(() => ({}));
                     if (!res.ok) throw new Error(data.error ?? "Couldn't delete the account.");
-                    await auth.signOut();
+                    await auth.signOut({ leave: false });
                   }
                   await clearDevice();
                   try {

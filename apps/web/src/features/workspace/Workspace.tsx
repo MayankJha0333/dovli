@@ -8,10 +8,11 @@ import { initStore, routeFromHash, store, useStore } from "@/lib/store";
 import { startSync } from "@/lib/sync";
 import { refreshUsage } from "@/lib/ai";
 import { ui, useUI } from "@/lib/ui";
-import { useAuth } from "@/lib/auth";
+import { auth, initAuth, useAuth } from "@/lib/auth";
+import { authGateOn } from "@/lib/authGate";
 import { AIPanel } from "@/features/ai/AIPanel";
 import { AssistantButton } from "@/features/ai/AssistantButton";
-import { SecondStepDialog, SignInDialog } from "@/features/auth/SignInDialog";
+import { SignInDialog } from "@/features/auth/SignInDialog";
 import { Home } from "@/features/home/Home";
 import { PageView } from "@/features/page/PageView";
 import { CommandPalette } from "@/features/palette/CommandPalette";
@@ -41,12 +42,12 @@ export default function Workspace() {
   const ready = useStore((s) => s.ready);
   const route = useStore((s) => s.route);
   const nav = useUI((s) => s.nav);
-  const needsSecondStep = useAuth((a) => a.needsSecondStep);
   const sidebarHidden = useSettings((s) => s.sidebarHidden);
 
   useEffect(() => {
     applySettings();
     void initStore().then(() => void autoBackup());
+    initAuth();
     startSync();
     void refreshUsage();
   }, []);
@@ -63,6 +64,12 @@ export default function Workspace() {
   }, []);
 
   useEffect(() => ui.set({ nav: false }), [route]);
+
+  // Signed out in another tab, or this browser's sign-in was cleared: back to the sign-in page.
+  const authStatus = useAuth((s) => s.status);
+  useEffect(() => {
+    if (authGateOn && authStatus === "signed-out") void auth.leaveForSignIn();
+  }, [authStatus]);
 
   // The sidebar's two sides follow the route once the pages are loaded.
   useEffect(() => {
@@ -125,7 +132,6 @@ export default function Workspace() {
       <CommandPalette />
       <SettingsDialog />
       <SignInDialog />
-      {needsSecondStep && <SecondStepDialog />}
       <ShareDialog />
       <AIPanel />
       <PagePicker />

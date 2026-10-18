@@ -28,5 +28,5 @@ export const kv = {
   },
 };
 
-/** The same store, shaped like AsyncStorage, for Supabase to keep the sign-in session. */
+/** The same store, shaped like AsyncStorage, for Firebase to keep the sign-in on the phone. */
 export { Storage as asyncStorage };

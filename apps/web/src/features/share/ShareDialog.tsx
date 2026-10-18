@@ -12,7 +12,7 @@ import { SignInPanel } from "@/features/auth/SignInDialog";
 export function ShareDialog() {
   const id = useUI((s) => s.share);
   const page = useStore((s) => (id ? s.pages[id] : undefined));
-  const signedIn = useAuth((a) => a.status === "signed-in" && !a.needsSecondStep);
+  const signedIn = useAuth((a) => a.status === "signed-in");
   const [link, setLink] = useState<ShareLink | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 

@@ -3,7 +3,8 @@
 // POST runs one action (rewrite, shorten, fix, translate, summarise…) on a piece of text.
 
 import { NextResponse } from "next/server";
-import { cloudOnServer, supabaseAdmin, userFromRequest } from "@/lib/server/supabaseAdmin";
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb, firebaseOnServer, userFromRequest } from "@/lib/server/firebaseAdmin";
 
 export const runtime = "nodejs";
 
@@ -53,19 +54,28 @@ const ACTIONS: Record<string, (o: { language?: string; instruction?: string; foc
   custom: (o) => `Do this with the text: ${String(o.instruction || "Improve it").slice(0, 400)}`,
 };
 
+// With accounts turned on, each person's monthly use is counted in Firestore: aiUsage/{uid}_{month}.
+const usageDoc = (userId: string) => adminDb()!.collection("aiUsage").doc(`${userId}_${month()}`);
+
 async function usedThisMonth(userId: string | null): Promise<number | null> {
-  const admin = supabaseAdmin();
-  if (!admin || !userId) return null;
-  const { data } = await admin.from("ai_usage").select("tokens").eq("user_id", userId).eq("month", month()).maybeSingle();
-  return data?.tokens ?? 0;
+  if (!adminDb() || !userId) return null;
+  const snap = await usageDoc(userId).get();
+  return (snap.data()?.tokens as number) ?? 0;
+}
+
+async function addUsage(userId: string, tokens: number): Promise<number | null> {
+  if (!adminDb()) return null;
+  const ref = usageDoc(userId);
+  await ref.set({ userId, month: month(), tokens: FieldValue.increment(tokens), updatedAt: new Date() }, { merge: true });
+  return ((await ref.get()).data()?.tokens as number) ?? null;
 }
 
 export async function GET(req: Request) {
-  const user = cloudOnServer ? await userFromRequest(req) : null;
+  const user = firebaseOnServer ? await userFromRequest(req) : null;
   const used = await usedThisMonth(user?.id ?? null);
   return NextResponse.json({
-    available: Boolean(API_KEY) && (!cloudOnServer || !!user),
-    reason: !API_KEY ? "no-key" : cloudOnServer && !user ? "sign-in" : null,
+    available: Boolean(API_KEY) && (!firebaseOnServer || !!user),
+    reason: !API_KEY ? "no-key" : firebaseOnServer && !user ? "sign-in" : null,
     limit: LIMIT,
     month: month(),
     used: used ?? 0,
@@ -89,8 +99,8 @@ export async function POST(req: Request) {
   if (text.length > MAX_INPUT) return NextResponse.json({ error: "That's too much text at once. Try a smaller part." }, { status: 413 });
 
   // With accounts turned on, AI needs a signed-in person, so their allowance can be counted.
-  const user = cloudOnServer ? await userFromRequest(req) : null;
-  if (cloudOnServer && !user) return NextResponse.json({ error: "Sign in to use AI." }, { status: 401 });
+  const user = firebaseOnServer ? await userFromRequest(req) : null;
+  if (firebaseOnServer && !user) return NextResponse.json({ error: "Sign in to use AI." }, { status: 401 });
   const used = await usedThisMonth(user?.id ?? null);
   if (used !== null && used >= LIMIT) return NextResponse.json({ error: "You've used this month's AI allowance. It resets on the 1st." }, { status: 429 });
 
@@ -122,12 +132,7 @@ export async function POST(req: Request) {
     .trim();
   const spent = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
 
-  let total: number | null = null;
-  const admin = supabaseAdmin();
-  if (admin && user) {
-    const { data: t } = await admin.rpc("add_ai_usage", { p_user: user.id, p_month: month(), p_tokens: spent });
-    total = typeof t === "number" ? t : null;
-  }
+  const total = user ? await addUsage(user.id, spent).catch(() => null) : null;
 
   return NextResponse.json({ text: out, usage: data.usage ?? null, used: total ?? undefined, limit: LIMIT });
 }

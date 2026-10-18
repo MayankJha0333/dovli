@@ -1,31 +1,36 @@
-// Deletes a signed-in person's account and everything in the cloud: pages, share links, files and
-// AI usage. Needs the service key, because only the server may remove an account.
+// Deletes a signed-in person's account: their Firebase sign-in, their AI usage records and any
+// sign-in codes kept for their email. Only the server may remove an account.
 
 import { NextResponse } from "next/server";
-import { supabaseAdmin, userFromRequest } from "@/lib/server/supabaseAdmin";
+import { forgetEmail } from "@/lib/server/emailCode";
+import { adminAuth, adminDb, userFromRequest } from "@/lib/server/firebaseAdmin";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const admin = supabaseAdmin();
-  if (!admin) return NextResponse.json({ error: "Account deletion needs SUPABASE_SERVICE_ROLE_KEY on the server." }, { status: 501 });
-  const user = await userFromRequest(req);
+  const auth = adminAuth();
+  const db = adminDb();
+  if (!auth) return NextResponse.json({ error: "Accounts aren't set up on this server." }, { status: 501 });
+  // checkRevoked: a token from before "sign out everywhere" or a disabled account isn't enough.
+  const user = await userFromRequest(req, true);
   if (!user) return NextResponse.json({ error: "Please sign in again, then try once more." }, { status: 401 });
 
-  // Files first: remove every object in the person's folder, page by page.
-  for (;;) {
-    const { data: list, error } = await admin.storage.from("files").list(user.id, { limit: 100 });
-    if (error || !list?.length) break;
-    await admin.storage.from("files").remove(list.map((f) => `${user.id}/${f.name}`));
-    if (list.length < 100) break;
+  if (db) {
+    try {
+      const usage = await db.collection("aiUsage").where("userId", "==", user.id).get();
+      const batch = db.batch();
+      usage.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    } catch (e) {
+      console.error("[dovli] Couldn't remove AI usage records while deleting an account:", e);
+    }
   }
+  if (user.email) await forgetEmail(user.email);
 
-  // Rows go with the account (on delete cascade), but delete explicitly so nothing lingers.
-  await admin.from("shares").delete().eq("user_id", user.id);
-  await admin.from("pages").delete().eq("user_id", user.id);
-  await admin.from("ai_usage").delete().eq("user_id", user.id);
-
-  const { error } = await admin.auth.admin.deleteUser(user.id);
-  if (error) return NextResponse.json({ error: "Couldn't delete the account. Please try again." }, { status: 500 });
+  try {
+    await auth.deleteUser(user.id);
+  } catch {
+    return NextResponse.json({ error: "Couldn't delete the account. Please try again." }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }

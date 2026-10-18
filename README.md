@@ -148,28 +148,60 @@ The top right of every page has **Share** and three panels, in the spirit of Cra
 
 Everything works without these. Each one switches a feature on.
 
-### Sync, sign-in, share links (Supabase)
+### Sign-in (Firebase): Google and email codes
 
-1. Create a project at [supabase.com](https://supabase.com).
-2. Run the migration: paste `supabase/migrations/20261018000000_dovli_init.sql` into the SQL
-   editor, or run `supabase db push` with the Supabase CLI. It creates the tables, the
-   private file storage, and the rules that keep each person's pages private.
-3. Copy `apps/web/.env.example` to `apps/web/.env.local` and fill in
-   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
-   `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API).
-4. For the phone, copy `apps/mobile/.env.example` to `apps/mobile/.env` with the same URL
-   and anon key.
-5. In Supabase → Authentication:
-   - **URL configuration**: add your web address (and `http://localhost:3000`) as redirect URLs.
-   - **Providers**: email is on by default (sign-in with a 6-digit code). Add Google and
-     Apple if you want those buttons to work.
-   - **Multi-factor**: turn on TOTP for two-step login.
+How it works:
+
+- **Google**: Firebase Authentication, in a pop-up (or a full-page redirect where pop-ups
+  can't open). Code: `apps/web/src/lib/auth.ts`.
+- **Email code**: Firebase has no "email me a 6-digit code", so Dovli's server does it
+  (`apps/web/src/lib/server/emailCodeCore.ts`, with tests next to it). It keeps only a sealed
+  hash of each code in Firestore. A code works for 10 minutes, once, with 5 wrong tries. A new
+  one can be sent after 60 seconds, at most 5 an hour per address and 30 an hour per network.
+  The right code gets a one-time Firebase token, and the app signs in with it.
+- **One email, one account**: Google and email codes for the same address reach the same account.
+- The phone app signs in with email codes through the same server.
+- **Sign-in gate**: with the Firebase web config set, the web app needs an account. People
+  without one land on `/login` (or `/signup`, which also asks for a name); share links (`/s/…`)
+  stay public. After signing in, the browser swaps its fresh Firebase token for a 14-day
+  httpOnly session cookie (`/api/auth/session`). `src/proxy.ts` sends anyone without a live
+  cookie to `/login`, and the app's page checks the cookie's signature on the server before it
+  shows anything. Signing out removes the cookie. Code: `apps/web/src/lib/authGate.ts`.
+
+Setup:
+
+1. In the [Firebase console](https://console.firebase.google.com), open your project.
+2. **Authentication → Sign-in method**: turn on **Google**.
+3. **Authentication → Settings → Authorised domains**: add your site's domain
+   (`localhost` is there already).
+4. **Firestore Database**: create a database (production mode). It holds the sign-in code
+   records. Then publish the rules in `firestore.rules` (`pnpm deploy:rules`), which keep the
+   app itself out. Optional: add a TTL policy on the field `deleteAt` for the collections
+   `authEmailCodes` and `authRateLimits`, so old records clean themselves up.
+5. **Project settings → General → Your apps → Web app**: copy the config into
+   `apps/web/.env.local` as `NEXT_PUBLIC_FIREBASE_*` (see `.env.example`).
+6. **Project settings → Service accounts → Generate new private key**: put the JSON in
+   `FIREBASE_SERVICE_ACCOUNT` (one line, or base64). Server only. Keep it secret.
+7. Set `AUTH_CODE_SECRET` to a long random string (`openssl rand -base64 48`).
+8. Email: set `SMTP_URL` (or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`) and
+   `EMAIL_FROM`. Any SMTP service works: Gmail with an app password, Resend, SendGrid,
+   Amazon SES, Brevo. Without SMTP in development, codes are printed in the terminal
+   running `pnpm dev`.
+9. For the phone, copy `apps/mobile/.env.example` to `apps/mobile/.env`: the same web-app
+   config, plus `EXPO_PUBLIC_API_URL` (the web app's address).
+
+Trying it locally without a real project: run `pnpm emulators` (needs Java) and set the
+three emulator lines at the end of `apps/web/.env.example`.
+
+**Not yet on Firebase:** sync between devices, share links and cloud file uploads were built
+on Supabase. They are off (`apps/web/src/lib/supabase.ts`) until they move to Firestore and
+Firebase Storage. Pages stay saved on each device in the meantime.
 
 ### AI writing help (Anthropic)
 
 Add `ANTHROPIC_API_KEY` to `apps/web/.env.local`. Optional: `AI_MODEL` and
 `AI_MONTHLY_TOKENS` (the monthly allowance per person, shown as a usage meter).
-AI needs sign-in, so it also needs Supabase.
+With Firebase set up, AI needs sign-in, and each person's monthly use is counted in Firestore.
 
 ### Link previews
 
@@ -179,11 +211,8 @@ microlink.io.
 ## Good to know
 
 - **Where pages are saved**: in the browser's IndexedDB on the web, and in SQLite on the phone,
-  the moment you type. When signed in, changes sync in the background; edits made offline on
-  two devices are merged, and if both changed the same paragraph you get both versions.
-- **Privacy**: pages are never used to train AI. Files are in a private storage bucket, and
-  database rules only let you read your own pages (or a page someone shared with a link).
+  the moment you type. (Syncing them through your account comes with the move to Firestore.)
+- **Privacy**: pages are never used to train AI. Dovli never sees a password: you sign in with
+  Google or a one-time email code.
 - **Backups**: the web app keeps automatic backups on the device (Settings → Sync & backups),
   and you can export everything as a ZIP of Markdown files at any time.
-- In the browser console you may see "Failed to use workers for subsetting" from the whiteboard.
-  It is harmless: Excalidraw falls back to the main thread.

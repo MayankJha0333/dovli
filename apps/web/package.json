@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .next .turbo"
+    "clean": "rm -rf .next .turbo",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dovli/core": "workspace:*",
@@ -22,9 +23,12 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "fflate": "^0.8.3",
+    "firebase": "^13.0.0",
+    "firebase-admin": "^14.5.0",
     "idb": "^8.0.4",
     "nanoid": "^6.0.2",
     "next": "^16.4.2",
+    "nodemailer": "^10.1.6",
     "postcss": "^8.5.30",
     "radix-ui": "^1.8.1",
     "react": "19.3.0",
@@ -36,6 +40,7 @@
   "devDependencies": {
     "@dovli/config": "workspace:*",
     "@types/node": "^22",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "~19.3.0",
     "@types/react-dom": "~19.3.0",
     "typescript": "~6.0.3"

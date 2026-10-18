@@ -5,8 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { APP_THEMES, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, space, touchTarget, type AppTheme, type ThemePreference } from "@dovli/theme";
 import { Button, Card, IconButton, Label, usePalette } from "@/components/ui";
 import { themeStore, useThemePreference } from "@/lib/theme";
-import { cloudConfigured, supabase } from "@/lib/supabase";
-import { syncNow, useSyncStatus } from "@/lib/sync";
+import { AuthError, phoneAuth, usePhoneAuth } from "@/lib/auth";
 
 /** A small picture of a theme: its background, a card and an accent dot. */
 function Swatch({ theme }: { theme: AppTheme }) {
@@ -43,101 +42,147 @@ function ThemeRow({ value, title, hint, theme, selected, first }: { value: Theme
   );
 }
 
+/** Seconds left until a moment, ticking once a second. */
+function useCountdown(until: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    setNow(Date.now()); // start from now, not from the last tick
+    if (until <= Date.now()) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [until]);
+  return Math.max(0, Math.ceil((until - now) / 1000));
+}
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
 function Account() {
   const p = usePalette();
-  const sync = useSyncStatus();
+  const a = usePhoneAuth();
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [sent, setSent] = useState(false);
-  const [user, setUser] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "send" | "verify">("");
+  const [resendAt, setResendAt] = useState(0);
+  const [expiresAt, setExpiresAt] = useState(0);
+  const resendIn = useCountdown(resendAt);
+  const expiresIn = useCountdown(expiresAt);
 
-  useEffect(() => {
-    const sb = supabase();
-    if (!sb) return;
-    void sb.auth.getSession().then(({ data }) => setUser(data.session?.user.email ?? null));
-    const { data } = sb.auth.onAuthStateChange((_e, s) => setUser(s?.user.email ?? null));
-    return () => data.subscription.unsubscribe();
-  }, []);
-
-  if (!cloudConfigured) {
+  if (a.status === "local-only") {
     return (
       <Card style={{ padding: space.lg }}>
         <Text style={{ color: p.ink, fontWeight: "600" }}>Saved on this phone</Text>
-        <Text style={{ color: p.ink3, marginTop: 4, lineHeight: 19 }}>Sync isn't set up in this build of the app. Your pages stay on this phone.</Text>
+        <Text style={{ color: p.ink3, marginTop: 4, lineHeight: 19 }}>Sign-in isn't set up in this build of the app. Your pages stay on this phone.</Text>
       </Card>
     );
   }
 
-  const run = async (fn: () => Promise<{ error: { message: string } | null }>, after?: () => void) => {
-    setBusy(true);
-    setError(null);
-    const { error } = await fn();
-    setBusy(false);
-    if (error) setError(error.message);
-    else after?.();
-  };
-  const sb = supabase()!;
-
-  if (user) {
-    const label =
-      sync.state === "synced" ? "Up to date" : sync.state === "syncing" ? "Syncing…" : sync.state === "offline" ? "Offline. Changes send when you're back online." : sync.state === "error" ? `Sync problem: ${sync.error ?? "try again"}` : "Waiting";
+  if (a.status === "signed-in") {
     return (
       <Card style={{ padding: space.lg, gap: space.md }}>
         <View>
-          <Text style={{ color: p.ink, fontWeight: "600" }}>{user}</Text>
-          <Text style={{ color: p.ink3, marginTop: 2 }}>{label}</Text>
+          <Text style={{ color: p.ink, fontWeight: "600" }}>{a.account?.email}</Text>
+          <Text style={{ color: p.ink3, marginTop: 2, lineHeight: 19 }}>Signed in. Pages stay saved on this phone; syncing them through your account is coming next.</Text>
         </View>
-        <View style={{ flexDirection: "row", gap: space.sm }}>
-          <Button title="Sync now" tone="secondary" onPress={() => syncNow()} style={{ flex: 1 }} />
-          <Button title="Sign out" tone="secondary" onPress={() => void sb.auth.signOut()} style={{ flex: 1 }} />
-        </View>
+        <Button title="Sign out" tone="secondary" onPress={() => void phoneAuth.signOut()} />
       </Card>
     );
   }
 
+  const send = async () => {
+    setEmail(email.trim().toLowerCase());
+    setBusy("send");
+    setError(null);
+    try {
+      const r = await phoneAuth.sendEmailCode(email.trim());
+      setSent(true);
+      setCode("");
+      setResendAt(Date.now() + r.resendAfter * 1000);
+      setExpiresAt(Date.now() + r.expiresIn * 1000);
+    } catch (e) {
+      if (e instanceof AuthError && e.code === "wait" && e.extra.retryAfter) {
+        setSent(true);
+        setResendAt(Date.now() + e.extra.retryAfter * 1000);
+      }
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const verify = async (value: string) => {
+    if (busy) return;
+    setBusy("verify");
+    setError(null);
+    try {
+      await phoneAuth.verifyEmailCode(email.trim(), value);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+      if (e instanceof AuthError && (e.code === "expired" || e.code === "locked")) {
+        setExpiresAt(0);
+        setResendAt(0);
+      }
+      setCode("");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const expired = sent && expiresAt > 0 && expiresIn === 0;
+
   return (
     <Card style={{ padding: space.lg, gap: space.md }}>
-      <Text style={{ color: p.ink3, lineHeight: 19 }}>Sign in to keep your pages in step across your phone and computer. We email you a 6-digit code.</Text>
       {!sent ? (
         <>
+          <Text style={{ color: p.ink3, lineHeight: 19 }}>Sign in with a 6-digit code we email you. No password needed.</Text>
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="you@example.com"
             placeholderTextColor={p.ink3}
             autoCapitalize="none"
+            autoCorrect={false}
             autoComplete="email"
             keyboardType="email-address"
             accessibilityLabel="Email"
             style={[styles.input, { backgroundColor: p.well, color: p.ink, borderRadius: p.radius.md }]}
           />
-          <Button
-            title={busy ? "Sending…" : "Email me a code"}
-            disabled={busy || !email.includes("@")}
-            onPress={() => run(() => sb.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } }), () => setSent(true))}
-          />
+          <Button title={busy === "send" ? "Sending…" : "Email me a code"} disabled={!!busy || !/\S+@\S+\.\S+/.test(email)} onPress={() => void send()} />
         </>
       ) : (
         <>
+          <Text style={{ color: p.ink2, lineHeight: 19 }}>
+            We emailed a code to <Text style={{ color: p.ink, fontWeight: "600" }}>{email.trim()}</Text>.{expiresAt > 0 && !expired ? ` It works for ${clock(expiresIn)}.` : ""}
+          </Text>
           <TextInput
             value={code}
-            onChangeText={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
-            placeholder="123456"
+            onChangeText={(v) => {
+              const digits = v.replace(/\D/g, "").slice(0, 6);
+              setCode(digits);
+              if (digits.length === 6) void verify(digits);
+            }}
+            placeholder="000000"
             placeholderTextColor={p.ink3}
             keyboardType="number-pad"
             autoComplete="one-time-code"
+            textContentType="oneTimeCode"
+            editable={busy !== "verify"}
             accessibilityLabel="6-digit code"
-            style={[styles.input, { backgroundColor: p.well, color: p.ink, borderRadius: p.radius.md, letterSpacing: 4 }]}
+            style={[styles.input, { backgroundColor: p.well, color: p.ink, borderRadius: p.radius.md, letterSpacing: 8, textAlign: "center", fontSize: 22 }]}
           />
-          <Button title={busy ? "Checking…" : "Sign in"} disabled={busy || code.length < 6} onPress={() => run(() => sb.auth.verifyOtp({ email: email.trim(), token: code, type: "email" }))} />
-          <Pressable accessibilityRole="button" onPress={() => setSent(false)}>
-            <Text style={{ color: p.accent, textAlign: "center", paddingVertical: 6 }}>Use a different email</Text>
-          </Pressable>
+          <Button title={busy === "verify" ? "Checking…" : "Sign in"} disabled={!!busy || code.length !== 6 || expired} onPress={() => void verify(code)} />
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Pressable accessibilityRole="button" onPress={() => { setSent(false); setError(null); }} style={{ paddingVertical: 8 }}>
+              <Text style={{ color: p.accent }}>Use a different email</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" disabled={resendIn > 0 || !!busy} onPress={() => void send()} style={{ paddingVertical: 8 }}>
+              <Text style={{ color: resendIn > 0 ? p.ink3 : p.accent }}>{resendIn > 0 ? `Send again in ${clock(resendIn)}` : "Send a new code"}</Text>
+            </Pressable>
+          </View>
+          {expired && !error && <Text style={{ color: p.ink2 }}>This code has expired. Send a new one.</Text>}
         </>
       )}
-      {error && <Text style={{ color: p.danger }}>{error}</Text>}
+      {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
     </Card>
   );
 }

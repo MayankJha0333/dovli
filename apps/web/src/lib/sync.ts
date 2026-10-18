@@ -7,7 +7,7 @@ import type { Page } from "@dovli/core";
 import { db, getMeta, setMeta } from "./db";
 import { filesToUpload, markUploaded, setRemoteFileSource } from "./files";
 import { onLocalChange, store } from "./store";
-import { auth, initAuth } from "./auth";
+import { auth } from "./auth";
 import { cloudConfigured, supabase } from "./supabase";
 
 const CURSOR_KEY = "sync.cursor";
@@ -71,7 +71,6 @@ async function prepareFor(userId: string) {
 
 export function startSync() {
   if (!cloudConfigured || engine) return;
-  initAuth();
   engine = new SyncEngine({
     supabase: supabase()!,
     host,
@@ -90,7 +89,7 @@ export function startSync() {
   let current: string | null = null;
   const onAuth = async () => {
     const a = auth.get();
-    const uid = a.status === "signed-in" && !a.needsSecondStep ? a.account!.id : null;
+    const uid = a.status === "signed-in" ? a.account!.id : null;
     if (uid === current) return;
     current = uid;
     if (!uid) return engine!.stop();
