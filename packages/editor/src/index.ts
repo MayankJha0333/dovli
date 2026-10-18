@@ -3,3 +3,5 @@
 export { connectEditor, getBridge, type EditorBridge, type AISelection } from "./bridge";
 export { useIsDark } from "./useIsDark";
 export type { DovliEditor } from "./schema";
+export * from "./format";
+export type { FontId } from "./blocks/textStyles";

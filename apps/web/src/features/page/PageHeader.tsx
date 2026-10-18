@@ -63,7 +63,7 @@ export function IconPicker({ page, size = "lg" }: { page: Page; size?: "lg" | "s
 /* Cover                                                               */
 /* ------------------------------------------------------------------ */
 
-function useCoverSrc(cover: string | null | undefined) {
+export function useCoverSrc(cover: string | null | undefined) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;

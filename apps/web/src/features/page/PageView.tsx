@@ -1,16 +1,15 @@
 import type { DovliEditor } from "@dovli/editor";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { ancestors, childrenOf, displayTitle, pageTags, subpageCardIds, timeAgo, wordCount } from "@dovli/core";
-import { getStyle, styleVars } from "@dovli/theme";
-import { Button, Icon, IconButton, Pill, Spinner, cn, modKey } from "@dovli/ui";
+import { ancestors, childrenOf, displayTitle, outline, pageTags, subpageCardIds, timeAgo, wordCount } from "@dovli/core";
+import { resolveLook } from "@dovli/theme";
+import { Button, Icon, Spinner, cn } from "@dovli/ui";
 import { store, useStore } from "@/lib/store";
 import { settings, useSettings } from "@/lib/settings";
-import { setActiveEditor, takeTitleFocus, ui } from "@/lib/ui";
-import { cloudConfigured } from "@/lib/supabase";
+import { setActiveEditor, takeTitleFocus, ui, useUI } from "@/lib/ui";
 import { Crumb, CrumbSep, TopBar } from "@/components/TopBar";
-import { Backlinks, PageInfoRail } from "./PageInfo";
+import { Backlinks, PageInfoRail, scrollToBlock } from "./PageInfo";
 import { Cover, CoverPicker, IconPicker, TitleField } from "./PageHeader";
-import { PageMenu } from "./PageMenu";
+import { PageToolbar } from "./panels/PageToolbar";
 
 export const PageEditor = lazy(() => import("@dovli/editor/page-editor"));
 export const Whiteboard = lazy(() => import("@/features/whiteboard/Whiteboard"));
@@ -41,10 +40,14 @@ export function PageView({ id }: { id: string }) {
   const showInfo = useSettings((s) => s.showPageInfo);
   const spellcheck = useSettings((s) => s.spellcheck);
   const editorRef = useRef<DovliEditor | null>(null);
+  const [editor, setEditor] = useState<DovliEditor | null>(null);
   const onReady = useCallback((e: DovliEditor | null) => {
     editorRef.current = e;
+    setEditor(e);
     setActiveEditor(e);
   }, []);
+  const presenting = useUI((s) => s.presenting === id);
+  const scroller = useRef<HTMLDivElement>(null);
   const [findOpen, setFindOpen] = useState(false);
   const closeFind = useCallback(() => {
     setFindOpen(false);
@@ -55,6 +58,36 @@ export function PageView({ id }: { id: string }) {
   useEffect(() => {
     if (page && takeTitleFocus(page.id)) requestAnimationFrame(focusTitleEnd);
   }, [page?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Present: the page full screen, read-only, bigger. ← → (or Page Up/Down) step through
+  // the headings, Esc stops. Falls back to filling the window where full screen isn't allowed.
+  useEffect(() => {
+    if (!presenting) return;
+    const el = scroller.current;
+    el?.requestFullscreen?.().catch(() => {});
+    const stop = () => ui.set({ presenting: null });
+    const onFs = () => !document.fullscreenElement && stop();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return stop();
+      const keys = ["ArrowRight", "ArrowLeft", "PageDown", "PageUp", " "];
+      if (!keys.includes(e.key) || !page) return;
+      e.preventDefault();
+      const heads = outline(page);
+      const top = el?.getBoundingClientRect().top ?? 0;
+      const pos = heads.map((h) => ({ id: h.id, y: (document.querySelector(`.bn-block-outer[data-id="${CSS.escape(h.id)}"]`)?.getBoundingClientRect().top ?? 0) - top }));
+      const forward = e.key === "ArrowRight" || e.key === "PageDown" || e.key === " ";
+      const next = forward ? pos.find((p) => p.y > 40) : [...pos].reverse().find((p) => p.y < -40);
+      if (next) scrollToBlock(next.id);
+      else el?.scrollTo({ top: forward ? el.scrollHeight : 0, behavior: "smooth" });
+    };
+    document.addEventListener("fullscreenchange", onFs);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      window.removeEventListener("keydown", onKey);
+      if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    };
+  }, [presenting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘F finds in this page, ⌘\ shows or hides the side panel.
   useEffect(() => {
@@ -73,14 +106,14 @@ export function PageView({ id }: { id: string }) {
   }, [page?.kind]);
 
   if (!page || page.deletedAt) return null;
-  const style = page.kind === "doc" ? getStyle(page.style) : null;
+  const look = page.kind === "doc" ? resolveLook(page.style, page.look) : null;
+  const style = look?.style ?? null;
   const trail = ancestors(pages, page.id);
   const kids = childrenOf(pages, page.id);
   const linked = subpageCardIds(page.blocks);
   const unlinked = kids.filter((k) => !linked.has(k.id));
   const words = wordCount(page);
   const tags = pageTags(page);
-  const mod = modKey();
 
   const crumbs = (
     <>
@@ -102,36 +135,14 @@ export function PageView({ id }: { id: string }) {
     </>
   );
 
-  const actions = (
-    <>
-      <IconButton
-        icon={page.favorite ? "starFilled" : "star"}
-        label={page.favorite ? "Remove from favourites" : "Add to favourites"}
-        size="sm"
-        aria-pressed={!!page.favorite}
-        className={page.favorite ? "text-warn aria-pressed:bg-transparent aria-pressed:text-warn" : ""}
-        onClick={() => store.toggleFavorite(page.id)}
-      />
-      {cloudConfigured && (
-        <Button size="sm" variant="ghost" icon="share" className="max-[640px]:hidden" onClick={() => ui.set({ share: page.id })}>
-          Share
-        </Button>
-      )}
-      {page.kind === "doc" && (
-        <>
-          <IconButton icon="palette" label="Page style" size="sm" onClick={() => ui.set({ styleFor: page.id })} />
-          <IconButton icon="search" label="Find and replace" shortcut={`${mod}F`} size="sm" className="max-[640px]:hidden" onClick={() => setFindOpen(true)} />
-          {!showInfo && <IconButton icon="panelRight" label="Show page info" shortcut={`${mod}\\`} size="sm" className="max-[1199px]:hidden" onClick={() => settings.set({ showPageInfo: true })} />}
-        </>
-      )}
-      <PageMenu page={page} onFind={() => setFindOpen(true)} trigger={<IconButton icon="more" label="More" size="sm" tooltip={false} />} />
-    </>
-  );
+  const actions = <PageToolbar page={page} editor={editor} onFind={() => setFindOpen(true)} onPresent={() => ui.set({ presenting: page.id })} />;
 
   if (page.kind === "board")
     return (
       <div className="flex h-full flex-col">
-        <TopBar crumbs={crumbs}>{actions}</TopBar>
+        <TopBar crumbs={crumbs} bareActions>
+          {actions}
+        </TopBar>
         <div className="flex flex-none items-center gap-3 px-4 pb-3 pt-1 [border-bottom:1px_solid_var(--d-line)]">
           <IconPicker page={page} size="sm" />
           <TitleField page={page} onEnter={() => (document.activeElement as HTMLElement)?.blur()} className="min-w-0 flex-1 text-2xl" />
@@ -143,28 +154,45 @@ export function PageView({ id }: { id: string }) {
       </div>
     );
 
+  const meta = [`Edited ${timeAgo(page.updatedAt)}`, `${words} ${words === 1 ? "word" : "words"}`, ...(kids.length ? [`${kids.length} ${kids.length === 1 ? "page" : "pages"} inside`] : [])];
+
   return (
     <div className="flex h-full flex-col">
-      <TopBar crumbs={crumbs}>{actions}</TopBar>
+      {!presenting && (
+        <TopBar crumbs={crumbs} bareActions>
+          {actions}
+        </TopBar>
+      )}
       <div className="flex min-h-0 flex-1">
         <div
+          ref={scroller}
           data-print="scroll"
-          className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]", style && "[background:var(--s-backdrop)]")}
-          style={style ? (styleVars(style) as any) : undefined}
+          className={cn(
+            "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
+            style && "[background:var(--s-backdrop)]",
+            presenting && "dovli-presenting fixed inset-0 z-[400] bg-panel",
+            presenting && style && "[background:var(--s-backdrop)]",
+          )}
+          style={look?.vars as any}
         >
           <article
             data-print="sheet"
+            data-divider={look?.divider}
             className={cn(
-              "mx-auto w-full max-w-[860px] px-6 pb-[120px] pt-10 max-[640px]:px-4 max-[640px]:pt-8",
+              "mx-auto w-full px-6 pb-[120px] pt-12 max-[640px]:px-4 max-[640px]:pt-8",
+              look?.wide ? "max-w-[1180px]" : "max-w-[820px]",
               style &&
-                "page-styled my-16 w-[calc(100%-3rem)] max-w-[880px] rounded-sheet bg-[var(--s-paper)] px-6 py-16 shadow-sheet animate-sheet-in max-[640px]:my-3.5 max-[640px]:w-[calc(100%-1.25rem)] max-[640px]:px-3.5 max-[640px]:py-9",
+                cn(
+                  "page-styled my-14 w-[calc(100%-3rem)] rounded-sheet bg-[var(--s-paper)] px-6 pt-14 shadow-sheet animate-sheet-in max-[640px]:my-3.5 max-[640px]:w-[calc(100%-1.25rem)] max-[640px]:px-3.5 max-[640px]:pt-9",
+                  look?.wide ? "max-w-[1200px]" : "max-w-[860px]",
+                ),
             )}
           >
             <Cover page={page} />
-            <header className="group/head mb-6 px-[54px] max-[640px]:px-0">
-              <div className="flex items-end gap-2">
+            <header className="group/head relative mb-7 px-[54px] max-[640px]:px-0">
+              <div className="mb-3 flex items-end gap-2">
                 <IconPicker page={page} />
-                {!page.cover && (
+                {!page.cover && !presenting && (
                   <CoverPicker
                     page={page}
                     trigger={
@@ -172,7 +200,7 @@ export function PageView({ id }: { id: string }) {
                         size="sm"
                         variant="ghost"
                         icon="image"
-                        className="mb-4 text-ink-3 opacity-0 focus-visible:opacity-100 group-hover/head:opacity-100 [@media(hover:none)]:opacity-100"
+                        className="mb-1 text-ink-3 opacity-0 focus-visible:opacity-100 group-hover/head:opacity-100 [@media(hover:none)]:opacity-100"
                         data-print="hide"
                       >
                         Add cover
@@ -181,28 +209,33 @@ export function PageView({ id }: { id: string }) {
                   />
                 )}
               </div>
-              <TitleField page={page} onEnter={() => focusEditorStart(editorRef.current)} />
-              <div className="mt-3.5 flex flex-wrap gap-1.5" data-print="hide">
-                <Pill>Edited {timeAgo(page.updatedAt)}</Pill>
-                <Pill>
-                  {words} {words === 1 ? "word" : "words"}
-                </Pill>
-                {kids.length > 0 && (
-                  <Pill>
-                    {kids.length} {kids.length === 1 ? "page" : "pages"} inside
-                  </Pill>
-                )}
+              <TitleField page={page} readOnly={presenting} onEnter={() => focusEditorStart(editorRef.current)} />
+              <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-ink-3" data-print="hide">
+                {meta.map((m, i) => (
+                  <span key={m} className="flex items-center gap-1.5">
+                    {i > 0 && <span aria-hidden="true" className="text-ink-4">·</span>}
+                    {m}
+                  </span>
+                ))}
                 {tags.slice(0, 4).map((t) => (
-                  <button key={t} type="button" onClick={() => store.navigate({ name: "tag", tag: t })} className="h-6 rounded-full bg-accent-soft px-2.5 text-xs font-medium text-accent hover:brightness-95">
+                  <button key={t} type="button" onClick={() => store.navigate({ name: "tag", tag: t })} className="ml-1 h-6 rounded-full bg-accent-soft px-2.5 text-xs font-medium text-accent hover:brightness-95">
                     #{t}
                   </button>
                 ))}
               </div>
             </header>
             <Suspense fallback={<div className="px-[54px] py-6 text-ink-3 max-[640px]:px-0">Opening page</div>}>
-              <PageEditor key={page.id} page={page} onReady={onReady} spellcheck={spellcheck} find={{ open: findOpen, onClose: closeFind }} onExitTop={focusTitleEnd} />
+              <PageEditor
+                key={page.id}
+                page={page}
+                onReady={onReady}
+                readOnly={presenting}
+                spellcheck={spellcheck}
+                find={{ open: findOpen, onClose: closeFind }}
+                onExitTop={focusTitleEnd}
+              />
             </Suspense>
-            {unlinked.length > 0 && (
+            {unlinked.length > 0 && !presenting && (
               <section aria-label="Also inside this page" className="mt-11 px-[54px] max-[640px]:px-0" data-print="hide">
                 <h2 className="label-text m-0 mb-2">Also inside this page</h2>
                 <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
@@ -225,10 +258,21 @@ export function PageView({ id }: { id: string }) {
                 </ul>
               </section>
             )}
-            <Backlinks page={page} />
+            {!presenting && <Backlinks page={page} />}
           </article>
+          {presenting && (
+            <div className="pointer-events-none fixed inset-x-0 bottom-5 z-10 flex justify-center" data-print="hide">
+              <div className="pointer-events-auto flex items-center gap-3 rounded-full px-4 py-2 text-sm text-ink-2 shadow-pop surface-raised">
+                <span>← → move between headings</span>
+                <span aria-hidden="true" className="text-ink-4">·</span>
+                <button type="button" onClick={() => ui.set({ presenting: null })} className="font-semibold text-ink hover:text-accent">
+                  Stop presenting (Esc)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        {showInfo && <PageInfoRail page={page} />}
+        {showInfo && !presenting && <PageInfoRail page={page} />}
       </div>
     </div>
   );

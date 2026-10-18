@@ -11,14 +11,16 @@ export interface UIState {
   settings: SettingsSection | null;
   signIn: boolean;
   share: string | null;
-  ai: (AISelection & { mode?: "edit" | "summary" }) | null;
+  ai: (AISelection & { mode?: "edit" | "summary" | "review"; focus?: string; title?: string }) | null;
   picker: { title: string; exclude: string; resolve: (id: string | null) => void } | null;
   styleFor: string | null;
   /** The sidebar drawer on small screens. */
   nav: boolean;
+  /** The page being presented full screen, if any. */
+  presenting: string | null;
 }
 
-let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false };
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null };
 const listeners = new Set<() => void>();
 
 // A page made with "New page" should put the cursor in its title, ready to type.

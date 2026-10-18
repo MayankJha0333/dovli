@@ -36,7 +36,7 @@
   --bn-shadow-light: var(--d-shadow-sm);
   --bn-border: 0;
 }
-.dovli-editor .bn-editor { padding-inline: 54px; background: transparent; font-family: var(--d-font-sans); font-size: 1rem; line-height: 1.7; color: var(--d-ink); }
+.dovli-editor .bn-editor { padding-inline: 54px; background: transparent; font-family: var(--page-font, var(--d-font-sans)); font-size: 1.0625rem; line-height: 1.7; color: var(--d-ink); }
 @media (max-width: 640px) { .dovli-editor .bn-editor { padding-inline: 2px; } }
 .dovli-editor .bn-editor:focus,
 .dovli-editor .bn-editor:focus-visible,
@@ -45,6 +45,9 @@
 .dovli-editor .bn-inline-content { word-break: break-word; }
 .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--d-font-display); font-weight: var(--d-display-weight); letter-spacing: -0.02em; line-height: 1.25; }
 .page-styled .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--title-font, var(--d-font-display)); font-style: var(--title-style, normal); }
+/* Level 1 has no data-level attribute (it's the default), so match "no level" too. Headings in
+   the page stay smaller than the page title above them. */
+.dovli-editor .bn-block-content[data-content-type="heading"]:not([data-level]),
 .dovli-editor .bn-block-content[data-content-type="heading"][data-level="1"] { --level: 1.75em; }
 .dovli-editor .bn-block-content[data-content-type="heading"][data-level="2"] { --level: 1.38em; }
 .dovli-editor .bn-block-content[data-content-type="heading"][data-level="3"] { --level: 1.14em; }
@@ -112,3 +115,55 @@
 @media (hover: none) and (pointer: coarse) {
   .bn-suggestion-menu .bn-mt-suggestion-menu-item-section[data-position="right"] { display: none; }
 }
+
+/* ---------- Craft-style text styles (Aa panel) ---------- */
+.dovli-editor .dovli-caption { font-size: 0.84em; line-height: 1.55; color: var(--d-ink-3); }
+.dovli-editor [data-font="serif"] { font-family: "Newsreader", "Iowan Old Style", Georgia, serif; font-size: 1.06em; }
+.dovli-editor [data-font="mono"] { font-family: var(--d-font-mono); font-size: 0.92em; }
+.dovli-editor [data-font="round"] { font-family: "Nunito", ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+.dovli-editor [data-font="system"] { font-family: var(--d-font-sans); }
+/* Box decoration: the gray background as a soft rounded box. */
+.dovli-editor .bn-block-content[data-background-color="gray"] { background: var(--d-well); border-radius: var(--d-radius-md); padding: 6px 12px; margin-block: 3px; }
+/* Focus decoration (a quote): a bold accent bar. */
+.dovli-editor .bn-block-content[data-content-type="quote"] blockquote { border-left-color: var(--d-accent); }
+
+/* ---------- Divider styles (Style panel) ---------- */
+[data-divider] .dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; height: 1px; background: var(--d-line-strong); margin: 14px 0; }
+[data-divider="dots"] .dovli-editor .bn-block-content[data-content-type="divider"] { justify-content: center; }
+[data-divider="dots"] .dovli-editor .bn-block-content[data-content-type="divider"] hr {
+  height: 6px; background: radial-gradient(circle, var(--d-ink-4) 1.6px, transparent 2px) center / 18px 6px repeat-x; flex: 0 0 90px; width: 90px; margin-inline: auto;
+}
+[data-divider="wave"] .dovli-editor .bn-block-content[data-content-type="divider"] hr {
+  height: 10px; background: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='10'%3E%3Cpath d='M0 5q6-6 12 0t12 0' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") center / 24px 10px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='10'%3E%3Cpath d='M0 5q6-6 12 0t12 0' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") center / 24px 10px repeat-x;
+  background-color: var(--d-ink-4);
+}
+
+/* ---------- Text colours, readable in light and dark themes ---------- */
+.dovli-editor [data-text-color="gray"], .dovli-editor [data-style-type="textColor"][data-value="gray"] { color: #8a8986; }
+.dovli-editor [data-text-color="brown"], .dovli-editor [data-style-type="textColor"][data-value="brown"] { color: #8a5a44; }
+.dovli-editor [data-text-color="red"], .dovli-editor [data-style-type="textColor"][data-value="red"] { color: #d93b3b; }
+.dovli-editor [data-text-color="orange"], .dovli-editor [data-style-type="textColor"][data-value="orange"] { color: #cf6a0a; }
+.dovli-editor [data-text-color="yellow"], .dovli-editor [data-style-type="textColor"][data-value="yellow"] { color: #b98c00; }
+.dovli-editor [data-text-color="green"], .dovli-editor [data-style-type="textColor"][data-value="green"] { color: #3f8a52; }
+.dovli-editor [data-text-color="blue"], .dovli-editor [data-style-type="textColor"][data-value="blue"] { color: #2f6fdc; }
+.dovli-editor [data-text-color="purple"], .dovli-editor [data-style-type="textColor"][data-value="purple"] { color: #8b4fd1; }
+.dovli-editor [data-text-color="pink"], .dovli-editor [data-style-type="textColor"][data-value="pink"] { color: #cc3f88; }
+:root[data-scheme="dark"] .dovli-editor :is([data-text-color], [data-style-type="textColor"]) { filter: brightness(1.45) saturate(0.9); }
+
+/* ---------- Divider previews in the Style panel ---------- */
+.dovli-divider-sample-line { height: 1.5px !important; margin-block: 4px; background: var(--d-ink-3); border-radius: 1px; }
+.dovli-divider-sample-dots { background: radial-gradient(circle, var(--d-ink-3) 1.6px, transparent 2px) center / 9px 6px repeat-x; }
+.dovli-divider-sample-wave {
+  background-color: var(--d-ink-3);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M0 5q3-4 6 0t6 0' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") center / 12px 10px repeat-x;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M0 5q3-4 6 0t6 0' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") center / 12px 10px repeat-x;
+}
+
+/* ---------- Present: bigger, calmer, nothing to click by accident ---------- */
+.dovli-presenting article { padding-top: 9vh; }
+.dovli-presenting .dovli-editor .bn-editor { font-size: 1.32rem; line-height: 1.65; }
+.dovli-presenting #page-title { font-size: clamp(2.6rem, 5vw, 3.6rem); }
+.dovli-presenting .dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 2.2em; }
+.dovli-presenting .bn-side-menu, .dovli-presenting .bn-formatting-toolbar { display: none !important; }

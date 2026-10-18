@@ -44,6 +44,41 @@ export function summarizePage(page: Page) {
   });
 }
 
+export type ReviewFocus = "grammar" | "structure" | "tone" | "clarity";
+const REVIEW_TITLES: Record<ReviewFocus, string> = {
+  grammar: "Spelling and grammar",
+  structure: "Feedback on structure",
+  tone: "Tone of voice",
+  clarity: "Clarity",
+};
+
+/** Open the AI panel to review a whole page. The feedback can be kept as a note at the top. */
+export function reviewPage(page: Page, focus: ReviewFocus) {
+  const text = pageText(page).trim();
+  if (!text) return toast("This page has no text to review yet.");
+  ui.set({
+    ai: {
+      mode: "review",
+      focus,
+      title: REVIEW_TITLES[focus],
+      text,
+      replace: () => {},
+      insertAfter: (feedback: string) => {
+        const editor = getActiveEditor();
+        const lines = feedback.split("\n").map((l) => l.trim()).filter(Boolean);
+        const blocks = [
+          { type: "callout", props: { tone: "note", emoji: "📝" }, content: `${REVIEW_TITLES[focus]} review` },
+          ...lines.map((l) => (l.startsWith("- ") ? { type: "bulletListItem", content: l.slice(2) } : { type: "paragraph", content: l })),
+          { type: "paragraph" },
+        ];
+        const first = editor?.document[0];
+        if (editor && first) editor.insertBlocks(blocks as any, first.id, "before");
+        else store.updatePage(page.id, { blocks: [...(blocks as any[]), ...(page.blocks ?? [])] });
+      },
+    },
+  });
+}
+
 export function AIPanel() {
   const session = useUI((s) => s.ai);
   const usage = useAIUsage();
@@ -68,7 +103,7 @@ export function AIPanel() {
     setError("");
     setLast(action);
     try {
-      setResult(await runAI(action, session.text, { language, instruction }));
+      setResult(await runAI(action, session.text, { language, instruction, focus: session.focus }));
     } catch (e) {
       setError(e instanceof Error ? e.message : "AI couldn't finish that.");
     } finally {
@@ -76,21 +111,30 @@ export function AIPanel() {
     }
   };
 
-  // Summaries start straight away.
+  // Summaries and reviews start straight away.
   useEffect(() => {
     if (session?.mode === "summary") void run("summarize");
+    if (session?.mode === "review") void run("review");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   const pct = usage.limit ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : 0;
-  const summary = session?.mode === "summary";
+  const review = session?.mode === "review";
+  // Summaries and reviews read the whole page and offer to keep the result at the top.
+  const summary = session?.mode === "summary" || review;
 
   return (
     <Dialog
       open={!!session}
       onOpenChange={(o) => !o && close()}
-      title={summary ? "Summary" : "Ask AI"}
-      description={summary ? "A short summary of this page." : "Choose what to do with the selected text. You'll see the result before anything changes."}
+      title={review ? (session?.title ?? "Review") : summary ? "Summary" : "Ask AI"}
+      description={
+        review
+          ? "Suggestions for this page. Nothing changes unless you choose to keep them."
+          : summary
+            ? "A short summary of this page."
+            : "Choose what to do with the selected text. You'll see the result before anything changes."
+      }
       size="md"
       footer={
         <div className="mr-auto flex items-center gap-2 text-xs text-ink-3">
@@ -181,11 +225,11 @@ export function AIPanel() {
               icon="arrowDown"
               onClick={() => {
                 session?.insertAfter(result);
-                toast(summary ? "Summary added to the top" : "Added below");
+                toast(review ? "Review added to the top" : summary ? "Summary added to the top" : "Added below");
                 close();
               }}
             >
-              {summary ? "Add to the top of the page" : "Insert below"}
+              {review ? "Keep as a note at the top" : summary ? "Add to the top of the page" : "Insert below"}
             </Button>
             <Button
               variant="ghost"

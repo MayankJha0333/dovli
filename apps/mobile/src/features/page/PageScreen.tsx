@@ -3,7 +3,7 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, Tex
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { displayTitle, timeAgo, type Page } from "@dovli/core";
-import { getStyle, space, touchTarget } from "@dovli/theme";
+import { resolveLook, space, touchTarget } from "@dovli/theme";
 import { Glass } from "@/components/Glass";
 import { usePalette } from "@/components/ui";
 import { store, usePages } from "@/lib/store";
@@ -43,7 +43,7 @@ export function PageScreen() {
     );
   }
 
-  const style = getStyle(page.style);
+  const style = resolveLook(page.style, page.look).style;
   const paper = style ? style.paper : p.panel;
   const ink = style ? style.ink : p.ink;
 

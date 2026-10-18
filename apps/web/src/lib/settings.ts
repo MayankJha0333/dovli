@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   textSize: "default",
   reduceMotion: false,
-  showPageInfo: true,
+  showPageInfo: false,
   spellcheck: true,
 };
 

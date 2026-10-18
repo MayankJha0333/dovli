@@ -14,7 +14,7 @@ import type { BoardData, Page } from "./types";
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
 type Field = Exclude<keyof Page, "id" | "blocks" | "board" | "createdAt" | "updatedAt">;
-const FIELDS: Field[] = ["parentId", "kind", "title", "mark", "style", "cover", "favorite", "deletedAt", "lastOpenedAt", "order", "expanded"];
+const FIELDS: Field[] = ["parentId", "kind", "title", "mark", "style", "look", "cover", "favorite", "deletedAt", "lastOpenedAt", "order", "expanded"];
 
 export function mergePage(base: Page | null, local: Page, remote: Page): Page {
   if (same(local, remote)) return local;

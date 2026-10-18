@@ -323,6 +323,49 @@ const ICONS = {
       stroke="none"
     />
   ),
+  brush: (
+    <>
+      <path d="M13.2 2.8 8.4 7.6" />
+      <path d="m7.6 6.8 1.6 1.6c.5.5.5 1.2 0 1.7l-.5.5" />
+      <path d="M6.8 8.6c-1.7-.4-3.4.5-3.6 2.4-.1 1.2-.6 1.8-1.4 2.2 2.2.7 4.6.3 5.6-1.1.7-1 .6-2.3-.6-3.5Z" />
+    </>
+  ),
+  play: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1.8" />
+      <path d="M6.8 6v4l3.2-2Z" />
+    </>
+  ),
+  italic: <path d="M6.6 3h5M4.4 13h5M9.4 3 6.6 13" />,
+  strike: <path d="M3 8h10M10.8 4.6c-.4-1-1.6-1.6-3-1.6-1.8 0-3 .9-3 2.2 0 .9.5 1.4 1.4 1.8M5 11.2c.4 1.1 1.6 1.8 3.2 1.8 1.9 0 3.1-.9 3.1-2.3 0-.4-.1-.8-.3-1.1" />,
+  code: <path d="M5.4 4.4 2 8l3.4 3.6M10.6 4.4 14 8l-3.4 3.6" />,
+  checkbox: (
+    <>
+      <rect x="2.6" y="2.6" width="10.8" height="10.8" rx="2.2" />
+      <path d="m5.4 8.2 1.8 1.8 3.4-3.6" />
+    </>
+  ),
+  toggle: <path d="M5.4 3.6 11 8l-5.6 4.4Z" fill="currentColor" />,
+  bulletList: (
+    <>
+      <path d="M6.4 4h7.2M6.4 8h7.2M6.4 12h7.2" />
+      <circle cx="3" cy="4" r=".6" fill="currentColor" />
+      <circle cx="3" cy="8" r=".6" fill="currentColor" />
+      <circle cx="3" cy="12" r=".6" fill="currentColor" />
+    </>
+  ),
+  numberList: (
+    <>
+      <path d="M6.6 4h7M6.6 8h7M6.6 12h7" />
+      <path d="M2.4 2.8h.9v2.8M2.2 7.2c.2-.4.6-.6 1-.6.5 0 .9.3.9.8 0 .7-1.9 1.2-1.9 2h1.9" strokeWidth="1.1" />
+    </>
+  ),
+  outdent: <path d="M7.2 4h6.4M7.2 8h6.4M7.2 12h6.4M4.6 6 2.6 8l2 2" />,
+  indent: <path d="M7.2 4h6.4M7.2 8h6.4M7.2 12h6.4M2.6 6l2 2-2 2" />,
+  alignLeft: <path d="M2.6 4h10.8M2.6 7.2h7M2.6 10.4h10.8M2.6 13.6h7" />,
+  alignCenter: <path d="M2.6 4h10.8M4.6 7.2h6.8M2.6 10.4h10.8M4.6 13.6h6.8" />,
+  alignRight: <path d="M2.6 4h10.8M6.4 7.2h7M2.6 10.4h10.8M6.4 13.6h7" />,
+  alignJustify: <path d="M2.6 4h10.8M2.6 7.2h10.8M2.6 10.4h10.8M2.6 13.6h10.8" />,
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;

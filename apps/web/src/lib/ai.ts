@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { auth } from "./auth";
 
-export type AIAction = "improve" | "shorten" | "longer" | "fix" | "friendly" | "professional" | "translate" | "summarize" | "continue" | "custom";
+export type AIAction = "improve" | "shorten" | "longer" | "fix" | "friendly" | "professional" | "translate" | "summarize" | "continue" | "custom" | "review";
 
 export interface AIUsage {
   /** Tokens used this month (a token is roughly ¾ of a word). */
@@ -69,7 +69,7 @@ export async function refreshUsage() {
 
 export class AIError extends Error {}
 
-export async function runAI(action: AIAction, text: string, opts: { language?: string; instruction?: string } = {}): Promise<string> {
+export async function runAI(action: AIAction, text: string, opts: { language?: string; instruction?: string; focus?: string } = {}): Promise<string> {
   if (usage.limit && usage.used >= usage.limit) throw new AIError("You've used this month's AI allowance. It resets on the 1st.");
   const res = await fetch("/api/ai", { method: "POST", headers: await headers(), body: JSON.stringify({ action, text, ...opts }) });
   const data = await res.json().catch(() => ({}));

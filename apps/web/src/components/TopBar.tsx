@@ -7,7 +7,7 @@ import { ui } from "@/lib/ui";
  * Chip themes (Soft Studio, Frost) float both groups as rounded glass chips; flat themes
  * (Night Desk, Mica) draw a plain bar with a hairline. The tokens decide; this markup is the same.
  */
-export function TopBar({ crumbs, children, className }: { crumbs?: ReactNode; children?: ReactNode; className?: string }) {
+export function TopBar({ crumbs, children, className, bareActions }: { crumbs?: ReactNode; children?: ReactNode; className?: string; bareActions?: boolean }) {
   return (
     <header
       data-print="hide"
@@ -20,7 +20,11 @@ export function TopBar({ crumbs, children, className }: { crumbs?: ReactNode; ch
       <nav aria-label="Breadcrumb" className="flex h-9 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap px-1.5 surface-chip">
         {crumbs}
       </nav>
-      <div className="ml-auto flex h-9 flex-none items-center gap-0.5 px-1 surface-chip empty:hidden">{children}</div>
+      {bareActions ? (
+        <div className="ml-auto flex flex-none items-center">{children}</div>
+      ) : (
+        <div className="ml-auto flex h-9 flex-none items-center gap-0.5 px-1 surface-chip empty:hidden">{children}</div>
+      )}
     </header>
   );
 }

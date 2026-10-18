@@ -100,6 +100,20 @@ How it fits together:
 - The phone app reads the same theme objects (`apps/mobile/src/lib/theme.ts`), and its editor
   uses the same CSS variables as the web.
 
+## The page panels
+
+The top right of every page has **Share** and three panels, in the spirit of Craft:
+
+- **Aa (Format)**: text styles (Title, Subtitle, Heading, Strong, Body, Caption), turn blocks
+  into a page or a card, bold / italic / strike / code, lists, indent, alignment, the Focus and
+  Box decorations, text colour and font. It works on the selected text, or else on the line with
+  the cursor. The actions live in `packages/editor/src/format.ts`.
+- **Style**: page style, custom backdrop / paper / text / accent colours, cover, divider style,
+  page font (System, Serif, Mono, Round) and wide page. Saved on the page as `look`
+  (`packages/theme/src/pageLook.ts` turns it into CSS variables).
+- **Info** (⌘⇧I): dates, location, stats, outline, links, tags, AI summary and document review;
+  the Actions tab has Present, find, favourite, move, duplicate, export, backups and delete.
+
 ## Turning on cloud features
 
 Everything works without these. Each one switches a feature on.

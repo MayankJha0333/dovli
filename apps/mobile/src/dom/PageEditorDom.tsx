@@ -10,7 +10,7 @@ import type { DOMProps } from "expo/dom";
 import { connectEditor } from "@dovli/editor";
 import PageEditor from "@dovli/editor/page-editor";
 import type { Page } from "@dovli/core";
-import { FONT_STYLESHEET, getStyle, getTheme, styleVars, themeStylesheet, type ThemeId } from "@dovli/theme";
+import { FONT_STYLESHEET, getTheme, resolveLook, themeStylesheet, type ThemeId } from "@dovli/theme";
 
 let pages: Record<string, Page> = {};
 const subs = new Set<() => void>();
@@ -98,9 +98,9 @@ export default function PageEditorDom({
   );
 
   // A page with its own style (paper, ink, accent) gets the same look as on the web.
-  const look = getStyle(page.style);
+  const look = resolveLook(page.style, page.look);
   return (
-    <div className={look ? "page-styled min-h-dvh px-1 pb-24 text-ink" : "min-h-dvh px-1 pb-24 text-ink"} style={look ? (styleVars(look) as any) : undefined}>
+    <div className={look.style ? "page-styled min-h-dvh px-1 pb-24 text-ink" : "min-h-dvh px-1 pb-24 text-ink"} style={look.vars as any} data-divider={look.divider}>
       <PageEditor page={page} onExitTop={() => void onExitTop()} />
     </div>
   );

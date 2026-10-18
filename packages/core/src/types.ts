@@ -11,6 +11,23 @@ export interface BoardData {
   background?: string;
 }
 
+/** The page font, for the title and the text. */
+export type PageFont = "system" | "serif" | "mono" | "round";
+/** How divider lines (the "/divider" block) are drawn. */
+export type DividerStyle = "line" | "dots" | "wave";
+
+export interface PageLook {
+  /** Colours as #rrggbb. Any left out come from the page style (or the plain look). */
+  backdrop?: string;
+  paper?: string;
+  ink?: string;
+  accent?: string;
+  font?: PageFont;
+  divider?: DividerStyle;
+  /** A wider text column. */
+  wide?: boolean;
+}
+
 export interface Page {
   id: string;
   parentId: string | null;
@@ -20,6 +37,8 @@ export interface Page {
   mark: string;
   /** Id of a page style from pageStyles.ts; empty means the plain look. */
   style?: string;
+  /** Changes on top of the page style, set in the Style panel: colours, font, dividers, width. */
+  look?: PageLook;
   /** Cover image: "g:<preset id>" for a built-in gradient, "file:<id>" for an upload, or a web address. */
   cover?: string | null;
   blocks?: any[];

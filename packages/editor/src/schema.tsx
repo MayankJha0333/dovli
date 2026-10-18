@@ -1,9 +1,10 @@
-import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs } from "@blocknote/core";
+import { BlockNoteSchema, defaultBlockSpecs, defaultInlineContentSpecs, defaultStyleSpecs } from "@blocknote/core";
 import { calloutBlock } from "./blocks/callout";
 import { dataTableBlock } from "./blocks/dataTable";
 import { embedBlock, flowchartBlock } from "./blocks/embeds";
 import { pageLinkInline, subpageBlock } from "./blocks/pageLinks";
 import { pdfBlock } from "./blocks/pdf";
+import { captionBlock, fontStyle } from "./blocks/textStyles";
 
 /** Every block Dovli understands: BlockNote's own, plus Dovli's. */
 export const schema = BlockNoteSchema.create({
@@ -15,10 +16,15 @@ export const schema = BlockNoteSchema.create({
     callout: calloutBlock(),
     dataTable: dataTableBlock(),
     pdf: pdfBlock(),
+    caption: captionBlock(),
   },
   inlineContentSpecs: {
     ...defaultInlineContentSpecs,
     pageLink: pageLinkInline,
+  },
+  styleSpecs: {
+    ...defaultStyleSpecs,
+    font: fontStyle,
   },
 });
 

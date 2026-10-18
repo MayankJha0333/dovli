@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { connectEditor } from "@dovli/editor";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
-import { getStyle, styleVars } from "@dovli/theme";
+import { resolveLook } from "@dovli/theme";
 import { Button, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
 import { applySettings } from "@/lib/settings";
 import { supabase } from "@/lib/supabase";
@@ -113,10 +113,11 @@ export default function SharedPage({ shareId }: { shareId: string }) {
     );
 
   const page = current ?? state.page;
-  const style = getStyle(page.style);
+  const look = resolveLook(page.style, page.look);
+  const style = look.style;
   return (
     <TooltipProvider>
-      <div className={cn("min-h-dvh", style && "[background:var(--s-backdrop)]")} style={style ? (styleVars(style) as any) : undefined}>
+      <div className={cn("min-h-dvh", style && "[background:var(--s-backdrop)]")} style={look.vars as any}>
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 surface-chip [border-radius:0]" data-print="hide">
           <a href="/" className="flex items-center gap-2 rounded-md px-1 py-1 text-ink no-underline hover:bg-hover">
             <span className="grid size-7 place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink">D</span>
@@ -130,7 +131,8 @@ export default function SharedPage({ shareId }: { shareId: string }) {
         </header>
         <article
           data-print="sheet"
-          className={cn("mx-auto w-full max-w-[860px] px-6 pb-[120px] pt-10 max-[640px]:px-4", style && "page-styled my-10 rounded-sheet bg-[var(--s-paper)] py-14 shadow-sheet max-[640px]:mx-2.5")}
+          data-divider={look.divider}
+          className={cn("mx-auto w-full px-6 pb-[120px] pt-10 max-[640px]:px-4", look.wide ? "max-w-[1200px]" : "max-w-[860px]", style && "page-styled my-10 rounded-sheet bg-[var(--s-paper)] py-14 shadow-sheet max-[640px]:mx-2.5")}
         >
           <header className="mb-6 px-[54px] max-[640px]:px-0">
             <div className="mb-4 grid size-[60px] place-items-center rounded-lg bg-accent-soft font-serif text-[30px] text-accent">{page.mark}</div>

@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from "react";
 import { displayTitle, previewLines, timeAgo, type BoardData, type Page, type Template } from "@dovli/core";
-import { coverPreset, getStyle, styleVars, type PageStyle } from "@dovli/theme";
+import { coverPreset, getStyle, resolveLook, styleVars, type PageStyle } from "@dovli/theme";
 import { cn } from "@dovli/ui";
 import { store, useStore } from "@/lib/store";
 
@@ -155,7 +155,7 @@ export function PageCard({ page }: { page: Page }) {
       mark={page.mark}
       meta={`${timeAgo(Math.max(page.updatedAt, page.lastOpenedAt ?? 0))}${parent ? `, in ${displayTitle(parent)}` : ""}`}
       onClick={() => store.navigate({ name: "page", id: page.id })}
-      look={page.kind === "doc" ? getStyle(page.style) : null}
+      look={page.kind === "doc" ? resolveLook(page.style, page.look).style : null}
       cover={page.cover}
       preview={page.kind === "board" ? <BoardSketch sketch={sketchOf(page.board)} /> : <DocPreview title={displayTitle(page)} blocks={page.blocks ?? []} />}
     />

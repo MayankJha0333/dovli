@@ -10,6 +10,8 @@ export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘F", label: "Find and replace in the page" },
   { keys: "⌘,", label: "Settings" },
   { keys: "⌘\\", label: "Show or hide the page info panel" },
+  { keys: "⌘⇧I", label: "Open a page's Info panel" },
+  { keys: "⌘⇧Y", label: "Open a page's Style panel" },
   { keys: "/", label: "Add a block (in a page)" },
   { keys: "[[", label: "Link to another page (in a page)" },
   { keys: "⌘ + click", label: "Open a #tag" },
