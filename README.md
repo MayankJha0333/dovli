@@ -100,6 +100,24 @@ How it fits together:
 - The phone app reads the same theme objects (`apps/mobile/src/lib/theme.ts`), and its editor
   uses the same CSS variables as the web.
 
+## The layout
+
+Modelled on Craft's:
+
+- **Sidebar** (a floating card; ⌘\ hides and shows it) has two sides, switched by the dots at
+  the bottom. The workspace side has New page, Search, All pages, Templates, Favourites, the page
+  tree, Tags and Trash. The page side shows the open page with four tabs: Contents (headings,
+  with the one you're reading marked), To-dos (tick them from here), Attachments and Links.
+  Opening a page from All pages, search or a link shows the page side; opening it from the
+  page tree keeps the tree. The logic is in `features/sidebar/follow.ts`.
+- **Tabs** above the page: Home, one tab per open page, and + for a new page in a new tab.
+  ⌘/Ctrl-click or middle-click opens a page in a new tab; middle-click on a tab closes it.
+  Open tabs are kept on this device (`lib/tabs.ts`). Hidden on phones.
+- **All pages** (Home): every page as a small picture of itself, shown as cards, a grid or a
+  list, sorted by last edited, date created or title, with a filter box.
+- **Assistant** (bottom right of a page): summarise, the four reviews, or rewrite the selected
+  text.
+
 ## The page panels
 
 The top right of every page has **Share** and three panels, in the spirit of Craft:

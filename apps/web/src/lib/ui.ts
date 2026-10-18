@@ -18,9 +18,11 @@ export interface UIState {
   nav: boolean;
   /** The page being presented full screen, if any. */
   presenting: string | null;
+  /** What the sidebar shows: the workspace, or the open page (contents, to-dos, attachments, links). */
+  sidebarMode: "space" | "page";
 }
 
-let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null };
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space" };
 const listeners = new Set<() => void>();
 
 // A page made with "New page" should put the cursor in its title, ready to type.
@@ -61,3 +63,15 @@ export const getActiveEditor = () => activeEditor;
 export function useUI<T>(select: (s: UIState) => T): T {
   return useSyncExternalStore(ui.subscribe, () => select(state), () => select(state));
 }
+
+// Opening a page from the sidebar's page list keeps the list in view; opening it from anywhere
+// else (Home, search, a link) switches the sidebar to the page's contents, like Craft.
+let keepSpace = false;
+export const keepSpaceSidebar = () => {
+  keepSpace = true;
+};
+export const takeKeepSpace = () => {
+  const k = keepSpace;
+  keepSpace = false;
+  return k;
+};

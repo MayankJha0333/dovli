@@ -19,8 +19,8 @@ export interface Settings {
   theme: ThemePreference;
   textSize: TextSize;
   reduceMotion: boolean;
-  /** Show the right-hand panel with the outline and backlinks on wide screens. */
-  showPageInfo: boolean;
+  /** Hide the sidebar on wide screens (⌘\\). It is a drawer on small screens either way. */
+  sidebarHidden: boolean;
   spellcheck: boolean;
 }
 
@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: DEFAULT_THEME,
   textSize: "default",
   reduceMotion: false,
-  showPageInfo: false,
+  sidebarHidden: false,
   spellcheck: true,
 };
 

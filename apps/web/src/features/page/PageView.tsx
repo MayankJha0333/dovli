@@ -7,7 +7,7 @@ import { store, useStore } from "@/lib/store";
 import { settings, useSettings } from "@/lib/settings";
 import { setActiveEditor, takeTitleFocus, ui, useUI } from "@/lib/ui";
 import { Crumb, CrumbSep, TopBar } from "@/components/TopBar";
-import { Backlinks, PageInfoRail, scrollToBlock } from "./PageInfo";
+import { Backlinks, scrollToBlock } from "./PageInfo";
 import { Cover, CoverPicker, IconPicker, TitleField } from "./PageHeader";
 import { PageToolbar } from "./panels/PageToolbar";
 
@@ -37,7 +37,6 @@ function focusEditorStart(editor: DovliEditor | null) {
 export function PageView({ id }: { id: string }) {
   const page = useStore((s) => s.pages[id]);
   const pages = useStore((s) => s.pages);
-  const showInfo = useSettings((s) => s.showPageInfo);
   const spellcheck = useSettings((s) => s.spellcheck);
   const editorRef = useRef<DovliEditor | null>(null);
   const [editor, setEditor] = useState<DovliEditor | null>(null);
@@ -89,16 +88,13 @@ export function PageView({ id }: { id: string }) {
     };
   }, [presenting]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⌘F finds in this page, ⌘\ shows or hides the side panel.
+  // ⌘F finds in this page.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key.toLowerCase() === "f" && !e.shiftKey && page?.kind === "doc") {
         e.preventDefault();
         setFindOpen(true);
-      } else if (e.key === "\\") {
-        e.preventDefault();
-        settings.set({ showPageInfo: !settings.get().showPageInfo });
       }
     };
     window.addEventListener("keydown", onKey);
@@ -117,17 +113,15 @@ export function PageView({ id }: { id: string }) {
 
   const crumbs = (
     <>
-      <Crumb onClick={() => store.navigate({ name: "home" })}>Home</Crumb>
       {trail.map((a) => (
         <span key={a.id} className="contents">
-          <CrumbSep />
           <Crumb onClick={() => store.navigate({ name: "page", id: a.id })}>
             <span className="font-serif text-ink-4">{a.mark}</span>
             <span className="truncate">{displayTitle(a)}</span>
           </Crumb>
+          <CrumbSep />
         </span>
       ))}
-      <CrumbSep />
       <Crumb current>
         <span className="font-serif text-accent">{page.mark}</span>
         <span className="truncate">{displayTitle(page)}</span>
@@ -140,7 +134,7 @@ export function PageView({ id }: { id: string }) {
   if (page.kind === "board")
     return (
       <div className="flex h-full flex-col">
-        <TopBar crumbs={crumbs} bareActions>
+        <TopBar crumbs={crumbs} bareActions showCrumbs={trail.length > 0}>
           {actions}
         </TopBar>
         <div className="flex flex-none items-center gap-3 px-4 pb-3 pt-1 [border-bottom:1px_solid_var(--d-line)]">
@@ -159,7 +153,7 @@ export function PageView({ id }: { id: string }) {
   return (
     <div className="flex h-full flex-col">
       {!presenting && (
-        <TopBar crumbs={crumbs} bareActions>
+        <TopBar crumbs={crumbs} bareActions showCrumbs={trail.length > 0}>
           {actions}
         </TopBar>
       )}
@@ -272,7 +266,6 @@ export function PageView({ id }: { id: string }) {
             </div>
           )}
         </div>
-        {showInfo && !presenting && <PageInfoRail page={page} />}
       </div>
     </div>
   );

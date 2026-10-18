@@ -100,8 +100,8 @@ export function Appearance() {
         <Row label="Spell check" hint="Underline misspelled words while you write.">
           <Switch label="Spell check" checked={s.spellcheck} onCheckedChange={(v) => settings.set({ spellcheck: v })} />
         </Row>
-        <Row label="Page info panel" hint={`Outline, links and tags beside wide pages. Toggle with ${modKey()}\\.`}>
-          <Switch label="Page info panel" checked={s.showPageInfo} onCheckedChange={(v) => settings.set({ showPageInfo: v })} />
+        <Row label="Show the sidebar" hint={`Hide it for more room to write. Toggle with ${modKey()}\\.`}>
+          <Switch label="Show the sidebar" checked={!s.sidebarHidden} onCheckedChange={(v) => settings.set({ sidebarHidden: !v })} />
         </Row>
         <Row label="Reduce motion" hint="Turn off sliding and fading. Dovli also follows your device setting.">
           <Switch label="Reduce motion" checked={s.reduceMotion} onCheckedChange={(v) => settings.set({ reduceMotion: v })} />

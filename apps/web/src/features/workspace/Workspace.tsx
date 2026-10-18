@@ -3,13 +3,15 @@ import { useEffect } from "react";
 import { displayTitle } from "@dovli/core";
 import { Spinner, Toaster, TooltipProvider, cn } from "@dovli/ui";
 import { autoBackup } from "@/lib/backups";
-import { applySettings } from "@/lib/settings";
+import { applySettings, useSettings } from "@/lib/settings";
+import { startTabs } from "@/lib/tabs";
 import { initStore, routeFromHash, store, useStore } from "@/lib/store";
 import { startSync } from "@/lib/sync";
 import { refreshUsage } from "@/lib/ai";
 import { ui, useUI } from "@/lib/ui";
 import { useAuth } from "@/lib/auth";
 import { AIPanel } from "@/features/ai/AIPanel";
+import { AssistantButton } from "@/features/ai/AssistantButton";
 import { SecondStepDialog, SignInDialog } from "@/features/auth/SignInDialog";
 import { Home } from "@/features/home/Home";
 import { PageView } from "@/features/page/PageView";
@@ -18,10 +20,12 @@ import { PagePicker } from "@/features/pages/PagePicker";
 import { SettingsDialog } from "@/features/settings/SettingsDialog";
 import { ShareDialog } from "@/features/share/ShareDialog";
 import { Sidebar } from "@/features/sidebar/Sidebar";
+import { startSidebarFollow } from "@/features/sidebar/follow";
 import { StyleGallery } from "@/features/page-styles/StyleGallery";
 import { TagView } from "@/features/tags/TagView";
 import { TemplatesView } from "@/features/templates/TemplatesView";
 import { TrashView } from "@/features/trash/TrashView";
+import { TabBar } from "./TabBar";
 import { useShortcuts } from "./useShortcuts";
 
 /** Soft colour behind glass themes. Themes without glows draw nothing. */
@@ -40,6 +44,7 @@ export default function Workspace() {
   const route = useStore((s) => s.route);
   const nav = useUI((s) => s.nav);
   const needsSecondStep = useAuth((a) => a.needsSecondStep);
+  const sidebarHidden = useSettings((s) => s.sidebarHidden);
 
   useEffect(() => {
     applySettings();
@@ -61,10 +66,17 @@ export default function Workspace() {
 
   useEffect(() => ui.set({ nav: false }), [route]);
 
+  // Tabs and the sidebar's two sides follow the route once the pages are loaded.
+  useEffect(() => {
+    if (!ready) return;
+    startTabs();
+    startSidebarFollow();
+  }, [ready]);
+
   const title = useStore((s) => {
     const r = s.route;
     if (r.name === "page") return s.pages[r.id] ? displayTitle(s.pages[r.id]) : "Page";
-    return r.name === "templates" ? "Templates" : r.name === "trash" ? "Trash" : r.name === "tag" ? `#${r.tag}` : "Home";
+    return r.name === "templates" ? "Templates" : r.name === "trash" ? "Trash" : r.name === "tag" ? `#${r.tag}` : "All pages";
   });
   useEffect(() => {
     document.title = `${title} · Dovli`;
@@ -84,9 +96,14 @@ export default function Workspace() {
       <Glows />
       <div
         data-print="shell"
-        className="grid h-dvh grid-cols-[264px_minmax(0,1fr)] gap-[var(--d-shell-gap)] p-[var(--d-shell-gap)] max-[860px]:grid-cols-1 max-[860px]:gap-0 max-[860px]:p-0"
+        className={cn(
+          "grid h-dvh gap-[var(--d-shell-gap)] p-[var(--d-shell-gap)] max-[860px]:grid-cols-1 max-[860px]:gap-0 max-[860px]:p-0",
+          sidebarHidden ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[272px_minmax(0,1fr)]",
+        )}
       >
-        <Sidebar />
+        <div className={cn("contents", sidebarHidden && "min-[861px]:hidden")}>
+          <Sidebar />
+        </div>
         <div
           aria-hidden="true"
           onClick={() => ui.set({ nav: false })}
@@ -95,17 +112,21 @@ export default function Workspace() {
             nav ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         />
-        <main
-          id="main"
-          tabIndex={-1}
-          className="relative min-h-0 min-w-0 overflow-hidden rounded-shell shadow-shell surface-panel focus:outline-none max-[860px]:rounded-none"
-        >
-          {route.name === "home" && <Home />}
-          {route.name === "templates" && <TemplatesView />}
-          {route.name === "trash" && <TrashView />}
-          {route.name === "tag" && <TagView tag={route.tag} />}
-          {route.name === "page" && <PageView key={route.id} id={route.id} />}
-        </main>
+        <div className="flex min-h-0 min-w-0 flex-col gap-[calc(var(--d-shell-gap)*0.6)] max-[860px]:gap-0">
+          <TabBar />
+          <main
+            id="main"
+            tabIndex={-1}
+            className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-shell shadow-shell surface-panel focus:outline-none max-[860px]:rounded-none"
+          >
+            {route.name === "home" && <Home />}
+            {route.name === "templates" && <TemplatesView />}
+            {route.name === "trash" && <TrashView />}
+            {route.name === "tag" && <TagView tag={route.tag} />}
+            {route.name === "page" && <PageView key={route.id} id={route.id} />}
+            <AssistantButton />
+          </main>
+        </div>
       </div>
 
       <CommandPalette />

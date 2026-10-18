@@ -77,3 +77,57 @@ export function outline(page: Page): { id: string; level: number; text: string }
   if (page.kind === "doc") walk(page.blocks);
   return out;
 }
+
+const textOf = (content: any): string =>
+  Array.isArray(content) ? content.map((c: any) => (c.type === "pageLink" ? c.props?.title ?? "" : c.type === "link" ? textOf(c.content) : c.text ?? "")).join("") : "";
+
+/** Every to-do in a page, in reading order. */
+export function todoItems(page: Page): { id: string; text: string; checked: boolean }[] {
+  const out: { id: string; text: string; checked: boolean }[] = [];
+  const walk = (blocks: any[] | undefined) => {
+    for (const b of blocks ?? []) {
+      if (b.type === "checkListItem") out.push({ id: b.id, text: textOf(b.content).trim(), checked: !!b.props?.checked });
+      walk(b.children);
+    }
+  };
+  if (page.kind === "doc") walk(page.blocks);
+  return out;
+}
+
+export type AttachmentKind = "image" | "video" | "audio" | "file" | "pdf" | "embed";
+
+/** Pictures, videos, files and embeds placed in a page. */
+export function attachments(page: Page): { id: string; kind: AttachmentKind; name: string; url: string }[] {
+  const out: { id: string; kind: AttachmentKind; name: string; url: string }[] = [];
+  const kinds: Record<string, AttachmentKind> = { image: "image", video: "video", audio: "audio", file: "file", pdf: "pdf", embed: "embed" };
+  const walk = (blocks: any[] | undefined) => {
+    for (const b of blocks ?? []) {
+      const kind = kinds[b.type];
+      if (kind) {
+        const url: string = b.props?.url || b.props?.link || "";
+        const fallback = url.startsWith("data:") || url.startsWith("blob:") || url.startsWith("dovli-file:") ? "" : url.replace(/^https?:\/\/(www\.)?/, "").split(/[?#]/)[0];
+        out.push({ id: b.id, kind, url, name: (b.props?.name || b.props?.title || b.props?.siteName || b.props?.caption || fallback || kind[0].toUpperCase() + kind.slice(1)).trim() });
+      }
+      walk(b.children);
+    }
+  };
+  if (page.kind === "doc") walk(page.blocks);
+  return out;
+}
+
+/** Web links written inside a page's text, without repeats. */
+export function webLinks(page: Page): { href: string; text: string }[] {
+  const out: { href: string; text: string }[] = [];
+  const walkInline = (content: any) => {
+    if (!Array.isArray(content)) return;
+    for (const c of content) if (c?.type === "link" && c.href && !out.some((o) => o.href === c.href)) out.push({ href: c.href, text: textOf(c.content).trim() || c.href });
+  };
+  const walk = (blocks: any[] | undefined) => {
+    for (const b of blocks ?? []) {
+      walkInline(b.content);
+      walk(b.children);
+    }
+  };
+  if (page.kind === "doc") walk(page.blocks);
+  return out;
+}

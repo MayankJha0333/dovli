@@ -167,3 +167,10 @@
 .dovli-presenting #page-title { font-size: clamp(2.6rem, 5vw, 3.6rem); }
 .dovli-presenting .dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 2.2em; }
 .dovli-presenting .bn-side-menu, .dovli-presenting .bn-formatting-toolbar { display: none !important; }
+
+/* A block jumped to from the sidebar flashes briefly so the eye finds it. */
+@keyframes dovli-flash {
+  0%, 30% { background: color-mix(in srgb, var(--d-accent) 16%, transparent); }
+  100% { background: transparent; }
+}
+.dovli-editor .bn-block-outer.dovli-flash > .bn-block > .bn-block-content { animation: dovli-flash 1.2s ease-out; border-radius: 6px; }

@@ -366,6 +366,37 @@ const ICONS = {
   alignCenter: <path d="M2.6 4h10.8M4.6 7.2h6.8M2.6 10.4h10.8M4.6 13.6h6.8" />,
   alignRight: <path d="M2.6 4h10.8M6.4 7.2h7M2.6 10.4h10.8M6.4 13.6h7" />,
   alignJustify: <path d="M2.6 4h10.8M2.6 7.2h10.8M2.6 10.4h10.8M2.6 13.6h10.8" />,
+  panelLeft: (
+    <>
+      <rect x="2.2" y="3" width="11.6" height="10" rx="2" />
+      <path d="M6.4 3v10" />
+    </>
+  ),
+  paperclip: <path d="m12.6 7.4-4.9 4.9a2.8 2.8 0 0 1-4-4l5.3-5.3a1.9 1.9 0 0 1 2.7 2.7L6.5 10.9a.9.9 0 0 1-1.3-1.3l4.5-4.5" />,
+  viewCards: (
+    <>
+      <rect x="2.4" y="2.6" width="5" height="7.2" rx="1.2" />
+      <rect x="8.6" y="2.6" width="5" height="4.4" rx="1.2" />
+      <rect x="2.4" y="11" width="5" height="2.4" rx="1" />
+      <rect x="8.6" y="8.2" width="5" height="5.2" rx="1.2" />
+    </>
+  ),
+  viewGrid: (
+    <>
+      <rect x="2.6" y="2.6" width="4.6" height="4.6" rx="1.1" />
+      <rect x="8.8" y="2.6" width="4.6" height="4.6" rx="1.1" />
+      <rect x="2.6" y="8.8" width="4.6" height="4.6" rx="1.1" />
+      <rect x="8.8" y="8.8" width="4.6" height="4.6" rx="1.1" />
+    </>
+  ),
+  viewList: <path d="M2.6 4.2h10.8M2.6 8h10.8M2.6 11.8h10.8" />,
+  sort: <path d="M5 13V3M2.6 5.4 5 3l2.4 2.4M11 3v10M8.6 10.6 11 13l2.4-2.4" />,
+  help: (
+    <>
+      <circle cx="8" cy="8" r="5.8" />
+      <path d="M6.4 6.4a1.7 1.7 0 0 1 3.2.6c0 1.2-1.6 1.4-1.6 2.6M8 11.3v.1" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICONS;

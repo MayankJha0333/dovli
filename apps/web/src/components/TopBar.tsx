@@ -1,13 +1,27 @@
 import type { ReactNode } from "react";
 import { IconButton, cn } from "@dovli/ui";
 import { ui } from "@/lib/ui";
+import { newPage } from "@/features/pages/actions";
 
 /**
- * The bar at the top of every view: breadcrumbs on the left, actions on the right.
+ * The bar at the top of every view: + (new page) and breadcrumbs on the left, actions on the right.
  * Chip themes (Soft Studio, Frost) float both groups as rounded glass chips; flat themes
  * (Night Desk, Mica) draw a plain bar with a hairline. The tokens decide; this markup is the same.
  */
-export function TopBar({ crumbs, children, className, bareActions }: { crumbs?: ReactNode; children?: ReactNode; className?: string; bareActions?: boolean }) {
+export function TopBar({
+  crumbs,
+  children,
+  className,
+  bareActions,
+  showCrumbs = false,
+}: {
+  crumbs?: ReactNode;
+  children?: ReactNode;
+  className?: string;
+  bareActions?: boolean;
+  /** Show the breadcrumbs on wide screens too. Otherwise the tab bar already names the view. */
+  showCrumbs?: boolean;
+}) {
   return (
     <header
       data-print="hide"
@@ -17,7 +31,8 @@ export function TopBar({ crumbs, children, className, bareActions }: { crumbs?: 
       )}
     >
       <IconButton icon="menu" label="Open sidebar" className="min-[861px]:hidden" onClick={() => ui.set({ nav: true })} />
-      <nav aria-label="Breadcrumb" className="flex h-9 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap px-1.5 surface-chip">
+      <IconButton icon="plus" label="New page" className="flex-none !rounded-full surface-chip" onClick={() => newPage("doc")} />
+      <nav aria-label="Breadcrumb" className={cn("flex h-9 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap px-1.5 surface-chip", !showCrumbs && "min-[861px]:hidden")}>
         {crumbs}
       </nav>
       {bareActions ? (
