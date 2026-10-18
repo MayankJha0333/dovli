@@ -2,7 +2,7 @@
   "name": "@dovli/sync",
   "version": "0.1.0",
   "private": true,
-  "description": "Cloud sync for Dovli (Supabase): pushes this device's changes, pulls others, merges edits made offline. Shared by the web and phone apps.",
+  "description": "Cloud sync for Dovli (through Dovli's server into Firestore, or Supabase): pushes this device's changes, pulls others, merges edits made offline. Shared by the web and phone apps.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

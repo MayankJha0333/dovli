@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "@dovli/core";
 import { SyncEngine } from "./engine";
-import type { PendingChange, SyncHost, SyncedCopy } from "./types";
+import { MAX_PAGE_CHARS, type PendingChange, type SyncHost, type SyncTransport, type SyncedCopy } from "./types";
 
 // A fake cloud that behaves like the Supabase table + push_page function in supabase/migrations.
 class FakeCloud {
@@ -41,14 +41,35 @@ class FakeCloud {
   }
 }
 
+/** The same cloud behind the plain transport interface (what Dovli's server offers). */
+function transportFor(cloud: FakeCloud): SyncTransport {
+  return {
+    async pull(cursor, limit) {
+      if (!cloud.online) throw new Error("Failed to fetch");
+      return structuredClone([...cloud.rows.values()].filter((r) => r.rev > cursor).sort((a, b) => a.rev - b.rev).slice(0, limit));
+    },
+    async push(c) {
+      if (!cloud.online) throw new Error("Failed to fetch");
+      const cur = cloud.rows.get(c.id);
+      if (cur && c.baseRev !== cur.rev) return { ok: false, rev: cur.rev, data: structuredClone(cur.data), purged: cur.purged };
+      const rev = ++cloud.seq;
+      cloud.rows.set(c.id, { id: c.id, data: structuredClone(c.data), rev, purged: c.purged });
+      return { ok: true, rev };
+    },
+  };
+}
+
 class FakeDevice implements SyncHost {
   pages: Record<string, Page> = {};
   pend = new Map<string, PendingChange>();
   synced = new Map<string, SyncedCopy>();
   cursor = 0;
   engine: SyncEngine;
-  constructor(cloud: FakeCloud) {
-    this.engine = new SyncEngine({ supabase: cloud.client(), host: this, isOnline: () => cloud.online });
+  constructor(cloud: FakeCloud, via: "supabase" | "transport" = "supabase") {
+    this.engine =
+      via === "supabase"
+        ? new SyncEngine({ supabase: cloud.client(), host: this, isOnline: () => cloud.online })
+        : new SyncEngine({ transport: transportFor(cloud), host: this, isOnline: () => cloud.online });
   }
   edit(id: string, patch: Partial<Page>) {
     const cur = this.pages[id];
@@ -132,5 +153,32 @@ describe("SyncEngine", () => {
     await a.sync();
     await b.sync();
     expect(b.pages.p1).toBeUndefined();
+  });
+
+  it("works the same through a plain transport (Dovli's server)", async () => {
+    const cloud = new FakeCloud();
+    const a = new FakeDevice(cloud, "transport");
+    const b = new FakeDevice(cloud, "transport");
+    a.edit("p1", { title: "Notes" });
+    await a.sync();
+    b.edit("p1", { title: "Notes from the phone" }); // a conflict: b never saw a's copy
+    await b.sync();
+    await a.sync();
+    expect(a.pages.p1.title).toBe(b.pages.p1.title);
+    expect(a.pend.size + b.pend.size).toBe(0);
+    expect(a.engine.syncsFiles).toBe(false);
+  });
+
+  it("keeps a page that's too big on the device, says so, and still sends the rest", async () => {
+    const cloud = new FakeCloud();
+    const a = new FakeDevice(cloud, "transport");
+    a.edit("big", { title: "Huge", blocks: [para("1", "x".repeat(MAX_PAGE_CHARS))] });
+    a.edit("small", { title: "Small" });
+    await a.sync();
+    expect(cloud.rows.has("small")).toBe(true);
+    expect(cloud.rows.has("big")).toBe(false);
+    expect(a.pend.has("big")).toBe(true);
+    expect(a.engine.status.state).toBe("error");
+    expect(a.engine.status.error).toContain("1 page is too big");
   });
 });

@@ -193,9 +193,27 @@ Setup:
 Trying it locally without a real project: run `pnpm emulators` (needs Java) and set the
 three emulator lines at the end of `apps/web/.env.example`.
 
-**Not yet on Firebase:** sync between devices, share links and cloud file uploads were built
-on Supabase. They are off (`apps/web/src/lib/supabase.ts`) until they move to Firestore and
-Firebase Storage. Pages stay saved on each device in the meantime.
+### What's in Firestore
+
+Only Dovli's server reads and writes it (the rules in `firestore.rules` keep browsers and
+phones out); the rules for every change are in `apps/web/src/lib/server/cloudCore.ts`, with
+tests next to it.
+
+| Path | What it holds |
+|---|---|
+| `users/{uid}` | One per person: `email`, `name`, `photoURL`, `signInMethods`, `plan` (`free`), `status` (`active`), `createdAt`, `lastSignInAt`, `lastSeenAt`, `pageCount`, `boardCount`, `trashCount`, `deviceCount`, and `syncRev` (the sync counter). `plan` and `status` are set once, so you can change them in the console. |
+| `users/{uid}/pages/{pageId}` | Every page and board they made: `title`, `kind` (`doc` or `board`), `parentId`, `mark`, `favorite`, `inTrash`, `createdAt`, `updatedAt`, `size`, `rev`, and the full content as JSON text in `data`. Pages deleted for good stay as small markers (`purged: true`) so other devices hear about it. |
+| `users/{uid}/devices/{deviceId}` | Every browser or phone they use: `platform` (`web`, `ios`, `android`), `name` (like "Chrome on macOS"), `appVersion`, `installed`, `firstSeenAt`, `lastSeenAt`. |
+| `authEmailCodes`, `authRateLimits`, `aiUsage` | Sign-in code hashes, send limits, monthly AI use. |
+
+**Sync between devices**: every change is saved on the device first (it works offline), then
+sent to `users/{uid}/pages` through `/api/sync/push`; other devices fetch changes through
+`/api/sync/pull` when they open, every 30 seconds, and when you switch back to them. Edits
+made on two devices offline are merged. The web app and the phone app use the same engine
+(`packages/sync`). A page over about 900 KB stays on the device and Settings says so.
+
+**Not yet**: pictures and attached files stay on the device they were added on (Firebase
+Storage needs the paid Blaze plan), and share links (built on Supabase) are off.
 
 ### AI writing help (Anthropic)
 

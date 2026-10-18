@@ -1,11 +1,16 @@
-// Phone sync: the same SyncEngine as the web app, with the phone's own storage behind it.
+// Phone sync: the same SyncEngine as the web app, with the phone's own storage behind it. Pages go
+// to Firestore through the web app's server (EXPO_PUBLIC_API_URL), under the signed-in account.
 
 import { useSyncExternalStore } from "react";
-import { AppState } from "react-native";
-import { SyncEngine, type SyncHost, type SyncStatus, type SyncedCopy } from "@dovli/sync";
+import { AppState, Platform } from "react-native";
+import { onAuthStateChanged } from "firebase/auth";
+import { SyncEngine, httpTransport, type SyncHost, type SyncStatus, type SyncedCopy } from "@dovli/sync";
+import { apiUrl, firebaseAuth, firebaseConfigured } from "./firebase";
 import { kv } from "./kv";
 import { store } from "./store";
-import { cloudConfigured, supabase } from "./supabase";
+
+const DEVICE = "dovli.device.v1";
+const APP_VERSION = "0.1.0";
 
 const SYNCED = "dovli.synced.v1";
 const CURSOR = "dovli.cursor.v1";
@@ -35,14 +40,14 @@ const host: SyncHost = {
   markFileUploaded: async () => {},
 };
 
-let status: SyncStatus = { state: cloudConfigured ? "signed-out" : "local-only", pending: 0, lastSyncedAt: null };
+let status: SyncStatus = { state: firebaseConfigured ? "signed-out" : "local-only", pending: 0, lastSyncedAt: null };
 const listeners = new Set<() => void>();
 let engine: SyncEngine | null = null;
 
 export function startSync() {
-  if (!cloudConfigured || engine) return;
-  const sb = supabase()!;
-  engine = new SyncEngine({ supabase: sb, host });
+  if (!firebaseConfigured || engine) return;
+  const token = async () => (await firebaseAuth()?.currentUser?.getIdToken()) ?? null;
+  engine = new SyncEngine({ transport: httpTransport({ baseUrl: apiUrl, getToken: token }), host });
   engine.subscribe((s) => {
     status = s;
     listeners.forEach((l) => l());
@@ -52,7 +57,11 @@ export function startSync() {
 
   const onSession = async (userId: string | null) => {
     if (!userId) return engine!.stop();
-    if (kv.get<string | null>(OWNER, null) !== userId) {
+    void checkIn(token);
+    const owner = kv.get<string | null>(OWNER, null);
+    if (owner !== userId) {
+      // Someone else used this phone before: their pages stay in their account, not this one.
+      if (owner) store.resetForAccount();
       synced = {};
       saveSynced();
       kv.set(CURSOR, 0);
@@ -66,8 +75,29 @@ export function startSync() {
       engine!.syncSoon(0);
     }
   };
-  void sb.auth.getSession().then(({ data }) => onSession(data.session?.user.id ?? null));
-  sb.auth.onAuthStateChange((_e, session) => void onSession(session?.user.id ?? null));
+  onAuthStateChanged(firebaseAuth()!, (u) => void onSession(u?.uid ?? null));
+}
+
+/** This phone in the account's record (users/{uid}/devices), once per app start. */
+async function checkIn(token: () => Promise<string | null>) {
+  try {
+    let deviceId = kv.get<string | null>(DEVICE, null);
+    if (!deviceId) {
+      deviceId = `${Platform.OS}-${Math.random().toString(36).slice(2, 12)}${Math.random().toString(36).slice(2, 8)}`;
+      kv.set(DEVICE, deviceId);
+    }
+    const t = await token();
+    if (!t) return;
+    const name = Platform.OS === "ios" ? "iPhone or iPad" : Platform.OS === "android" ? "Android phone" : "Phone";
+    const res = await fetch(`${apiUrl}/api/me/device`, {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${t}` },
+      body: JSON.stringify({ deviceId, platform: Platform.OS === "ios" ? "ios" : "android", name, appVersion: APP_VERSION, installed: true }),
+    });
+    await res.text();
+  } catch {
+    /* next time */
+  }
 }
 
 export function useSyncStatus(): SyncStatus {

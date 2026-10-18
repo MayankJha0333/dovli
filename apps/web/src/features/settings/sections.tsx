@@ -147,7 +147,7 @@ export function Account() {
       <OlderPages />
       <Group title="Sync between devices">
         <p className="m-0 rounded-lg bg-well p-4 text-sm text-ink-2">
-          Your pages are kept on this device, separate from anyone else who signs in here. Syncing them between your devices is the next step.
+          Your pages and boards are saved to your account and show up on every device you sign in on. Pictures and attached files stay on the device you added them on for now.
         </p>
       </Group>
     </div>
@@ -227,7 +227,7 @@ function OlderPages() {
 /* ------------------------------------------------------------------ */
 
 const STATE_TEXT: Record<string, string> = {
-  "local-only": "Saved on this device. Syncing between devices is coming soon.",
+  "local-only": "Saved on this device only.",
   "signed-out": "Saved on this device. Sign in to sync with your other devices.",
   offline: "You're offline. Changes are saved here and will sync when you're back.",
   syncing: "Syncing your changes…",

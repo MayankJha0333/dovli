@@ -162,7 +162,9 @@ export function initStore(): Promise<void> {
           pages = legacy ? Object.fromEntries(Object.values(legacy).map((p) => [p.id, pageWithBlockIds(p)])) : seedPages();
           await writePages(Object.values(pages), []);
           await setMeta("seeded", true);
-          changeHooks.forEach((h) => h(Object.keys(pages), []));
+          // With accounts, the first sync decides: an account that already has pages in the cloud
+          // gets those (replacing these samples), and a new one sends these up.
+          if (!perAccountStorage()) changeHooks.forEach((h) => h(Object.keys(pages), []));
         }
       } catch (err) {
         console.error("[dovli] could not open this device's storage", err);

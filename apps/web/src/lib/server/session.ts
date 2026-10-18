@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { SESSION_COOKIE, SESSION_DAYS } from "@/lib/authGate";
-import { adminAuth } from "./firebaseAdmin";
+import { adminAuth, signInMethodOf } from "./firebaseAdmin";
 
 // Firebase session cookies: made from a fresh sign-in, checked on the server before the app shows.
 
@@ -19,16 +19,20 @@ export class SessionError extends Error {
 }
 
 /** Swap a Firebase ID token from a sign-in that just happened for a session cookie. */
-export async function createSession(idToken: unknown): Promise<{ cookie: string; maxAge: number }> {
+export async function createSession(idToken: unknown): Promise<{ cookie: string; maxAge: number; uid: string; signInMethod?: string }> {
   const auth = adminAuth();
   if (!auth)
     throw new SessionError("not_configured", "Sign-in isn't finished on this server yet: it needs the Firebase service account (FIREBASE_SERVICE_ACCOUNT).", 503);
   if (typeof idToken !== "string" || idToken.length < 20 || idToken.length > 6000) throw new SessionError("invalid", "That sign-in didn't work. Please try again.", 400);
   let authTime: number;
+  let uid: string;
+  let signInMethod: string | undefined;
   try {
     // checkRevoked also refuses turned-off accounts.
     const t = await auth.verifyIdToken(idToken, true);
     authTime = t.auth_time;
+    uid = t.uid;
+    signInMethod = signInMethodOf(t.firebase?.sign_in_provider, t.signInMethod);
   } catch (e) {
     const code = (e as { code?: string })?.code;
     if (code === "auth/user-disabled") throw new SessionError("disabled", "This account has been turned off. Contact support if that's a mistake.", 403);
@@ -38,7 +42,7 @@ export async function createSession(idToken: unknown): Promise<{ cookie: string;
   if (Date.now() / 1000 - authTime > RECENT_SIGN_IN_SECONDS) throw new SessionError("stale", "Please sign in again to continue.", 401);
   const maxAge = SESSION_DAYS * 24 * 60 * 60;
   const cookie = await auth.createSessionCookie(idToken, { expiresIn: maxAge * 1000 });
-  return { cookie, maxAge };
+  return { cookie, maxAge, uid, signInMethod };
 }
 
 export interface SessionUser {
@@ -63,4 +67,23 @@ export async function sessionUser(): Promise<SessionUser | null> {
 export function sessionCookieOptions(req: Request, maxAge: number) {
   const https = new URL(req.url).protocol === "https:" || req.headers.get("x-forwarded-proto") === "https";
   return { httpOnly: true, secure: https, sameSite: "lax" as const, path: "/", maxAge };
+}
+
+/** Write the person's record in Firestore after a sign-in (details from Firebase Authentication). */
+export async function recordSignIn(uid: string, signInMethod?: string) {
+  const auth = adminAuth();
+  if (!auth) return;
+  const u = await auth.getUser(uid);
+  const methods = u.providerData.map((p) => signInMethodOf(p.providerId)).filter((m): m is string => !!m && m !== "password");
+  if (signInMethod) methods.push(signInMethod);
+  const { cloudStore } = await import("./cloud");
+  await cloudStore().upsertUser({
+    uid,
+    email: u.email ?? null,
+    name: u.displayName ?? u.providerData.find((p) => p.displayName)?.displayName ?? null,
+    photoURL: u.photoURL ?? u.providerData.find((p) => p.photoURL)?.photoURL ?? null,
+    signInMethods: methods,
+    createdAt: u.metadata.creationTime ? new Date(u.metadata.creationTime) : null,
+    signedIn: true,
+  });
 }

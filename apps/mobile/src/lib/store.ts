@@ -117,6 +117,14 @@ export const store = {
     delete outbox[id];
     persist();
   },
+  /**
+   * A different account signed in on this phone: start from the sample pages, so the previous
+   * account's pages (already in its cloud copy) don't end up in this one.
+   */
+  resetForAccount() {
+    outbox = {};
+    commit(Object.fromEntries(Object.values(seedPages()).map((p) => [p.id, pageWithBlockIds(p)])), [], { local: false });
+  },
   queueAll() {
     for (const id of Object.keys(pages)) outbox[id] = { id };
     persist();

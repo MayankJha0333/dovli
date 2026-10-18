@@ -62,10 +62,46 @@ export interface SyncStatus {
   error?: string;
 }
 
-/** Row shape of the `pages` table (see supabase/migrations). */
+/** One page as the cloud sends it: its latest copy (or null when deleted for good) and revision. */
 export interface PageRow {
   id: string;
   data: Page | null;
   rev: number;
   purged: boolean;
 }
+
+/** Send one page: `baseRev` is the cloud revision this copy was based on (null for a new page). */
+export interface PushRequest {
+  id: string;
+  data: Page | null;
+  baseRev: number | null;
+  purged: boolean;
+}
+
+/**
+ * The cloud's answer. ok: saved as revision `rev`. Not ok: someone changed it first, and `data` /
+ * `purged` / `rev` are the cloud's copy to merge with. tooBig: the page is over the size limit.
+ */
+export interface PushResult {
+  ok: boolean;
+  rev: number;
+  data?: Page | null;
+  purged?: boolean;
+  tooBig?: boolean;
+}
+
+/** Where pages go: Dovli's own server (Firestore) or Supabase. The engine only talks to this. */
+export interface SyncTransport {
+  /** Pages changed after revision `cursor`, oldest first, at most `limit`. */
+  pull(cursor: number, limit: number): Promise<PageRow[]>;
+  push(change: PushRequest): Promise<PushResult>;
+  /** Optional: file uploads. Without them, files stay on the device they were added on. */
+  uploadFile?(userId: string, file: PendingFile): Promise<void>;
+  downloadFile?(userId: string, id: string): Promise<Blob | null>;
+  fileUrl?(userId: string, id: string): Promise<string | null>;
+  /** Optional: call back when the cloud changes, for faster updates. Returns a stop function. */
+  watch?(userId: string, onChange: () => void): () => void;
+}
+
+/** Pages bigger than this (as JSON text) are kept on the device but not sent: about 900 KB. */
+export const MAX_PAGE_CHARS = 900_000;

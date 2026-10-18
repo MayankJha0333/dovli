@@ -1,14 +1,21 @@
 // Connects the store to the cloud. Every local change is noted in the "outbox" (IndexedDB);
 // the shared SyncEngine (@dovli/sync) sends it, pulls other devices' changes and merges conflicts.
+// With Firebase set up, pages go to Firestore through Dovli's own server (/api/sync/*), under the
+// signed-in person's record (users/{uid}/pages). See lib/server/cloudCore.ts.
 
 import { useSyncExternalStore } from "react";
-import { SyncEngine, type SyncHost, type SyncStatus } from "@dovli/sync";
+import { SyncEngine, httpTransport, supabaseTransport, type SyncHost, type SyncStatus } from "@dovli/sync";
 import type { Page } from "@dovli/core";
 import { db, getMeta, setMeta } from "./db";
 import { filesToUpload, markUploaded, setRemoteFileSource } from "./files";
 import { onLocalChange, store } from "./store";
 import { auth } from "./auth";
+import { authGateOn } from "./authGate";
+import { checkInDevice } from "./device";
 import { cloudConfigured, supabase } from "./supabase";
+
+/** Pages sync when accounts are on (Firebase), or with the older Supabase setup. */
+export const syncOn = authGateOn || cloudConfigured;
 
 const CURSOR_KEY = "sync.cursor";
 const OWNER_KEY = "sync.owner";
@@ -34,14 +41,14 @@ const host: SyncHost = {
 };
 
 const localOnly: SyncStatus = { state: "local-only", pending: 0, lastSyncedAt: null };
-let status: SyncStatus = cloudConfigured ? { state: "signed-out", pending: 0, lastSyncedAt: null } : localOnly;
+let status: SyncStatus = syncOn ? { state: "signed-out", pending: 0, lastSyncedAt: null } : localOnly;
 const listeners = new Set<() => void>();
 
 let engine: SyncEngine | null = null;
 
 /** Note local changes in the outbox, so they are sent once online and signed in. */
 onLocalChange(async (ids, purged) => {
-  if (!cloudConfigured) return;
+  if (!syncOn) return;
   const d = await db();
   const tx = d.transaction("outbox", "readwrite");
   for (const id of ids) await tx.store.put({ id, base: null, baseRev: null });
@@ -70,9 +77,9 @@ async function prepareFor(userId: string) {
 }
 
 export function startSync() {
-  if (!cloudConfigured || engine) return;
+  if (!syncOn || engine) return;
   engine = new SyncEngine({
-    supabase: supabase()!,
+    transport: authGateOn ? httpTransport({ getToken: () => auth.accessToken() }) : supabaseTransport(supabase()!),
     host,
     onOnline: (cb) => {
       window.addEventListener("online", cb);
@@ -83,8 +90,10 @@ export function startSync() {
     status = s;
     listeners.forEach((l) => l());
   });
-  setRemoteFileSource((id) => engine!.downloadFile(id), () => engine?.notifyLocalChange());
+  if (engine.syncsFiles) setRemoteFileSource((id) => engine!.downloadFile(id), () => engine?.notifyLocalChange());
+  // Check for changes from other devices whenever Dovli comes back into view (plus every 30 s).
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && engine?.syncSoon(0));
+  window.addEventListener("focus", () => engine?.syncSoon(0));
 
   let current: string | null = null;
   const onAuth = async () => {
@@ -93,6 +102,7 @@ export function startSync() {
     if (uid === current) return;
     current = uid;
     if (!uid) return engine!.stop();
+    if (authGateOn) void checkInDevice();
     await prepareFor(uid);
     const first = (await getMeta<number>(CURSOR_KEY)) === 0;
     engine!.start(uid);

@@ -1,6 +1,7 @@
-import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { mergePage, type Page } from "@dovli/core";
-import type { PageRow, SyncHost, SyncStatus } from "./types";
+import { supabaseTransport } from "./supabase";
+import { MAX_PAGE_CHARS, type SyncHost, type SyncStatus, type SyncTransport } from "./types";
 
 // Keeps this device and the cloud in step.
 //
@@ -9,8 +10,9 @@ import type { PageRow, SyncHost, SyncStatus } from "./types";
 //   changed it in the meantime, the cloud says no, we merge the two versions (mergePage) and try again.
 // - pull(): fetches every page changed in the cloud since the last pull. Pages not edited here are
 //   replaced; pages edited here too are merged.
-// - It runs on start, when the device comes back online, when the cloud reports a change (realtime),
-//   a moment after each local edit, and every 30 seconds as a safety net.
+// - It runs on start, when the device comes back online, when the cloud reports a change (if the
+//   transport can tell), a moment after each local edit, and every 30 seconds as a safety net.
+// - Where pages go is the transport's business: Dovli's server (Firestore) or Supabase.
 
 const PULL_PAGE = 500;
 const SAFETY_INTERVAL = 30_000;
@@ -19,7 +21,9 @@ const PUSH_DELAY = 1_200;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 export interface SyncEngineOptions {
-  supabase: SupabaseClient;
+  /** Where pages go. (Or pass `supabase` for the older Supabase setup.) */
+  transport?: SyncTransport;
+  supabase?: SupabaseClient;
   host: SyncHost;
   /** Is the network up? Defaults to navigator.onLine where it exists. */
   isOnline?: () => boolean;
@@ -29,24 +33,26 @@ export interface SyncEngineOptions {
 }
 
 export class SyncEngine {
-  private supabase: SupabaseClient;
+  private transport: SyncTransport;
   private host: SyncHost;
   private isOnline: () => boolean;
-  private bucket: string;
+  /** Pages over the size limit, found in the last round: kept here, not sent. */
+  private tooBig = new Set<string>();
   private userId: string | null = null;
   private running = false;
   private again = false;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private interval: ReturnType<typeof setInterval> | undefined;
-  private channel: RealtimeChannel | null = null;
+  private unwatch: (() => void) | null = null;
   private offOnline: (() => void) | null = null;
   private listeners = new Set<(s: SyncStatus) => void>();
   status: SyncStatus = { state: "signed-out", pending: 0, lastSyncedAt: null };
 
   constructor(opts: SyncEngineOptions) {
-    this.supabase = opts.supabase;
+    const transport = opts.transport ?? (opts.supabase ? supabaseTransport(opts.supabase, opts.bucket) : null);
+    if (!transport) throw new Error("SyncEngine needs a transport");
+    this.transport = transport;
     this.host = opts.host;
-    this.bucket = opts.bucket ?? "files";
     this.isOnline = opts.isOnline ?? (() => (typeof navigator === "undefined" ? true : navigator.onLine !== false));
     this.offOnline = opts.onOnline?.(() => this.syncSoon(0)) ?? null;
   }
@@ -69,10 +75,7 @@ export class SyncEngine {
     if (this.userId === userId) return;
     this.stop();
     this.userId = userId;
-    this.channel = this.supabase
-      .channel(`pages:${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "pages", filter: `user_id=eq.${userId}` }, () => this.syncSoon(300))
-      .subscribe();
+    this.unwatch = this.transport.watch?.(userId, () => this.syncSoon(300)) ?? null;
     this.interval = setInterval(() => this.syncSoon(0), SAFETY_INTERVAL);
     this.syncSoon(0);
   }
@@ -81,8 +84,8 @@ export class SyncEngine {
     this.userId = null;
     clearTimeout(this.timer);
     clearInterval(this.interval);
-    if (this.channel) void this.supabase.removeChannel(this.channel);
-    this.channel = null;
+    this.unwatch?.();
+    this.unwatch = null;
     this.setStatus({ state: "signed-out", error: undefined });
   }
 
@@ -116,6 +119,7 @@ export class SyncEngine {
     }
     this.running = true;
     this.setStatus({ state: "syncing", error: undefined });
+    this.tooBig.clear();
     try {
       let rounds = 0;
       do {
@@ -125,8 +129,17 @@ export class SyncEngine {
         await this.uploadFiles();
       } while (this.again && ++rounds < 5);
       const pending = (await this.host.pending()).length;
-      this.setStatus({ state: pending ? "syncing" : "synced", pending, lastSyncedAt: Date.now() });
-      if (pending) this.syncSoon(PUSH_DELAY);
+      const waiting = pending - this.tooBig.size;
+      if (this.tooBig.size) {
+        const n = this.tooBig.size;
+        this.setStatus({
+          state: "error",
+          pending,
+          lastSyncedAt: Date.now(),
+          error: `${n} ${n === 1 ? "page is" : "pages are"} too big to back up (over 900 KB). ${n === 1 ? "It's" : "They're"} still saved on this device.`,
+        });
+      } else this.setStatus({ state: pending ? "syncing" : "synced", pending, lastSyncedAt: Date.now() });
+      if (waiting > 0) this.syncSoon(PUSH_DELAY);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       const offline = !this.isOnline() || /fetch|network|Failed to fetch|NetworkError/i.test(message);
@@ -140,14 +153,7 @@ export class SyncEngine {
   private async pull() {
     let cursor = await this.host.getCursor();
     for (;;) {
-      const { data, error } = await this.supabase
-        .from("pages")
-        .select("id,data,rev,purged")
-        .gt("rev", cursor)
-        .order("rev", { ascending: true })
-        .limit(PULL_PAGE);
-      if (error) throw new Error(error.message);
-      const rows = (data ?? []) as PageRow[];
+      const rows = await this.transport.pull(cursor, PULL_PAGE);
       if (!rows.length) break;
       const pending = new Map((await this.host.pending()).map((p) => [p.id, p]));
       const apply: Page[] = [];
@@ -186,14 +192,15 @@ export class SyncEngine {
         await this.host.clearPending(change.id, null);
         continue;
       }
-      const { data, error } = await this.supabase.rpc("push_page", {
-        p_id: change.id,
-        p_data: change.purge ? null : local,
-        p_base_rev: synced?.rev ?? null,
-        p_purged: !!change.purge,
-      });
-      if (error) throw new Error(error.message);
-      const res = data as { ok: boolean; rev: number; data?: Page | null; purged?: boolean };
+      if (!change.purge && local && JSON.stringify(local).length > MAX_PAGE_CHARS) {
+        this.tooBig.add(change.id);
+        continue;
+      }
+      const res = await this.transport.push({ id: change.id, data: change.purge ? null : (local ?? null), baseRev: synced?.rev ?? null, purged: !!change.purge });
+      if (res.tooBig) {
+        this.tooBig.add(change.id);
+        continue;
+      }
       if (res.ok) {
         if (change.purge || !local) await this.host.removeSynced(change.id);
         else await this.host.setSynced({ id: change.id, rev: res.rev, page: local });
@@ -216,26 +223,26 @@ export class SyncEngine {
   }
 
   private async uploadFiles() {
-    if (!this.userId) return;
+    if (!this.userId || !this.transport.uploadFile) return;
     for (const f of await this.host.pendingFiles()) {
-      const { error } = await this.supabase.storage
-        .from(this.bucket)
-        .upload(`${this.userId}/${f.id}`, f.blob, { upsert: true, contentType: f.type || "application/octet-stream" });
-      if (error && !/exists/i.test(error.message)) throw new Error(error.message);
+      await this.transport.uploadFile(this.userId, f);
       await this.host.markFileUploaded(f.id);
     }
   }
 
+  /** Whether files (pictures, attachments) travel with the pages. */
+  get syncsFiles() {
+    return Boolean(this.transport.uploadFile);
+  }
+
   /** A short-lived link to a file in the cloud, for devices that do not have it yet. */
   async fileUrl(id: string): Promise<string | null> {
-    if (!this.userId) return null;
-    const { data } = await this.supabase.storage.from(this.bucket).createSignedUrl(`${this.userId}/${id}`, 60 * 60);
-    return data?.signedUrl ?? null;
+    if (!this.userId || !this.transport.fileUrl) return null;
+    return this.transport.fileUrl(this.userId, id);
   }
 
   async downloadFile(id: string): Promise<Blob | null> {
-    if (!this.userId) return null;
-    const { data } = await this.supabase.storage.from(this.bucket).download(`${this.userId}/${id}`);
-    return data ?? null;
+    if (!this.userId || !this.transport.downloadFile) return null;
+    return this.transport.downloadFile(this.userId, id);
   }
 }

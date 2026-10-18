@@ -58,14 +58,30 @@ export function adminDb(): Firestore | null {
  * The signed-in person behind a request's "Authorization: Bearer <Firebase ID token>", or null.
  * `checkRevoked` also refuses tokens of signed-out-everywhere or disabled accounts (one extra lookup).
  */
-export async function userFromRequest(req: Request, checkRevoked = false): Promise<{ id: string; email?: string } | null> {
+export async function userFromRequest(req: Request, checkRevoked = false): Promise<RequestUser | null> {
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   const auth = adminAuth();
   if (!token || !auth) return null;
   try {
     const t = await auth.verifyIdToken(token, checkRevoked);
-    return { id: t.uid, email: t.email };
+    return { id: t.uid, email: t.email, name: t.name as string | undefined, picture: t.picture, signInMethod: signInMethodOf(t.firebase?.sign_in_provider, t.signInMethod) };
   } catch {
     return null;
   }
+}
+
+export interface RequestUser {
+  id: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  /** "google" or "email-code", from how this token was made. */
+  signInMethod?: string;
+}
+
+/** Firebase's provider names, in Dovli's words. Email-code sign-ins use a custom token. */
+export function signInMethodOf(provider?: string, claim?: unknown): string | undefined {
+  if (provider === "google.com") return "google";
+  if (provider === "custom") return claim === "email-code" ? "email-code" : "custom";
+  return provider;
 }

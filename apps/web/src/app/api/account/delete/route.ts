@@ -1,7 +1,8 @@
-// Deletes a signed-in person's account: their Firebase sign-in, their AI usage records and any
-// sign-in codes kept for their email. Only the server may remove an account.
+// Deletes a signed-in person's account: their record, pages and devices in Firestore, their AI
+// usage records, any sign-in codes kept for their email, and their Firebase sign-in.
 
 import { NextResponse } from "next/server";
+import { cloudStore } from "@/lib/server/cloud";
 import { forgetEmail } from "@/lib/server/emailCode";
 import { adminAuth, adminDb, userFromRequest } from "@/lib/server/firebaseAdmin";
 
@@ -26,6 +27,12 @@ export async function POST(req: Request) {
     }
   }
   if (user.email) await forgetEmail(user.email);
+  try {
+    await cloudStore().deleteUser(user.id);
+  } catch (e) {
+    console.error("[dovli] Couldn't remove the user's pages while deleting an account:", e);
+    return NextResponse.json({ error: "Couldn't delete your saved pages. Please try again." }, { status: 500 });
+  }
 
   try {
     await auth.deleteUser(user.id);

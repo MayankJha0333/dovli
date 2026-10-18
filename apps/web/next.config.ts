@@ -34,7 +34,11 @@ function serveExcalidrawWorker(): string {
 }
 
 const nextConfig: NextConfig = {
-  env: { NEXT_PUBLIC_EXCALIDRAW_WORKER: serveExcalidrawWorker() },
+  env: {
+    NEXT_PUBLIC_EXCALIDRAW_WORKER: serveExcalidrawWorker(),
+    // Shown in each device's record (users/{uid}/devices), to know which version people run.
+    NEXT_PUBLIC_APP_VERSION: JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version,
+  },
   // Our shared packages ship TypeScript source, so Next compiles them like app code.
   transpilePackages: ["@dovli/core", "@dovli/theme", "@dovli/ui", "@dovli/editor", "@dovli/sync"],
   poweredByHeader: false,

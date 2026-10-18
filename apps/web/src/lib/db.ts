@@ -134,12 +134,14 @@ export async function moveUnownedIntoAccount(): Promise<number> {
   try {
     const [pages, files, backups] = await Promise.all([from.getAll("pages"), from.getAll("files"), from.getAll("backups")]);
     const to = await db();
-    const tx = to.transaction(["pages", "files", "backups"], "readwrite");
+    const tx = to.transaction(["pages", "files", "backups", "outbox"], "readwrite");
     const writes: Promise<unknown>[] = [];
     for (const p of pages) {
       writes.push(
         tx.objectStore("pages").get(p.id).then((mine) => {
-          if (!mine || (p.updatedAt ?? 0) > (mine.updatedAt ?? 0)) return tx.objectStore("pages").put(p);
+          if (mine && (p.updatedAt ?? 0) <= (mine.updatedAt ?? 0)) return;
+          // Also note it for sync, so it goes up to the account's cloud copy.
+          return Promise.all([tx.objectStore("pages").put(p), tx.objectStore("outbox").put({ id: p.id, base: null, baseRev: null })]);
         }),
       );
     }

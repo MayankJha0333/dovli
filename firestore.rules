@@ -1,10 +1,15 @@
 rules_version = '2';
 
-// Dovli's Firestore. Today only the server uses it (Admin SDK, which skips these rules):
-//   authEmailCodes/*  sign-in code hashes, tries and send history
-//   authRateLimits/*  per-network send counts
-//   aiUsage/*         each account's monthly AI use
-// The app itself may read and write nothing yet. Page sync will add rules for users/{uid}/...
+// Dovli's Firestore. Only Dovli's server uses it (Admin SDK, which skips these rules), so every
+// read and write is checked there first (lib/server/cloudCore.ts):
+//   users/{uid}                     each person: email, name, photo, sign-in methods, plan,
+//                                   status, joined / last sign-in / last seen, page counts
+//   users/{uid}/pages/{pageId}      every page and board they made (details + content in `data`)
+//   users/{uid}/devices/{deviceId}  every browser or phone they use: platform, version, last seen
+//   authEmailCodes/*                sign-in code hashes, tries and send history
+//   authRateLimits/*                per-network send counts
+//   aiUsage/*                       each account's monthly AI use
+// Browsers and phones may read and write nothing directly.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
