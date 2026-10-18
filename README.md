@@ -119,9 +119,12 @@ Modelled on Craft's:
   with the one you're reading marked), To-dos (tick them from here), Attachments and Links.
   Opening a page from All pages, search or a link shows the page side; opening it from the
   page tree keeps the tree. The logic is in `features/sidebar/follow.ts`.
-- **Tabs** above the page: Home, one tab per open page, and + for a new page in a new tab.
-  ⌘/Ctrl-click or middle-click opens a page in a new tab; middle-click on a tab closes it.
-  Open tabs are kept on this device (`lib/tabs.ts`). Hidden on phones.
+- **Page header** (`features/page/PageHeader.tsx`, `PageIcon.tsx`): the cover is a banner
+  across the whole top of the page, under the floating top bar (which gets a background once
+  you scroll). The icon sits half over the cover's bottom edge. Emoji show on their own; marks
+  (¶ § ✦) sit in a soft tile. A page with only the default mark shows no icon: "Add icon" and
+  "Add cover" appear when you hover above the title. The icon picker has Emoji and Marks, a box
+  for any emoji you paste, and Remove icon.
 - **All pages** (Home): every page as a small picture of itself, shown as cards, a grid or a
   list, sorted by last edited, date created or title, with a filter box.
 - **Assistant** (bottom right of a page): summarise, the four reviews, or rewrite the selected

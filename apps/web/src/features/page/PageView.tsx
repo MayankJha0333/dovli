@@ -8,7 +8,7 @@ import { settings, useSettings } from "@/lib/settings";
 import { setActiveEditor, takeTitleFocus, ui, useUI } from "@/lib/ui";
 import { Crumb, CrumbSep, TopBar } from "@/components/TopBar";
 import { Backlinks, scrollToBlock } from "./PageInfo";
-import { Cover, CoverPicker, IconPicker, TitleField } from "./PageHeader";
+import { Cover, CoverPicker, IconPicker, PageIconGlyph, TitleField, hasOwnIcon } from "./PageHeader";
 import { PageToolbar } from "./panels/PageToolbar";
 
 export const PageEditor = lazy(() => import("@dovli/editor/page-editor"));
@@ -47,6 +47,8 @@ export function PageView({ id }: { id: string }) {
   }, []);
   const presenting = useUI((s) => s.presenting === id);
   const scroller = useRef<HTMLDivElement>(null);
+  // The top bar floats over the page. Once the page scrolls under it, it gets a background.
+  const [scrolled, setScrolled] = useState(false);
   const [findOpen, setFindOpen] = useState(false);
   const closeFind = useCallback(() => {
     setFindOpen(false);
@@ -138,7 +140,14 @@ export function PageView({ id }: { id: string }) {
           {actions}
         </TopBar>
         <div className="flex flex-none items-center gap-3 px-4 pb-3 pt-1 [border-bottom:1px_solid_var(--d-line)]">
-          <IconPicker page={page} size="sm" />
+          <IconPicker
+            page={page}
+            trigger={
+              <button type="button" aria-label="Change page icon" className="flex-none rounded-sm transition-transform hover:brightness-95 active:scale-[0.97]">
+                <PageIconGlyph mark={page.mark} size="sm" />
+              </button>
+            }
+          />
           <TitleField page={page} onEnter={() => (document.activeElement as HTMLElement)?.blur()} className="min-w-0 flex-1 text-2xl" />
           <span className="whitespace-nowrap text-sm text-ink-3 max-[640px]:hidden">Edited {timeAgo(page.updatedAt)}</span>
         </div>
@@ -150,16 +159,27 @@ export function PageView({ id }: { id: string }) {
 
   const meta = [`Edited ${timeAgo(page.updatedAt)}`, `${words} ${words === 1 ? "word" : "words"}`, ...(kids.length ? [`${kids.length} ${kids.length === 1 ? "page" : "pages"} inside`] : [])];
 
+  // A cover or a page style paints right up to the top edge, under the floating top bar.
+  const painted = !!page.cover || !!style;
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {!presenting && (
-        <TopBar crumbs={crumbs} bareActions showCrumbs={trail.length > 0}>
+        <TopBar
+          crumbs={crumbs}
+          bareActions
+          showCrumbs={trail.length > 0}
+          className={cn(
+            "absolute inset-x-0 top-0 transition-[background-color,box-shadow] duration-200",
+            scrolled ? "surface-panel shadow-[0_1px_0_var(--d-line)]" : painted && "[--d-chip-bg:var(--d-raised)]",
+          )}
+        >
           {actions}
         </TopBar>
       )}
       <div className="flex min-h-0 flex-1">
         <div
           ref={scroller}
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           data-print="scroll"
           className={cn(
             "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
@@ -169,40 +189,75 @@ export function PageView({ id }: { id: string }) {
           )}
           style={look?.vars as any}
         >
+          {/* Plain pages: the cover runs edge to edge across the page area. */}
+          {!style && page.cover && <Cover page={page} editable={!presenting} />}
           <article
             data-print="sheet"
             data-divider={look?.divider}
             className={cn(
-              "mx-auto w-full px-6 pb-[120px] pt-12 max-[640px]:px-4 max-[640px]:pt-8",
+              "mx-auto w-full px-6 pb-[120px] max-[640px]:px-4",
+              // Room for the floating top bar (56px), then the page's own top space.
+              page.cover && !style ? "pt-0" : "pt-[104px] max-[640px]:pt-[88px]",
               look?.wide ? "max-w-[1180px]" : "max-w-[820px]",
               style &&
                 cn(
-                  "page-styled my-14 w-[calc(100%-3rem)] rounded-sheet bg-[var(--s-paper)] px-6 pt-14 shadow-sheet animate-sheet-in max-[640px]:my-3.5 max-[640px]:w-[calc(100%-1.25rem)] max-[640px]:px-3.5 max-[640px]:pt-9",
+                  "page-styled mb-14 mt-[76px] w-[calc(100%-3rem)] rounded-sheet bg-[var(--s-paper)] px-6 shadow-sheet animate-sheet-in max-[640px]:mb-3.5 max-[640px]:mt-[62px] max-[640px]:w-[calc(100%-1.25rem)] max-[640px]:px-3.5",
+                  page.cover ? "pt-0" : "pt-14 max-[640px]:pt-9",
                   look?.wide ? "max-w-[1200px]" : "max-w-[860px]",
                 ),
             )}
           >
-            <Cover page={page} />
+            {/* Styled pages: the cover sits on the paper's top edge. */}
+            {style && page.cover && (
+              <div className="-mx-6 mb-0 max-[640px]:-mx-3.5">
+                <Cover page={page} variant="sheet" editable={!presenting} />
+              </div>
+            )}
             <header className="group/head relative mb-7 px-[54px] max-[640px]:px-0">
-              <div className="mb-3 flex items-end gap-2">
-                <IconPicker page={page} />
-                {!page.cover && !presenting && (
-                  <CoverPicker
+              {/* The icon: half over the cover when there is one. A page with only the default
+                  mark shows no icon here; "Add icon" appears on hover instead. */}
+              {hasOwnIcon(page) && (
+                <div className={cn("relative z-[1] flex", page.cover ? "-mt-[40px] mb-2 max-[640px]:-mt-[32px]" : "mb-3")}>
+                  <IconPicker
                     page={page}
                     trigger={
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        icon="image"
-                        className="mb-1 text-ink-3 opacity-0 focus-visible:opacity-100 group-hover/head:opacity-100 [@media(hover:none)]:opacity-100"
-                        data-print="hide"
-                      >
-                        Add cover
-                      </Button>
+                      <button type="button" aria-label="Change page icon" disabled={presenting} className="rounded-xl transition-transform hover:brightness-95 active:scale-[0.97] disabled:pointer-events-none">
+                        <PageIconGlyph mark={page.mark} onCover={!!page.cover} />
+                      </button>
                     }
                   />
-                )}
-              </div>
+                </div>
+              )}
+              {!presenting && (!hasOwnIcon(page) || !page.cover) && (
+                <div
+                  className={cn(
+                    "-ml-2 flex h-8 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/head:opacity-100 [@media(hover:none)]:opacity-100",
+                    page.cover && !hasOwnIcon(page) && "mt-3",
+                  )}
+                  data-print="hide"
+                >
+                  {!hasOwnIcon(page) && (
+                    <IconPicker
+                      page={page}
+                      trigger={
+                        <Button size="sm" variant="ghost" icon="sparkles" className="text-ink-3">
+                          Add icon
+                        </Button>
+                      }
+                    />
+                  )}
+                  {!page.cover && (
+                    <CoverPicker
+                      page={page}
+                      trigger={
+                        <Button size="sm" variant="ghost" icon="image" className="text-ink-3">
+                          Add cover
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
+              )}
               <TitleField page={page} readOnly={presenting} onEnter={() => focusEditorStart(editorRef.current)} />
               <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-ink-3" data-print="hide">
                 {meta.map((m, i) => (

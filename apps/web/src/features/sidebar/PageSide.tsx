@@ -9,7 +9,6 @@ import { store, useStore } from "@/lib/store";
 import { getActiveEditor } from "@/lib/ui";
 import { BoardSketch, DocPreview, sketchOf } from "@/features/home/cards";
 import { scrollToBlock } from "@/features/page/PageInfo";
-import { tabs, wantsNewTab } from "@/lib/tabs";
 
 type Tab = "contents" | "todos" | "files" | "links";
 const TABS: { id: Tab; icon: IconName; label: string }[] = [
@@ -169,7 +168,7 @@ function PageLinkRow({ page }: { page: Page }) {
   return (
     <button
       type="button"
-      onClick={(e) => (wantsNewTab(e) ? tabs.openInNewTab({ name: "page", id: page.id }) : store.navigate({ name: "page", id: page.id }))}
+      onClick={() => store.navigate({ name: "page", id: page.id })}
       className={itemRow}
     >
       <span className="w-4 flex-none text-center font-serif text-ink-3">{page.mark}</span>

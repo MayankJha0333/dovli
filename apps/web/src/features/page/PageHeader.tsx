@@ -1,59 +1,80 @@
 import { useEffect, useRef, useState } from "react";
 import type { Page } from "@dovli/core";
 import { COVER_PRESETS, coverPreset } from "@dovli/theme";
-import { Button, Icon, Input, PopoverContent, PopoverRoot, PopoverTrigger, cn, toast } from "@dovli/ui";
+import { Button, Input, PopoverContent, PopoverRoot, PopoverTrigger, Segmented, cn, toast } from "@dovli/ui";
 import { resolveFileUrl, saveFile } from "@/lib/files";
 import { store } from "@/lib/store";
+import { defaultMark, hasOwnIcon, isEmoji } from "./PageIcon";
 
-export const MARKS = ["¶", "§", "✦", "✳", "⁂", "❡", "◐", "☾", "◇", "△", "○", "☐", "⌘", "✎", "★", "☼", "⚑", "∞", "♪", "✿"];
+export { PageIconGlyph, defaultMark, hasOwnIcon, isEmoji } from "./PageIcon";
+
+export const MARKS = ["¶", "§", "✦", "✳", "⁂", "❡", "◐", "☾", "◇", "△", "○", "☐", "⌘", "✎", "★", "☼", "⚑", "∞", "♪", "✿", "❖", "✧", "◆", "⌂"];
 export const EMOJI = [
-  "📝", "📌", "📎", "📚", "📖", "🗂️", "🗓️", "✅", "💡", "🎯", "🚀", "⭐", "🔥", "🌱", "🌿", "🌸",
-  "🍀", "☕", "🍳", "🏠", "✈️", "🧭", "🗺️", "🏝️", "💼", "📈", "💰", "🧾", "🛒", "🎁", "🎨", "🎵",
-  "🎬", "📷", "💻", "🧪", "🔬", "🧠", "❤️", "😊", "🙌", "👋", "🤝", "🏃", "🧘", "🏋️", "🐶", "🐱",
+  "📝", "📌", "📎", "📚", "📖", "🗂️", "🗓️", "✅", "💡", "🎯", "🚀", "⭐", "🔥", "✨", "🌱", "🌿",
+  "🌸", "🍀", "🌊", "☀️", "🌙", "☕", "🍳", "🍕", "🏠", "✈️", "🧭", "🗺️", "🏝️", "⛰️", "💼", "📈",
+  "📊", "💰", "🧾", "🛒", "🎁", "🎨", "🎵", "🎬", "📷", "🎮", "💻", "📱", "🧪", "🔬", "🧠", "🩺",
+  "❤️", "😊", "🙌", "👋", "🤝", "🎉", "🏃", "🧘", "🏋️", "⚽", "🐶", "🐱", "🦊", "🐝", "🔒", "🔑",
 ];
 
 /* ------------------------------------------------------------------ */
 /* Icon                                                                */
 /* ------------------------------------------------------------------ */
 
-export function IconPicker({ page, size = "lg" }: { page: Page; size?: "lg" | "sm" }) {
+/** The icon picker: emoji or marks, any emoji you paste, or no icon. */
+export function IconPicker({ page, trigger }: { page: Page; trigger: React.ReactElement }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"emoji" | "marks">(isEmoji(page.mark) || !hasOwnIcon(page) ? "emoji" : "marks");
+  const [typed, setTyped] = useState("");
   const pick = (m: string) => {
     store.updatePage(page.id, { mark: m });
     setOpen(false);
+    setTyped("");
   };
-  const cell = "grid size-9 place-items-center rounded-sm text-lg hover:bg-hover aria-selected:bg-active aria-selected:text-active-ink";
+  const cell = "grid size-9 place-items-center rounded-sm text-[22px] leading-none transition-colors hover:bg-hover aria-selected:bg-active";
+  const list = tab === "emoji" ? EMOJI : MARKS;
   return (
     <PopoverRoot open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Change page icon"
-          className={cn(
-            "grid place-items-center bg-accent-soft font-serif text-accent transition-transform hover:brightness-95 active:scale-[0.97]",
-            size === "lg" ? "mb-4 size-[60px] rounded-lg text-[30px] max-[640px]:size-[52px] max-[640px]:text-[26px]" : "size-9 rounded-sm text-lg",
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent className="w-[340px] p-2.5" align="start">
+        <div className="mb-2 flex items-center gap-2">
+          <Segmented
+            label="Icon kind"
+            value={tab}
+            onValueChange={setTab}
+            options={[
+              { value: "emoji", label: "Emoji" },
+              { value: "marks", label: "Marks" },
+            ]}
+          />
+          {hasOwnIcon(page) && (
+            <Button size="sm" variant="ghost" icon="trash" className="ml-auto text-ink-3" onClick={() => pick(defaultMark(page.kind))}>
+              Remove icon
+            </Button>
           )}
-        >
-          {page.mark}
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[332px] p-2.5">
-        <p className="label-text m-0 px-1 pb-1.5">Marks</p>
-        <div role="listbox" aria-label="Marks" className="grid grid-cols-8 gap-0.5">
-          {MARKS.map((m) => (
-            <button key={m} type="button" role="option" aria-selected={m === page.mark} className={cn(cell, "font-serif")} onClick={() => pick(m)}>
+        </div>
+        <div role="listbox" aria-label={tab === "emoji" ? "Emoji" : "Marks"} className="grid max-h-[232px] grid-cols-8 gap-0.5 overflow-y-auto">
+          {list.map((m) => (
+            <button key={m} type="button" role="option" aria-selected={m === page.mark} aria-label={m} className={cn(cell, tab === "marks" && "font-serif text-lg text-accent")} onClick={() => pick(m)}>
               {m}
             </button>
           ))}
         </div>
-        <p className="label-text m-0 px-1 pb-1.5 pt-3">Emoji</p>
-        <div role="listbox" aria-label="Emoji" className="grid max-h-40 grid-cols-8 gap-0.5 overflow-y-auto">
-          {EMOJI.map((m) => (
-            <button key={m} type="button" role="option" aria-selected={m === page.mark} className={cell} onClick={() => pick(m)}>
-              {m}
-            </button>
-          ))}
-        </div>
+        {tab === "emoji" && (
+          <form
+            className="mt-2.5 flex gap-1.5 border-t border-line pt-2.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const first = [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(typed.trim())][0]?.segment ?? "";
+              if (first && isEmoji(first)) pick(first);
+              else toast("Paste or type one emoji, like 🪴", { tone: "danger" });
+            }}
+          >
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder="Or paste any emoji" aria-label="Any emoji" className="h-9" />
+            <Button type="submit" size="sm" variant="secondary" className="h-9">
+              Use
+            </Button>
+          </form>
+        )}
       </PopoverContent>
     </PopoverRoot>
   );
@@ -145,16 +166,32 @@ export function CoverPicker({ page, trigger }: { page: Page; trigger: React.Reac
   );
 }
 
-export function Cover({ page }: { page: Page }) {
+/**
+ * The cover: a full-width banner along the top of the page. "full" spans the whole page area;
+ * "sheet" sits on the top edge of a styled page's paper. Hover (or tap) shows Change and Remove.
+ */
+export function Cover({ page, variant = "full", editable = true }: { page: Page; variant?: "full" | "sheet"; editable?: boolean }) {
   const preset = coverPreset(page.cover);
   const src = useCoverSrc(page.cover);
   if (!page.cover) return null;
   return (
-    <div className="group/cover relative mb-6 h-[200px] overflow-hidden rounded-xl max-[640px]:h-[140px]" style={preset ? { background: preset.css } : undefined}>
+    <div
+      data-print="cover"
+      className={cn(
+        "group/cover relative w-full flex-none overflow-hidden bg-well",
+        variant === "full" ? "h-[clamp(150px,26vh,260px)]" : "h-[clamp(140px,24vh,240px)] rounded-t-sheet",
+      )}
+      style={preset ? { background: preset.css } : undefined}
+    >
       {src && <img src={src} alt="" className="size-full object-cover" />}
-      <div className="absolute bottom-3 right-3 flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/cover:opacity-100 [@media(hover:none)]:opacity-100" data-print="hide">
-        <CoverPicker page={page} trigger={<Button size="sm" className="surface-raised">Change cover</Button>} />
-      </div>
+      {editable && (
+        <div className="absolute bottom-3 right-3 flex gap-1.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover/cover:opacity-100 [@media(hover:none)]:opacity-100" data-print="hide">
+          <CoverPicker page={page} trigger={<Button size="sm" className="surface-raised">Change cover</Button>} />
+          <Button size="sm" className="surface-raised" onClick={() => store.updatePage(page.id, { cover: null })}>
+            Remove cover
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -171,10 +208,22 @@ export function TitleField({ page, onEnter, className, readOnly }: { page: Page;
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   };
-  useEffect(resize, [page.title, page.id]);
+  useEffect(resize, [page.title, page.id, page.style, page.look?.font]);
+  // Grow or shrink with the text whenever the box's width changes (window size, wide page,
+  // sidebar shown or hidden) or the page's font finishes loading.
   useEffect(() => {
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
+    const el = ref.current;
+    if (!el) return;
+    let width = el.clientWidth;
+    const watch = new ResizeObserver(() => {
+      if (el.clientWidth !== width) {
+        width = el.clientWidth;
+        resize();
+      }
+    });
+    watch.observe(el);
+    void document.fonts?.ready.then(resize);
+    return () => watch.disconnect();
   }, []);
   return (
     <textarea

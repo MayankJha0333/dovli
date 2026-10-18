@@ -41,7 +41,7 @@
 .dovli-editor .bn-editor:focus,
 .dovli-editor .bn-editor:focus-visible,
 .dovli-editor [contenteditable]:focus-visible { outline: none; }
-.dovli-editor .bn-block-outer { margin-block: 1px; }
+.dovli-editor .bn-block-outer { margin-block: 1px; scroll-margin-top: 76px; } /* clear of the floating top bar */
 .dovli-editor .bn-inline-content { word-break: break-word; }
 .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--d-font-display); font-weight: var(--d-display-weight); letter-spacing: -0.02em; line-height: 1.25; }
 .page-styled .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--title-font, var(--d-font-display)); font-style: var(--title-style, normal); }

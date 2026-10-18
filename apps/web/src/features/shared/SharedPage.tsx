@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import "@/lib/excalidraw";
 import { connectEditor } from "@dovli/editor";
+import { PageIconGlyph, hasOwnIcon } from "@/features/page/PageIcon";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
-import { resolveLook } from "@dovli/theme";
+import { coverPreset, resolveLook } from "@dovli/theme";
 import { Button, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
 import { applySettings } from "@/lib/settings";
 import { supabase } from "@/lib/supabase";
@@ -116,6 +117,8 @@ export default function SharedPage({ shareId }: { shareId: string }) {
   const page = current ?? state.page;
   const look = resolveLook(page.style, page.look);
   const style = look.style;
+  // Uploaded cover pictures live on the owner's device; gradients and web pictures show here.
+  const cover = !!page.cover && !page.cover.startsWith("file:");
   return (
     <TooltipProvider>
       <div className={cn("min-h-dvh", style && "[background:var(--s-backdrop)]")} style={look.vars as any}>
@@ -133,10 +136,28 @@ export default function SharedPage({ shareId }: { shareId: string }) {
         <article
           data-print="sheet"
           data-divider={look.divider}
-          className={cn("mx-auto w-full px-6 pb-[120px] pt-10 max-[640px]:px-4", look.wide ? "max-w-[1200px]" : "max-w-[860px]", style && "page-styled my-10 rounded-sheet bg-[var(--s-paper)] py-14 shadow-sheet max-[640px]:mx-2.5")}
+          className={cn(
+            "mx-auto w-full px-6 pb-[120px] max-[640px]:px-4",
+            cover ? "pt-0" : "pt-10",
+            look.wide ? "max-w-[1200px]" : "max-w-[860px]",
+            style && cn("page-styled my-10 rounded-sheet bg-[var(--s-paper)] pb-14 shadow-sheet max-[640px]:mx-2.5", !cover && "pt-14"),
+          )}
         >
+          {cover && (
+            <div className={cn("-mx-6 max-[640px]:-mx-4", !style && "mt-6 overflow-hidden rounded-xl")}>
+              <div
+                className={cn("h-[clamp(140px,24vh,240px)] bg-well bg-cover bg-center", style && "rounded-t-sheet")}
+                style={{ background: coverPreset(page.cover)?.css ?? `center / cover no-repeat url(${JSON.stringify(page.cover)})` }}
+              />
+            </div>
+          )}
           <header className="mb-6 px-[54px] max-[640px]:px-0">
-            <div className="mb-4 grid size-[60px] place-items-center rounded-lg bg-accent-soft font-serif text-[30px] text-accent">{page.mark}</div>
+            {hasOwnIcon(page) && (
+              <div className={cn("relative z-[1] mb-3 flex", cover ? "-mt-[40px]" : "")}>
+                <PageIconGlyph mark={page.mark} onCover={cover} />
+              </div>
+            )}
+            {cover && !hasOwnIcon(page) && <div className="h-8" />}
             <h1 className="m-0 font-[family-name:var(--title-font,var(--d-font-display))] text-[clamp(2rem,3.2vw,2.75rem)] leading-[1.1] tracking-[var(--d-display-tracking)] text-ink [font-style:var(--title-style,normal)] [font-weight:var(--title-weight,var(--d-display-weight))]">
               {displayTitle(page)}
             </h1>

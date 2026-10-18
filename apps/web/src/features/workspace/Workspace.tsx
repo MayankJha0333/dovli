@@ -4,7 +4,6 @@ import { displayTitle } from "@dovli/core";
 import { Spinner, Toaster, TooltipProvider, cn } from "@dovli/ui";
 import { autoBackup } from "@/lib/backups";
 import { applySettings, useSettings } from "@/lib/settings";
-import { startTabs } from "@/lib/tabs";
 import { initStore, routeFromHash, store, useStore } from "@/lib/store";
 import { startSync } from "@/lib/sync";
 import { refreshUsage } from "@/lib/ai";
@@ -25,7 +24,6 @@ import { StyleGallery } from "@/features/page-styles/StyleGallery";
 import { TagView } from "@/features/tags/TagView";
 import { TemplatesView } from "@/features/templates/TemplatesView";
 import { TrashView } from "@/features/trash/TrashView";
-import { TabBar } from "./TabBar";
 import { useShortcuts } from "./useShortcuts";
 
 /** Soft colour behind glass themes. Themes without glows draw nothing. */
@@ -66,11 +64,9 @@ export default function Workspace() {
 
   useEffect(() => ui.set({ nav: false }), [route]);
 
-  // Tabs and the sidebar's two sides follow the route once the pages are loaded.
+  // The sidebar's two sides follow the route once the pages are loaded.
   useEffect(() => {
-    if (!ready) return;
-    startTabs();
-    startSidebarFollow();
+    if (ready) startSidebarFollow();
   }, [ready]);
 
   const title = useStore((s) => {
@@ -112,21 +108,18 @@ export default function Workspace() {
             nav ? "opacity-100" : "pointer-events-none opacity-0",
           )}
         />
-        <div className="flex min-h-0 min-w-0 flex-col gap-[calc(var(--d-shell-gap)*0.6)] max-[860px]:gap-0">
-          <TabBar />
-          <main
-            id="main"
-            tabIndex={-1}
-            className="relative min-h-0 min-w-0 flex-1 overflow-hidden rounded-shell shadow-shell surface-panel focus:outline-none max-[860px]:rounded-none"
-          >
-            {route.name === "home" && <Home />}
-            {route.name === "templates" && <TemplatesView />}
-            {route.name === "trash" && <TrashView />}
-            {route.name === "tag" && <TagView tag={route.tag} />}
-            {route.name === "page" && <PageView key={route.id} id={route.id} />}
-            <AssistantButton />
-          </main>
-        </div>
+        <main
+          id="main"
+          tabIndex={-1}
+          className="relative min-h-0 min-w-0 overflow-hidden rounded-shell shadow-shell surface-panel focus:outline-none max-[860px]:rounded-none"
+        >
+          {route.name === "home" && <Home />}
+          {route.name === "templates" && <TemplatesView />}
+          {route.name === "trash" && <TrashView />}
+          {route.name === "tag" && <TagView tag={route.tag} />}
+          {route.name === "page" && <PageView key={route.id} id={route.id} />}
+          <AssistantButton />
+        </main>
       </div>
 
       <CommandPalette />

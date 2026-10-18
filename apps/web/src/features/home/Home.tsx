@@ -6,7 +6,6 @@ import { displayTitle, favoritePages, livePages, pageText, previewLines, templat
 import { coverPreset, resolveLook, styleVars } from "@dovli/theme";
 import { Button, EmptyState, Icon, MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger, Segmented, cn, toast, type IconName } from "@dovli/ui";
 import { store, useStore } from "@/lib/store";
-import { tabs, wantsNewTab } from "@/lib/tabs";
 import { ui } from "@/lib/ui";
 import { Crumb, TopBar } from "@/components/TopBar";
 import { BoardSketch, PageCard, TemplateCard, cardGrid, sketchOf } from "@/features/home/cards";
@@ -50,10 +49,7 @@ function loadPrefs(): { view: View; sort: Sort } {
   }
 }
 
-function open(e: React.MouseEvent, id: string) {
-  if (wantsNewTab(e)) tabs.openInNewTab({ name: "page", id });
-  else store.navigate({ name: "page", id });
-}
+const open = (id: string) => store.navigate({ name: "page", id });
 
 const editedAt = (p: Page) => Math.max(p.updatedAt, p.lastOpenedAt ?? 0);
 
@@ -66,8 +62,7 @@ function MiniPage({ page }: { page: Page }) {
   return (
     <button
       type="button"
-      onClick={(e) => open(e, page.id)}
-      onAuxClick={(e) => e.button === 1 && open(e, page.id)}
+      onClick={() => open(page.id)}
       className="group mb-6 inline-flex w-full break-inside-avoid flex-col gap-2.5 text-left text-ink focus-visible:outline-none"
     >
       <span
@@ -138,8 +133,7 @@ function ListRow({ page }: { page: Page }) {
     <li>
       <button
         type="button"
-        onClick={(e) => open(e, page.id)}
-        onAuxClick={(e) => e.button === 1 && open(e, page.id)}
+        onClick={() => open(page.id)}
         className="grid min-h-12 w-full grid-cols-[24px_minmax(0,1fr)_minmax(0,180px)_120px] items-center gap-3 rounded-md px-3 text-left text-base text-ink transition-colors hover:bg-hover max-[640px]:grid-cols-[24px_minmax(0,1fr)_auto]"
       >
         <span className="text-center font-serif text-md text-accent">{page.mark}</span>

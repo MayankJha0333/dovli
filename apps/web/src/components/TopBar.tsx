@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { IconButton, cn } from "@dovli/ui";
+import { IconButton, cn, modKey } from "@dovli/ui";
+import { settings, useSettings } from "@/lib/settings";
 import { ui } from "@/lib/ui";
 import { newPage } from "@/features/pages/actions";
 
 /**
- * The bar at the top of every view: + (new page) and breadcrumbs on the left, actions on the right.
- * Chip themes (Soft Studio, Frost) float both groups as rounded glass chips; flat themes
- * (Night Desk, Mica) draw a plain bar with a hairline. The tokens decide; this markup is the same.
+ * The bar at the top of every view: the sidebar button (when the sidebar is hidden), + (new page)
+ * and breadcrumbs on the left, actions on the right. Each theme's chip tokens style the groups.
  */
 export function TopBar({
   crumbs,
@@ -19,9 +19,10 @@ export function TopBar({
   children?: ReactNode;
   className?: string;
   bareActions?: boolean;
-  /** Show the breadcrumbs on wide screens too. Otherwise the tab bar already names the view. */
+  /** Show the breadcrumbs on wide screens too (pages inside pages). Otherwise the view names itself. */
   showCrumbs?: boolean;
 }) {
+  const sidebarHidden = useSettings((s) => s.sidebarHidden);
   return (
     <header
       data-print="hide"
@@ -31,6 +32,15 @@ export function TopBar({
       )}
     >
       <IconButton icon="menu" label="Open sidebar" className="min-[861px]:hidden" onClick={() => ui.set({ nav: true })} />
+      {sidebarHidden && (
+        <IconButton
+          icon="panelLeft"
+          label="Show sidebar"
+          shortcut={`${modKey()}\\`}
+          className="flex-none !rounded-full surface-chip max-[860px]:hidden"
+          onClick={() => settings.set({ sidebarHidden: false })}
+        />
+      )}
       <IconButton icon="plus" label="New page" className="flex-none !rounded-full surface-chip" onClick={() => newPage("doc")} />
       <nav aria-label="Breadcrumb" className={cn("flex h-9 min-w-0 items-center gap-1 overflow-hidden whitespace-nowrap px-1.5 surface-chip", !showCrumbs && "min-[861px]:hidden")}>
         {crumbs}

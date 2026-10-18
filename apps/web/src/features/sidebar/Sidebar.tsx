@@ -7,7 +7,6 @@ import { childrenOf, displayTitle, favoritePages, tagIndex, type Page } from "@d
 import { Icon, IconButton, Kbd, SectionLabel, cn, modKey, type IconName } from "@dovli/ui";
 import { settings } from "@/lib/settings";
 import { store, useStore } from "@/lib/store";
-import { tabs, wantsNewTab } from "@/lib/tabs";
 import { keepSpaceSidebar, ui, useUI } from "@/lib/ui";
 import { newPage } from "@/features/pages/actions";
 import { PageMenu } from "@/features/page/PageMenu";
@@ -19,11 +18,10 @@ const rowBase =
   "group/row relative flex h-row w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 text-left text-base text-ink-2 transition-colors hover:bg-hover hover:text-ink";
 const rowActive = "bg-active text-active-ink font-semibold shadow-active hover:bg-active hover:text-active-ink";
 
-/** Open a page from the sidebar's own list: the list stays in view. ⌘/Ctrl or middle click opens a new tab. */
-function openFromList(e: React.MouseEvent, id: string) {
+/** Open a page from the sidebar's own list: the list stays in view. */
+function openFromList(id: string) {
   keepSpaceSidebar();
-  if (wantsNewTab(e)) tabs.openInNewTab({ name: "page", id });
-  else store.navigate({ name: "page", id });
+  store.navigate({ name: "page", id });
 }
 
 function NavRow({ icon, label, active, onClick, count, shortcut }: { icon: IconName; label: string; active?: boolean; onClick: () => void; count?: number; shortcut?: string }) {
@@ -59,8 +57,7 @@ function TreeRow({ page, depth }: { page: Page; depth: number }) {
           type="button"
           className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
           aria-current={active ? "page" : undefined}
-          onClick={(e) => openFromList(e, page.id)}
-          onAuxClick={(e) => e.button === 1 && openFromList(e, page.id)}
+          onClick={() => openFromList(page.id)}
         >
           <span className={cn("w-[18px] flex-none text-center font-serif", active ? "text-accent" : "text-ink-3")}>{page.mark}</span>
           <span className="truncate">{displayTitle(page)}</span>
@@ -148,8 +145,7 @@ function SpaceSide() {
                     <button
                       type="button"
                       className={cn(rowBase, route.name === "page" && route.id === p.id && rowActive)}
-                      onClick={(e) => openFromList(e, p.id)}
-                      onAuxClick={(e) => e.button === 1 && openFromList(e, p.id)}
+                      onClick={() => openFromList(p.id)}
                     >
                       <span className="w-[18px] flex-none text-center font-serif text-ink-3">{p.mark}</span>
                       <span className="truncate">{displayTitle(p)}</span>
