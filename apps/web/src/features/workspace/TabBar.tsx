@@ -31,7 +31,7 @@ function Tab({ route, index, active }: { route: Route; index: number; active: bo
       data-active={active || undefined}
       className={cn(
         "group/tab relative flex h-9 min-w-[110px] flex-[0_1_220px] items-center rounded-full pl-1 pr-1.5 text-sm transition-colors",
-        active ? "font-semibold text-ink surface-chip" : "text-ink-3 hover:bg-hover hover:text-ink-2",
+        active ? "font-semibold text-ink surface-chip" : "text-ink-2 hover:bg-hover hover:text-ink",
       )}
       onAuxClick={(e) => e.button === 1 && tabs.close(index)}
     >

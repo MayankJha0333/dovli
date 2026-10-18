@@ -83,11 +83,10 @@ export function themeVariables(t: AppTheme): Record<string, string> {
     "--d-label-transform": t.layout.label === "sentence" ? "none" : "uppercase",
     "--d-label-tracking": t.layout.label === "sentence" ? "0" : "0.07em",
     "--d-label-size": t.layout.label === "sentence" ? "0.78rem" : "0.68rem",
-    /* Top bar: glass chips over the panel, or a plain bar with a hairline. */
-    "--d-chip-bg": t.layout.chips ? (t.scheme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.08)") : "transparent",
-    "--d-chip-shadow": t.layout.chips ? t.shadow.sm : "none",
-    "--d-chip-radius": t.layout.chips ? "999px" : px(t.radius.sm),
-    "--d-topbar-border": t.layout.chips ? "0 solid transparent" : `1px solid ${c.line}`,
+    /* Chips: the rounded groups holding the tabs and the top bar's buttons. */
+    "--d-chip-bg": t.chip.bg,
+    "--d-chip-shadow": t.chip.shadow,
+    "--d-chip-radius": px(t.chip.radius),
   };
   return vars;
 }

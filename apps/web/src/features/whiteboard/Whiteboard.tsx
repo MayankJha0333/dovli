@@ -1,16 +1,10 @@
+import "@/lib/excalidraw";
 import { useEffect, useMemo, useRef } from "react";
 import { Excalidraw, convertToExcalidrawElements, MainMenu } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import type { Page } from "@dovli/core";
 import { useIsDark } from "@dovli/editor";
 import { store } from "@/lib/store";
-
-try {
-  // Excalidraw loads its fonts from <origin>/fonts/…, served from public/fonts.
-  (window as any).EXCALIDRAW_ASSET_PATH = `${window.location.origin}/`;
-} catch {
-  /* ignore */
-}
 
 /** A cheap fingerprint so we only save when shapes really changed. */
 function fingerprint(elements: readonly any[]) {

@@ -26,7 +26,7 @@ export function TopBar({
     <header
       data-print="hide"
       className={cn(
-        "relative z-20 flex h-14 flex-none items-center gap-2 px-3 [border-bottom:var(--d-topbar-border)] max-[860px]:pt-[env(safe-area-inset-top)]",
+        "relative z-20 flex h-14 flex-none items-center gap-2 px-3 max-[860px]:pt-[env(safe-area-inset-top)]",
         className,
       )}
     >

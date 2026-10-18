@@ -83,37 +83,40 @@
 .dovli-editor .bn-block-content[data-content-type="pdf"],
 .dovli-editor .bn-block-content[data-content-type="callout"] { width: 100%; }
 
-.bn-mantine .bn-suggestion-menu { padding: 6px; border-radius: var(--d-radius-lg); max-width: 360px; background: var(--d-raised); box-shadow: var(--d-shadow-pop); backdrop-filter: var(--d-filter-raised, none); }
-.bn-mantine .bn-suggestion-menu-label { font-family: var(--d-label-font); text-transform: var(--d-label-transform); letter-spacing: var(--d-label-tracking); color: var(--d-ink-3); font-size: var(--d-label-size); font-weight: 600; padding: 8px 8px 4px; }
-.bn-mantine .bn-suggestion-menu-item { border-radius: var(--d-radius-sm); padding: 6px 8px; }
-.bn-mantine .bn-suggestion-menu-item:not(.bn-suggestion-menu-item-small) { min-height: 46px; }
-.bn-mt-suggestion-menu-item-section[data-position="left"] { background: var(--d-well); color: var(--d-ink-2); border-radius: var(--d-radius-sm); padding: 8px; }
-.bn-mantine .bn-suggestion-menu-item[aria-selected="true"] .bn-mt-suggestion-menu-item-section[data-position="left"] { background: var(--d-panel); color: var(--d-accent); }
-.bn-mt-suggestion-menu-item-title { font-size: 0.84rem; font-weight: 600; color: var(--d-ink); }
-.bn-mt-suggestion-menu-item-subtitle { font-size: 0.72rem; color: var(--d-ink-3); }
+/* The "/" and "[[" menus are drawn by SlashMenu.tsx with the design tokens, not here. */
 .bn-mantine .bn-toolbar { padding: 4px; border-radius: var(--d-radius-md); background: var(--d-raised); box-shadow: var(--d-shadow-pop); backdrop-filter: var(--d-filter-raised, none); }
 .bn-mantine .bn-side-menu .mantine-UnstyledButton-root:hover { background: var(--d-hover); }
 .bn-mantine [class*="mantine-Menu-dropdown"],
 .bn-mantine [class*="mantine-Popover-dropdown"] { border-radius: var(--d-radius-lg); box-shadow: var(--d-shadow-pop); border: 0; padding: 6px; background: var(--d-raised); backdrop-filter: var(--d-filter-raised, none); }
 .bn-mantine [class*="mantine-Menu-item"] { border-radius: var(--d-radius-sm); }
-.bn-mantine .bn-suggestion-menu,
 .bn-mantine .bn-toolbar,
 .bn-mantine [class*="mantine-Menu"] { font-family: var(--d-font-sans); }
 
 /* ---------- Excalidraw (whiteboards and flowcharts) ---------- */
-.dovli-canvas .excalidraw {
+/* Doubled class so these win over Excalidraw's own light/dark rules, whichever loads last. */
+.dovli-canvas .excalidraw.excalidraw {
   --color-primary: var(--d-accent);
   --color-primary-darker: var(--d-accent-hover);
   --color-primary-darkest: var(--d-accent-hover);
   --color-primary-light: var(--d-accent-soft);
   --ui-font: var(--d-font-sans);
-  --island-bg-color: var(--d-raised);
   --border-radius-lg: var(--d-radius-md);
-}
-
-/* Touch screens have no keyboard shortcuts to show in the "/" menu. */
-@media (hover: none) and (pointer: coarse) {
-  .bn-suggestion-menu .bn-mt-suggestion-menu-item-section[data-position="right"] { display: none; }
+  /* The canvas shows the panel behind it; toolbars and menus use the theme's surfaces. */
+  --default-bg-color: transparent;
+  --island-bg-color: var(--d-raised);
+  --color-surface-lowest: var(--d-raised);
+  --color-surface-low: var(--d-raised);
+  --color-surface-mid: var(--d-well);
+  --color-surface-high: var(--d-hover);
+  --button-hover-bg: var(--d-hover);
+  --input-bg-color: var(--d-well);
+  --input-border-color: var(--d-line-strong);
+  --default-border-color: var(--d-line);
+  --color-on-surface: var(--d-ink);
+  --text-primary-color: var(--d-ink);
+  /* The chosen tool in the toolbar. */
+  --color-surface-primary-container: var(--d-accent-soft);
+  --color-on-primary-container: var(--d-accent);
 }
 
 /* ---------- Craft-style text styles (Aa panel) ---------- */

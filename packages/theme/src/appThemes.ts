@@ -80,6 +80,8 @@ export interface AppTheme {
   radius: { sm: number; md: number; lg: number; xl: number; shell: number; sheet: number };
   /** shell: the sidebar and main panel when they float as cards. */
   shadow: { sm: string; card: string; pop: string; sheet: string; active: string; shell: string };
+  /** Chips: the rounded groups that hold the tabs and the top bar's buttons. */
+  chip: { bg: string; shadow: string; radius: number };
   /** Background blur in px for each surface. 0 means solid. */
   blur: { sidebar: number; panel: number; raised: number; chrome: number };
   layout: {
@@ -89,8 +91,6 @@ export interface AppTheme {
     divider: boolean;
     /** Section labels like "Pages": sentence case, or small caps in the mono font. */
     label: "sentence" | "upper" | "mono";
-    /** The main panel's top bar sits on glass chips (true) or on a plain bar (false). */
-    chips: boolean;
     /** Height of a row in the sidebar and menus, in px. Denser themes use shorter rows. */
     rowHeight: number;
   };
@@ -154,8 +154,9 @@ export const softStudio: AppTheme = {
     active: "none",
     shell: "0 1px 2px rgba(21,23,29,0.05), 0 0 0 1px rgba(21,23,29,0.04)",
   },
+  chip: { bg: "rgba(255,255,255,0.78)", shadow: "0 0 0 1px rgba(21,23,29,0.05), 0 1px 2px rgba(21,23,29,0.05)", radius: 999 },
   blur: { sidebar: 0, panel: 0, raised: 0, chrome: 12 },
-  layout: { gap: 12, divider: false, label: "sentence", chips: true, rowHeight: 38 },
+  layout: { gap: 12, divider: false, label: "sentence", rowHeight: 38 },
 };
 
 export const frost: AppTheme = {
@@ -166,28 +167,29 @@ export const frost: AppTheme = {
   colors: {
     bg: "#EDF0F7",
     glows: [
-      { color: "#9DB7FF", opacity: 0.85 },
-      { color: "#FFC2DA", opacity: 0.8 },
-      { color: "#AEEFD9", opacity: 0.8 },
+      { color: "#9DB7FF", opacity: 0.8 },
+      { color: "#FFC2DA", opacity: 0.75 },
+      { color: "#AEEFD9", opacity: 0.75 },
     ],
-    sidebar: "rgba(255, 255, 255, 0.46)",
-    panel: "rgba(255, 255, 255, 0.62)",
+    // Enough white in the glass that text reads the same over every glow.
+    sidebar: "rgba(255, 255, 255, 0.56)",
+    panel: "rgba(255, 255, 255, 0.66)",
     sheet: "transparent",
-    raised: "rgba(255, 255, 255, 0.86)",
-    well: "rgba(20, 23, 38, 0.05)",
-    hover: "rgba(255, 255, 255, 0.6)",
-    activeBg: "rgba(255, 255, 255, 0.88)",
+    raised: "rgba(255, 255, 255, 0.88)",
+    well: "rgba(20, 23, 38, 0.045)",
+    hover: "rgba(255, 255, 255, 0.62)",
+    activeBg: "rgba(255, 255, 255, 0.92)",
     activeInk: "#141726",
     line: "rgba(20, 23, 38, 0.08)",
     lineStrong: "rgba(20, 23, 38, 0.15)",
     ink: "#141726",
     ink2: "#3F4458",
-    ink3: "#535970",
-    ink4: "#5F6479",
+    ink3: "#50566C",
+    ink4: "#5A5F74",
     accent: "#3D5BF5",
     accentHover: "#2F4BE0",
     accentInk: "#FFFFFF",
-    accentSoft: "rgba(61, 91, 245, 0.10)",
+    accentSoft: "rgba(61, 91, 245, 0.11)",
     primary: "#141726",
     primaryHover: "#272B40",
     primaryInk: "#FFFFFF",
@@ -217,32 +219,35 @@ export const frost: AppTheme = {
     active: "0 2px 8px rgba(50,60,110,0.08), inset 0 0 0 1px rgba(255,255,255,1)",
     shell: "0 18px 44px rgba(50,60,110,0.12), inset 0 0 0 1px rgba(255,255,255,0.75)",
   },
+  chip: { bg: "rgba(255,255,255,0.7)", shadow: "0 2px 8px rgba(50,60,110,0.08), inset 0 0 0 1px rgba(255,255,255,0.9)", radius: 999 },
   blur: { sidebar: 24, panel: 28, raised: 24, chrome: 20 },
-  layout: { gap: 16, divider: false, label: "sentence", chips: true, rowHeight: 36 },
+  layout: { gap: 16, divider: false, label: "sentence", rowHeight: 36 },
 };
 
+// Night Desk: near-black desk, two slightly lifted panels with hairline edges, a lime accent,
+// mono labels and dense rows. Fills are see-through white, so they read on every surface.
 export const nightDesk: AppTheme = {
   id: "night-desk",
   name: "Night Desk",
   description: "Dark and focused, made for long sessions",
   scheme: "dark",
   colors: {
-    bg: "#0E0F12",
+    bg: "#08090B",
     glows: [],
-    sidebar: "#131418",
-    panel: "#0E0F12",
-    sheet: "#0E0F12",
-    raised: "#17191D",
-    well: "#16181C",
-    hover: "#1C1E23",
-    activeBg: "#1E2026",
+    sidebar: "#101114",
+    panel: "#101114",
+    sheet: "#101114",
+    raised: "#18191D",
+    well: "rgba(255, 255, 255, 0.045)",
+    hover: "rgba(255, 255, 255, 0.06)",
+    activeBg: "rgba(255, 255, 255, 0.085)",
     activeInk: "#FFFFFF",
-    line: "#1F2126",
-    lineStrong: "#2C2E35",
+    line: "rgba(255, 255, 255, 0.075)",
+    lineStrong: "rgba(255, 255, 255, 0.13)",
     ink: "#EDEEF0",
-    ink2: "#B0B3BA",
-    ink3: "#9296A0",
-    ink4: "#8A8E97",
+    ink2: "#B6B9C0",
+    ink3: "#9A9EA8",
+    ink4: "#8D919B",
     accent: "#C8F25A",
     accentHover: "#D6F77E",
     accentInk: "#0E0F12",
@@ -257,7 +262,7 @@ export const nightDesk: AppTheme = {
     ok: "#6FE0C0",
     warn: "#F2B33D",
     selection: "rgba(200, 242, 90, 0.22)",
-    overlay: "rgba(0, 0, 0, 0.55)",
+    overlay: "rgba(0, 0, 0, 0.6)",
     sketch: "rgba(200, 242, 90, 0.14)",
   },
   fonts: {
@@ -267,48 +272,52 @@ export const nightDesk: AppTheme = {
     displayWeight: 600,
     displayTracking: "-0.035em",
   },
-  radius: { sm: 5, md: 7, lg: 10, xl: 12, shell: 0, sheet: 14 },
+  radius: { sm: 5, md: 7, lg: 10, xl: 12, shell: 10, sheet: 12 },
   shadow: {
-    sm: "0 0 0 1px #24262C",
-    card: "0 0 0 1px #24262C",
-    pop: "0 0 0 1px #2C2E35, 0 16px 40px rgba(0,0,0,0.5)",
-    sheet: "0 0 0 1px #24262C, 0 30px 80px rgba(0,0,0,0.45)",
+    sm: "0 0 0 1px rgba(255,255,255,0.07)",
+    card: "0 0 0 1px rgba(255,255,255,0.08)",
+    pop: "0 0 0 1px rgba(255,255,255,0.1), 0 16px 40px rgba(0,0,0,0.6)",
+    sheet: "0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px rgba(0,0,0,0.5)",
     active: "none",
-    shell: "none",
+    shell: "0 0 0 1px rgba(255,255,255,0.065)",
   },
+  chip: { bg: "rgba(255,255,255,0.04)", shadow: "0 0 0 1px rgba(255,255,255,0.075)", radius: 7 },
   blur: { sidebar: 0, panel: 0, raised: 0, chrome: 0 },
-  layout: { gap: 0, divider: true, label: "mono", chips: false, rowHeight: 30 },
+  layout: { gap: 6, divider: false, label: "mono", rowHeight: 30 },
 };
 
+// Mica: deep violet with soft light glowing between the panels. Panels are lightly see-through;
+// only things that float (menus, dialogs) are frosted glass. The active row gets a violet edge.
 export const mica: AppTheme = {
   id: "mica",
   name: "Mica",
   description: "Calm dark violet, with glass only on pop-ups",
   scheme: "dark",
   colors: {
-    bg: "#120F1E",
+    bg: "#0D0A18",
     glows: [
-      { color: "#B3A6FF", opacity: 0.45 },
-      { color: "#2C8C9E", opacity: 0.35 },
+      { color: "#8E7DFF", opacity: 0.42 },
+      { color: "#2C8C9E", opacity: 0.38 },
+      { color: "#B45FD0", opacity: 0.22 },
     ],
-    sidebar: "rgba(22, 19, 34, 0.80)",
-    panel: "rgba(18, 16, 28, 0.90)",
+    sidebar: "rgba(24, 20, 39, 0.84)",
+    panel: "rgba(19, 16, 31, 0.9)",
     sheet: "transparent",
-    raised: "rgba(40, 35, 60, 0.72)",
+    raised: "rgba(40, 34, 62, 0.8)",
     well: "rgba(255, 255, 255, 0.05)",
-    hover: "rgba(255, 255, 255, 0.06)",
-    activeBg: "rgba(255, 255, 255, 0.08)",
+    hover: "rgba(255, 255, 255, 0.065)",
+    activeBg: "rgba(179, 166, 255, 0.13)",
     activeInk: "#FFFFFF",
-    line: "rgba(255, 255, 255, 0.07)",
-    lineStrong: "rgba(255, 255, 255, 0.13)",
+    line: "rgba(255, 255, 255, 0.075)",
+    lineStrong: "rgba(255, 255, 255, 0.14)",
     ink: "#F1EFF7",
-    ink2: "#C6C1D6",
-    ink3: "#A9A3BC",
-    ink4: "#9C96B0",
+    ink2: "#C8C3D8",
+    ink3: "#ACA6BF",
+    ink4: "#A09AB4",
     accent: "#B3A6FF",
     accentHover: "#C4BAFF",
     accentInk: "#120F1E",
-    accentSoft: "rgba(179, 166, 255, 0.14)",
+    accentSoft: "rgba(179, 166, 255, 0.15)",
     primary: "#B3A6FF",
     primaryHover: "#C4BAFF",
     primaryInk: "#120F1E",
@@ -319,7 +328,7 @@ export const mica: AppTheme = {
     ok: "#7FD8E6",
     warn: "#F4B38A",
     selection: "rgba(179, 166, 255, 0.28)",
-    overlay: "rgba(6, 5, 12, 0.5)",
+    overlay: "rgba(6, 5, 12, 0.55)",
     sketch: "rgba(179, 166, 255, 0.16)",
   },
   fonts: {
@@ -329,17 +338,18 @@ export const mica: AppTheme = {
     displayWeight: 800,
     displayTracking: "-0.03em",
   },
-  radius: { sm: 7, md: 8, lg: 14, xl: 18, shell: 0, sheet: 18 },
+  radius: { sm: 7, md: 9, lg: 14, xl: 18, shell: 16, sheet: 18 },
   shadow: {
     sm: "inset 0 0 0 1px rgba(255,255,255,0.08)",
     card: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.25)",
     pop: "inset 0 1px 0 rgba(255,255,255,0.1), inset 0 0 0 1px rgba(255,255,255,0.12), 0 24px 60px rgba(0,0,0,0.5)",
     sheet: "inset 0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px rgba(0,0,0,0.45)",
     active: "inset 2px 0 0 #B3A6FF",
-    shell: "none",
+    shell: "inset 0 0 0 1px rgba(255,255,255,0.07), 0 20px 50px rgba(0,0,0,0.35)",
   },
+  chip: { bg: "rgba(255,255,255,0.06)", shadow: "inset 0 0 0 1px rgba(255,255,255,0.08)", radius: 10 },
   blur: { sidebar: 0, panel: 0, raised: 18, chrome: 0 },
-  layout: { gap: 0, divider: true, label: "upper", chips: false, rowHeight: 34 },
+  layout: { gap: 10, divider: false, label: "upper", rowHeight: 34 },
 };
 
 export const APP_THEMES: AppTheme[] = [softStudio, frost, nightDesk, mica];

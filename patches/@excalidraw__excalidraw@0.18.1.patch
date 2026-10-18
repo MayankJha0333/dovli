@@ -1,0 +1,22 @@
+diff --git a/dist/dev/subset-worker.chunk.js b/dist/dev/subset-worker.chunk.js
+index d323ce2a1434321a6c5f4378948cdcf213285301..23eb72e5d7c6f20994d79280af9f1d118da53f14 100644
+--- a/dist/dev/subset-worker.chunk.js
++++ b/dist/dev/subset-worker.chunk.js
+@@ -6,7 +6,9 @@ import "./chunk-AWQI2HM3.js";
+ import "./chunk-XDFCUUT6.js";
+ 
+ // subset/subset-worker.chunk.ts
+-var WorkerUrl = import.meta.url ? new URL(import.meta.url) : void 0;
++// Patched (Dovli): bundlers such as Turbopack replace import.meta.url with a file:// path, which a
++// web page can't load as a worker. The app can say where it serves this chunk instead.
++var WorkerUrl = typeof window !== "undefined" && window.EXCALIDRAW_WORKER_URL ? new URL(window.EXCALIDRAW_WORKER_URL, window.location.href) : import.meta.url ? new URL(import.meta.url) : void 0;
+ if (typeof window === "undefined" && typeof self !== "undefined") {
+   self.onmessage = async (e) => {
+     switch (e.data.command) {
+diff --git a/dist/prod/subset-worker.chunk.js b/dist/prod/subset-worker.chunk.js
+index afdc5db69b6fcb600b2202cbc5f427e55feaacfc..1bc5ece9a872197f8718c28c044718b123e07dc9 100644
+--- a/dist/prod/subset-worker.chunk.js
++++ b/dist/prod/subset-worker.chunk.js
+@@ -1 +1 @@
+-import{a as r,c as t}from"./chunk-EIO257PC.js";import"./chunk-ZUYEQ4TG.js";import"./chunk-SRAX5OIU.js";var s=import.meta.url?new URL(import.meta.url):void 0;typeof window>"u"&&typeof self<"u"&&(self.onmessage=async e=>{switch(e.data.command){case r.Subset:let a=await t(e.data.arrayBuffer,e.data.codePoints);self.postMessage(a,{transfer:[a]});break}});export{s as WorkerUrl};
++import{a as r,c as t}from"./chunk-EIO257PC.js";import"./chunk-ZUYEQ4TG.js";import"./chunk-SRAX5OIU.js";var s=typeof window<"u"&&window.EXCALIDRAW_WORKER_URL?new URL(window.EXCALIDRAW_WORKER_URL,window.location.href):import.meta.url?new URL(import.meta.url):void 0;typeof window>"u"&&typeof self<"u"&&(self.onmessage=async e=>{switch(e.data.command){case r.Subset:let a=await t(e.data.arrayBuffer,e.data.codePoints);self.postMessage(a,{transfer:[a]});break}});export{s as WorkerUrl};

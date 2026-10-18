@@ -19,6 +19,7 @@ import {
   type DefaultReactSuggestionItem,
 } from "@blocknote/react";
 import { BlockNoteView } from "@blocknote/mantine";
+import { SlashMenu } from "./SlashMenu";
 import "@blocknote/mantine/style.css";
 import { classify, displayTitle, isLikelyUrl, livePages, normalizeUrl, toEmbedProps, type Page } from "@dovli/core";
 import { getStyle } from "@dovli/theme";
@@ -31,6 +32,7 @@ import { FindBar } from "./FindBar";
 import { tagFromEvent, tagsExtension } from "./tags";
 import { handleTopEdgeKey } from "./topEdge";
 import { fixBlockDropPosition } from "./dropPosition";
+import { repairEditorA11y } from "./a11y";
 
 const glyph = (name: IconName) => <Icon name={name} size={18} />;
 
@@ -280,9 +282,12 @@ export default function PageEditor({
   // Dragged blocks land above or below a block by height (see dropPosition.ts).
   useEffect(() => {
     let undo = () => {};
+    let stopA11y = () => {};
     const apply = () => {
       undo();
       undo = fixBlockDropPosition(editor);
+      stopA11y();
+      stopA11y = repairEditorA11y(editor);
     };
     const off = editor.onMount(apply);
     const id = requestAnimationFrame(apply);
@@ -290,6 +295,7 @@ export default function PageEditor({
       cancelAnimationFrame(id);
       off?.();
       undo();
+      stopA11y();
     };
   }, [editor]);
 
@@ -371,8 +377,9 @@ export default function PageEditor({
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={async (query) => filterSuggestionItems(groupTogether([...getDefaultReactSlashMenuItems(editor), ...dovliItems(editor, page, bridge)]), query)}
+          suggestionMenuComponent={SlashMenu}
         />
-        <SuggestionMenuController triggerCharacter="[[" getItems={async (query) => linkItems(query)} />
+        <SuggestionMenuController triggerCharacter="[[" getItems={async (query) => linkItems(query)} suggestionMenuComponent={SlashMenu} />
         <SideMenuController sideMenu={(props) => <SideMenu {...props} dragHandleMenu={() => <BlockMenu pageId={page.id} />} />} />
         <FormattingToolbarController
           formattingToolbar={() => (

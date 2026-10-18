@@ -1,4 +1,5 @@
 // Plugs the web store into the shared editor package, so @dovli/editor never imports app code.
+import "@/lib/excalidraw";
 import { connectEditor } from "@dovli/editor";
 import { setUnfurlEndpoint } from "@dovli/core";
 import { toast } from "@dovli/ui";

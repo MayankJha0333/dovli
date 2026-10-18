@@ -42,7 +42,7 @@ export function ShareDialog() {
   return (
     <Dialog open={!!page} onOpenChange={(o) => !o && ui.set({ share: null })} title={page ? `Share “${displayTitle(page)}”` : "Share"} size="sm">
       {!cloudConfigured ? (
-        <p className="m-0 text-sm text-ink-2">Sharing needs accounts, which aren't set up on this copy of Dovli. You can still export the page from ••• → Export.</p>
+        <p className="m-0 text-sm text-ink-2">Sharing needs accounts, which aren't set up on this copy of Dovli. You can still export it: open Info (the ⓘ button) and choose Actions.</p>
       ) : !signedIn ? (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-ink-2">Sign in to share pages with a link.</p>

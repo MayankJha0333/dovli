@@ -78,16 +78,19 @@ There are four app themes, chosen in **Settings → Appearance** (web) or **Sett
 |---|---|---|
 | **Soft Studio** (default) | Bright and friendly, soft rounded cards | Figtree, Bricolage Grotesque |
 | **Frost** | Light frosted glass over soft colour | Onest |
-| **Night Desk** | Dark and focused | Geist, Geist Mono |
-| **Mica** | Calm dark violet, glass only on pop-ups | Manrope |
+| **Night Desk** | Dark and focused: near-black desk, hairline-edged panels, lime accent, mono labels, dense rows | Geist, Geist Mono |
+| **Mica** | Calm dark violet, light glowing between the panels, glass only on pop-ups | Manrope |
 
 **Match device** uses Soft Studio by day and Night Desk when the device is in dark mode.
 
 How it fits together:
 
 - Each theme is one object in `packages/theme/src/appThemes.ts`: colours, fonts, corner
-  radii, shadows, blur and layout (gaps, row height, label style). Add a theme by adding an
-  object there; nothing else needs to change.
+  radii, shadows, chips (the rounded groups that hold the tabs and the top bar's buttons),
+  blur and layout (gaps, row height, label style). Add a theme by adding an object there;
+  nothing else needs to change. Components never check which theme is on.
+- Fills like `bg-well` and `bg-hover` are see-through in the dark themes, so they show on
+  every surface (panel, sidebar, menu) without per-surface colours.
 - `themeStylesheet()` (in `packages/theme/src/css.ts`) turns every theme into CSS variables
   (`--d-*`) under `:root[data-theme="…"]`. A tiny script in the page head sets `data-theme`
   before the first paint, so there is no flash of the wrong theme.
@@ -97,6 +100,12 @@ How it fits together:
   `surface-raised`, `surface-chip`. Tailwind's default colours are switched off, so a stray
   `bg-gray-100` won't build: every colour comes from the theme.
 - Components live once, in `@dovli/ui` (built on Radix). Combine classes with `cn()`.
+- The editor's "/" and "[[" menus are our own component (`packages/editor/src/SlashMenu.tsx`)
+  built from these classes; BlockNote still opens, places, filters and drives them.
+- Excalidraw (whiteboards and flowcharts) picks up the theme through CSS variables in
+  `packages/editor/src/editor.css`. Its font worker is copied to `public/excalidraw/` by
+  `apps/web/next.config.ts`, and `patches/@excalidraw__excalidraw@0.18.1.patch` lets the app
+  tell Excalidraw where it is (without it, the worker fails with a `file:///ROOT/…` error).
 - The phone app reads the same theme objects (`apps/mobile/src/lib/theme.ts`), and its editor
   uses the same CSS variables as the web.
 

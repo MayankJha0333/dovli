@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import "@/lib/excalidraw";
 import { connectEditor } from "@dovli/editor";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
 import { resolveLook } from "@dovli/theme";

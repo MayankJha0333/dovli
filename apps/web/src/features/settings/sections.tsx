@@ -472,7 +472,7 @@ export function Data() {
             Export all
           </Button>
         </Row>
-        <p className="m-0 text-sm text-ink-3">To export one page as Markdown, a web page or PDF, open the page and use ••• → Export.</p>
+        <p className="m-0 text-sm text-ink-3">To export one page as Markdown, a web page or PDF, open the page, then Info (the ⓘ button) → Actions.</p>
       </Group>
     </div>
   );
@@ -492,7 +492,7 @@ export function AI() {
   const resets = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString(undefined, { day: "numeric", month: "long" });
   return (
     <div className="flex flex-col gap-6">
-      <Group title="Writing help" description="Select text in a page and choose Ask AI to rewrite, shorten, fix, change the tone or translate it. Use ••• → Summarise in a page for a quick summary.">
+      <Group title="Writing help" description="Select text in a page and choose Ask AI to rewrite, shorten, fix, change the tone or translate it. For a summary or a review of a whole page, use the Assistant button at the bottom right of the page.">
         {!u.available ? (
           <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
             {cloudConfigured && a !== "signed-in" ? (
