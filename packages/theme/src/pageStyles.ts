@@ -252,16 +252,18 @@ export function getStyle(id: string | undefined | null): PageStyle | null {
   return PAGE_STYLES.find((s) => s.id === id) ?? null;
 }
 
+const SERIF = '"Newsreader", "Iowan Old Style", Georgia, serif';
+
+/** Title fonts. Sans and mono follow the app theme's own faces. */
 const FONTS: Record<TitleFont, { family: string; style: string; weight: number }> = {
-  serif: { family: "var(--serif)", style: "normal", weight: 500 },
-  italic: { family: "var(--serif)", style: "italic", weight: 500 },
-  sans: { family: "var(--sans)", style: "normal", weight: 700 },
-  mono: { family: "var(--mono)", style: "normal", weight: 500 },
-  display: { family: "var(--sans)", style: "normal", weight: 800 },
+  serif: { family: SERIF, style: "normal", weight: 500 },
+  italic: { family: SERIF, style: "italic", weight: 500 },
+  sans: { family: "var(--d-font-sans)", style: "normal", weight: 700 },
+  mono: { family: "var(--d-font-mono)", style: "normal", weight: 500 },
+  display: { family: "var(--d-font-display)", style: "normal", weight: 800 },
 };
 
-/** CSS variables that dress a page (or a preview of one) in a style. */
-/** CSS custom properties, as a plain object so it works with any React style prop on the web. */
+/** CSS custom properties that dress a page (or a preview of one) in a style, as a plain object for React's style prop. */
 export type StyleVars = Record<string, string>;
 
 export function styleVars(s: PageStyle): StyleVars {

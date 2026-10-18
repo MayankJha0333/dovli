@@ -1,0 +1,227 @@
+/* Dovli design system for Tailwind CSS v4.
+   Import it right after "tailwindcss". The colours, fonts, radii and shadows below point at the
+   --d-* variables that @dovli/theme writes for each app theme, so one class (bg-panel, text-ink-2,
+   rounded-md, shadow-pop) looks right in every theme, and switching theme needs no re-render. */
+
+@source "./";
+
+@custom-variant dark (&:where([data-scheme="dark"], [data-scheme="dark"] *));
+
+@theme inline {
+  /* Only Dovli's own colours: no stray Tailwind palette colours, so every screen stays on-theme. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-bg: var(--d-bg);
+  --color-sidebar: var(--d-sidebar);
+  --color-panel: var(--d-panel);
+  --color-sheet: var(--d-sheet);
+  --color-raised: var(--d-raised);
+  --color-well: var(--d-well);
+  --color-hover: var(--d-hover);
+  --color-active: var(--d-active-bg);
+  --color-active-ink: var(--d-active-ink);
+  --color-line: var(--d-line);
+  --color-line-strong: var(--d-line-strong);
+  --color-ink: var(--d-ink);
+  --color-ink-2: var(--d-ink-2);
+  --color-ink-3: var(--d-ink-3);
+  --color-ink-4: var(--d-ink-4);
+  --color-accent: var(--d-accent);
+  --color-accent-hover: var(--d-accent-hover);
+  --color-accent-ink: var(--d-accent-ink);
+  --color-accent-soft: var(--d-accent-soft);
+  --color-primary: var(--d-primary);
+  --color-primary-hover: var(--d-primary-hover);
+  --color-primary-ink: var(--d-primary-ink);
+  --color-brand: var(--d-brand);
+  --color-brand-ink: var(--d-brand-ink);
+  --color-danger: var(--d-danger);
+  --color-danger-soft: var(--d-danger-soft);
+  --color-ok: var(--d-ok);
+  --color-warn: var(--d-warn);
+  --color-overlay: var(--d-overlay);
+  --color-sketch: var(--d-sketch);
+  --color-chip: var(--d-chip-bg);
+
+  --font-sans: var(--d-font-sans);
+  --font-display: var(--d-font-display);
+  --font-mono: var(--d-font-mono);
+  --font-serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-label: var(--d-label-font);
+
+  /* Text sizes in rem, so they grow with the browser's text size and Dovli's own text-size setting. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.1rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-base: 0.875rem;
+  --text-base--line-height: 1.375rem;
+  --text-md: 0.9375rem;
+  --text-md--line-height: 1.45rem;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.6rem;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 2.4rem;
+  --text-4xl: 2.75rem;
+  --text-4xl--line-height: 1.08;
+
+  --radius-*: initial;
+  --radius-xs: 4px;
+  --radius-sm: var(--d-radius-sm);
+  --radius-md: var(--d-radius-md);
+  --radius-lg: var(--d-radius-lg);
+  --radius-xl: var(--d-radius-xl);
+  --radius-shell: var(--d-radius-shell);
+  --radius-sheet: var(--d-radius-sheet);
+
+  --shadow-*: initial;
+  --shadow-sm: var(--d-shadow-sm);
+  --shadow-card: var(--d-shadow-card);
+  --shadow-pop: var(--d-shadow-pop);
+  --shadow-sheet: var(--d-shadow-sheet);
+  --shadow-active: var(--d-shadow-active);
+  --shadow-chip: var(--d-chip-shadow);
+  --shadow-shell: var(--d-shadow-shell);
+
+  --spacing-row: var(--d-row);
+
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --animate-fade-in: fade-in 0.16s var(--ease-out);
+  --animate-pop-in: pop-in 0.18s var(--ease-out);
+  --animate-sheet-in: sheet-in 0.32s var(--ease-out);
+  --animate-shimmer: shimmer 1.2s linear infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes sheet-in {
+    from { opacity: 0.4; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+}
+
+/* Surfaces. Glass themes blur what is behind; solid themes have 0px blur, so these are safe everywhere. */
+@utility surface-sidebar {
+  background: var(--d-sidebar);
+  -webkit-backdrop-filter: var(--d-filter-sidebar, none);
+  backdrop-filter: var(--d-filter-sidebar, none);
+}
+@utility surface-panel {
+  background: var(--d-panel);
+  -webkit-backdrop-filter: var(--d-filter-panel, none);
+  backdrop-filter: var(--d-filter-panel, none);
+}
+@utility surface-raised {
+  background: var(--d-raised);
+  box-shadow: var(--d-shadow-pop);
+  -webkit-backdrop-filter: var(--d-filter-raised, none);
+  backdrop-filter: var(--d-filter-raised, none);
+}
+@utility surface-chip {
+  background: var(--d-chip-bg);
+  box-shadow: var(--d-chip-shadow);
+  border-radius: var(--d-chip-radius);
+  -webkit-backdrop-filter: var(--d-filter-chrome, none);
+  backdrop-filter: var(--d-filter-chrome, none);
+}
+
+/* Section labels ("Pages", "Favourites"): sentence case, small caps, or mono, set by the theme. */
+@utility label-text {
+  font-family: var(--d-label-font);
+  font-size: var(--d-label-size);
+  text-transform: var(--d-label-transform);
+  letter-spacing: var(--d-label-tracking);
+  font-weight: 600;
+  color: var(--d-ink-3);
+}
+
+/* Big titles use each theme's display face, weight and tracking. */
+@utility display-text {
+  font-family: var(--d-font-display);
+  font-weight: var(--d-display-weight);
+  letter-spacing: var(--d-display-tracking);
+  line-height: 1.06;
+  text-wrap: balance;
+  color: var(--d-ink);
+}
+
+@utility focus-ring {
+  outline: 2px solid var(--d-accent);
+  outline-offset: 2px;
+}
+
+@layer base {
+  *, ::before, ::after { border-color: var(--d-line); }
+  html {
+    font-size: var(--d-text-scale, 100%);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    background: var(--d-bg);
+    color: var(--d-ink);
+    font-family: var(--d-font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection { background: var(--d-selection); }
+  :focus-visible { outline: 2px solid var(--d-accent); outline-offset: 2px; }
+  button, [role="button"] { cursor: pointer; }
+  button:disabled { cursor: default; }
+  input::placeholder, textarea::placeholder { color: var(--d-ink-4); }
+  input[type="search"]::-webkit-search-cancel-button { display: none; }
+  * { scrollbar-width: thin; scrollbar-color: var(--d-line-strong) transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}
+:root[data-reduce-motion="true"] *, :root[data-reduce-motion="true"] *::before, :root[data-reduce-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}
+
+/* ---------- Page styles ----------
+   A styled page paints the scroll area with its backdrop and floats the page on it as a sheet of
+   paper. Inside the sheet every token is re-derived from the style's paper, ink and accent, so all
+   Tailwind classes there (text-ink-3, bg-well…) follow the style without knowing about it. */
+.page-styled {
+  --d-panel: var(--s-paper);
+  --d-sheet: var(--s-paper);
+  --d-raised: var(--s-paper);
+  --d-ink: var(--s-ink);
+  --d-ink-2: color-mix(in srgb, var(--s-ink) 76%, var(--s-paper));
+  --d-ink-3: color-mix(in srgb, var(--s-ink) 60%, var(--s-paper));
+  --d-ink-4: color-mix(in srgb, var(--s-ink) 52%, var(--s-paper));
+  --d-line: color-mix(in srgb, var(--s-ink) 12%, var(--s-paper));
+  --d-line-strong: color-mix(in srgb, var(--s-ink) 22%, var(--s-paper));
+  --d-well: color-mix(in srgb, var(--s-ink) 5%, var(--s-paper));
+  --d-hover: color-mix(in srgb, var(--s-ink) 7%, var(--s-paper));
+  --d-accent: var(--s-accent);
+  --d-accent-soft: color-mix(in srgb, var(--s-accent) 12%, var(--s-paper));
+  --d-sketch: color-mix(in srgb, var(--s-accent) 18%, var(--s-paper));
+  --d-selection: color-mix(in srgb, var(--s-accent) 22%, transparent);
+  --d-shadow-sm: 0 0 0 1px color-mix(in srgb, var(--s-ink) 8%, transparent), 0 1px 2px color-mix(in srgb, var(--s-ink) 6%, transparent);
+  --d-shadow-card: 0 0 0 1px color-mix(in srgb, var(--s-ink) 8%, transparent), 0 10px 24px color-mix(in srgb, var(--s-ink) 10%, transparent);
+  --d-filter-raised: none;
+  color: var(--d-ink);
+}

@@ -59,9 +59,10 @@ export default function Whiteboard({ page }: { page: Page }) {
     converted.current = null;
   }, [page.id]);
   return (
-    <div className="board">
+    <div className="dovli-canvas relative min-h-0 flex-1">
       <Excalidraw
         key={page.id}
+        autoFocus
         initialData={initialData as any}
         theme={dark ? "dark" : "light"}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, toggleTheme: null, export: false } }}

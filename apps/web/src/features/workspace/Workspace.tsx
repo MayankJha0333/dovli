@@ -1,54 +1,122 @@
 import "@/lib/editorBridge";
-import { useEffect, useState } from "react";
-import { store, useStore } from "@/lib/store";
-import { displayTitle, type Page } from "@dovli/core";
-import { Toasts } from "@/components/Toasts";
+import { useEffect } from "react";
+import { displayTitle } from "@dovli/core";
+import { Spinner, Toaster, TooltipProvider, cn } from "@dovli/ui";
+import { autoBackup } from "@/lib/backups";
+import { applySettings } from "@/lib/settings";
+import { initStore, routeFromHash, store, useStore } from "@/lib/store";
+import { startSync } from "@/lib/sync";
+import { refreshUsage } from "@/lib/ai";
+import { ui, useUI } from "@/lib/ui";
+import { useAuth } from "@/lib/auth";
+import { AIPanel } from "@/features/ai/AIPanel";
+import { SecondStepDialog, SignInDialog } from "@/features/auth/SignInDialog";
 import { Home } from "@/features/home/Home";
 import { PageView } from "@/features/page/PageView";
+import { CommandPalette } from "@/features/palette/CommandPalette";
+import { PagePicker } from "@/features/pages/PagePicker";
+import { SettingsDialog } from "@/features/settings/SettingsDialog";
+import { ShareDialog } from "@/features/share/ShareDialog";
 import { Sidebar } from "@/features/sidebar/Sidebar";
+import { StyleGallery } from "@/features/page-styles/StyleGallery";
+import { TagView } from "@/features/tags/TagView";
 import { TemplatesView } from "@/features/templates/TemplatesView";
+import { TrashView } from "@/features/trash/TrashView";
+import { useShortcuts } from "./useShortcuts";
+
+/** Soft colour behind glass themes. Themes without glows draw nothing. */
+function Glows() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" data-print="hide">
+      <div className="absolute -left-[200px] -top-[240px] h-[600px] w-[720px] rounded-full bg-[var(--d-glow-1)] opacity-[var(--d-glow-1-o)] blur-[120px]" />
+      <div className="absolute -right-[180px] bottom-[8%] h-[520px] w-[600px] rounded-full bg-[var(--d-glow-2)] opacity-[var(--d-glow-2-o)] blur-[130px]" />
+      <div className="absolute -bottom-[220px] left-[34%] h-[420px] w-[620px] rounded-full bg-[var(--d-glow-3)] opacity-[var(--d-glow-3-o)] blur-[130px]" />
+    </div>
+  );
+}
 
 export default function Workspace() {
+  const ready = useStore((s) => s.ready);
   const route = useStore((s) => s.route);
-  const [navOpen, setNavOpen] = useState(false);
-  const open = () => setNavOpen(true);
-  const close = () => setNavOpen(false);
+  const nav = useUI((s) => s.nav);
+  const needsSecondStep = useAuth((a) => a.needsSecondStep);
 
-  useEffect(() => setNavOpen(false), [route]);
   useEffect(() => {
-    const onHash = () => {
-      const h = location.hash.replace(/^#/, "");
-      const pages = store.get().pages;
-      if (h === "templates") store.navigate({ name: "templates" });
-      else if (h.startsWith("p-") && pages[h.slice(2)]) store.navigate({ name: "page", id: h.slice(2) });
-      else if (h === "home" || h === "") store.navigate({ name: "home" });
-    };
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
+    applySettings();
+    void initStore().then(() => void autoBackup());
+    startSync();
+    void refreshUsage();
   }, []);
 
+  // Back/forward buttons and links like #p-abc123 inside pages.
   useEffect(() => {
-    const title =
-      route.name === "page"
-        ? displayTitle(store.get().pages[route.id] ?? ({ title: "", kind: "doc" } as Page))
-        : route.name === "templates"
-          ? "Templates"
-          : "Home";
+    const onHash = () => store.navigate(routeFromHash(store.get().pages), { replace: true });
+    window.addEventListener("popstate", onHash);
+    window.addEventListener("hashchange", onHash);
+    return () => {
+      window.removeEventListener("popstate", onHash);
+      window.removeEventListener("hashchange", onHash);
+    };
+  }, []);
+
+  useEffect(() => ui.set({ nav: false }), [route]);
+
+  const title = useStore((s) => {
+    const r = s.route;
+    if (r.name === "page") return s.pages[r.id] ? displayTitle(s.pages[r.id]) : "Page";
+    return r.name === "templates" ? "Templates" : r.name === "trash" ? "Trash" : r.name === "tag" ? `#${r.tag}` : "Home";
+  });
+  useEffect(() => {
     document.title = `${title} · Dovli`;
-  }, [route]);
+  }, [title]);
+
+  useShortcuts();
+
+  if (!ready)
+    return (
+      <div className="grid min-h-dvh place-items-center bg-bg">
+        <Spinner label="Opening your pages" />
+      </div>
+    );
 
   return (
-    <div className="app">
-      <Sidebar open={navOpen} onClose={close} />
-      <div className={`scrim${navOpen ? " is-open" : ""}`} onClick={close} aria-hidden="true" />
-      <main className="main">
-        <div className="panel">
-          {route.name === "home" && <Home onMenu={open} />}
-          {route.name === "templates" && <TemplatesView onMenu={open} />}
-          {route.name === "page" && <PageView key={route.id} id={route.id} onMenu={open} />}
-        </div>
-      </main>
-      <Toasts />
-    </div>
+    <TooltipProvider>
+      <Glows />
+      <div
+        data-print="shell"
+        className="grid h-dvh grid-cols-[264px_minmax(0,1fr)] gap-[var(--d-shell-gap)] p-[var(--d-shell-gap)] max-[860px]:grid-cols-1 max-[860px]:gap-0 max-[860px]:p-0"
+      >
+        <Sidebar />
+        <div
+          aria-hidden="true"
+          onClick={() => ui.set({ nav: false })}
+          className={cn(
+            "fixed inset-0 z-40 bg-overlay transition-opacity min-[861px]:hidden",
+            nav ? "opacity-100" : "pointer-events-none opacity-0",
+          )}
+        />
+        <main
+          id="main"
+          tabIndex={-1}
+          className="relative min-h-0 min-w-0 overflow-hidden rounded-shell shadow-shell surface-panel focus:outline-none max-[860px]:rounded-none"
+        >
+          {route.name === "home" && <Home />}
+          {route.name === "templates" && <TemplatesView />}
+          {route.name === "trash" && <TrashView />}
+          {route.name === "tag" && <TagView tag={route.tag} />}
+          {route.name === "page" && <PageView key={route.id} id={route.id} />}
+        </main>
+      </div>
+
+      <CommandPalette />
+      <SettingsDialog />
+      <SignInDialog />
+      {needsSecondStep && <SecondStepDialog />}
+      <ShareDialog />
+      <AIPanel />
+      <PagePicker />
+      <StyleGallery />
+      <Toaster />
+    </TooltipProvider>
   );
 }

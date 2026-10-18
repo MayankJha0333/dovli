@@ -1,64 +1,63 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { childrenOf, displayTitle, favoritePages, tagIndex, type Page } from "@dovli/core";
+import { Button, Icon, IconButton, Kbd, SectionLabel, cn, modKey, type IconName } from "@dovli/ui";
 import { store, useStore } from "@/lib/store";
-import { childrenOf, displayTitle, pageText, type Page } from "@dovli/core";
-import { Icon } from "@/components/Icon";
+import { ui, useUI } from "@/lib/ui";
 import { newPage } from "@/features/pages/actions";
+import { PageMenu } from "@/features/page/PageMenu";
+import { SyncBadge } from "./SyncBadge";
 
-/* ------------------------------------------------------------------ */
-/* Sidebar                                                             */
-/* ------------------------------------------------------------------ */
+/** One row in the sidebar. Every theme gets its own height, radius and active look from tokens. */
+const rowBase =
+  "group/row relative flex h-row w-full min-w-0 items-center gap-2.5 rounded-md px-2.5 text-left text-base text-ink-2 transition-colors hover:bg-hover hover:text-ink";
+const rowActive = "bg-active text-active-ink font-semibold shadow-active hover:bg-active hover:text-active-ink";
 
-export function TreeRow({ page, depth, onPick }: { page: Page; depth: number; onPick: () => void }) {
-  const pages = useStore((s) => s.pages);
-  const route = useStore((s) => s.route);
-  const kids = childrenOf(pages, page.id);
-  const active = route.name === "page" && route.id === page.id;
+function NavRow({ icon, label, active, onClick, count }: { icon: IconName; label: string; active: boolean; onClick: () => void; count?: number }) {
   return (
-    <li>
-      <div className={`tree-row${active ? " is-active" : ""}`} style={{ paddingLeft: `${4 + depth * 14}px` }}>
+    <button type="button" className={cn(rowBase, active && rowActive)} aria-current={active ? "page" : undefined} onClick={onClick}>
+      <Icon name={icon} size={16} className={active ? "" : "text-ink-3"} />
+      <span className="flex-1 truncate">{label}</span>
+      {!!count && <span className="text-xs tabular-nums text-ink-4">{count}</span>}
+    </button>
+  );
+}
+
+function TreeRow({ page, depth }: { page: Page; depth: number }) {
+  const pages = useStore((s) => s.pages);
+  const active = useStore((s) => s.route.name === "page" && s.route.id === page.id);
+  const kids = childrenOf(pages, page.id);
+  const open = !!page.expanded && kids.length > 0;
+  return (
+    <li role="treeitem" aria-expanded={kids.length ? open : undefined} aria-selected={active} aria-level={depth + 1}>
+      <div className={cn(rowBase, "gap-1 pr-1", active && rowActive)} style={{ paddingLeft: 4 + depth * 14 }}>
         <button
           type="button"
-          className="tree-row__chev"
-          aria-label={page.expanded ? "Collapse" : "Expand"}
-          aria-expanded={kids.length ? !!page.expanded : undefined}
+          tabIndex={-1}
+          aria-label={open ? "Collapse" : "Expand"}
           disabled={!kids.length}
           onClick={() => store.updatePage(page.id, { expanded: !page.expanded }, false)}
+          className="grid size-5 flex-none place-items-center rounded-xs text-ink-4 hover:bg-hover hover:text-ink disabled:invisible"
         >
-          {kids.length ? (
-            <span className={`chev${page.expanded ? " is-open" : ""}`}>
-              <Icon name="chevron" size={12} />
-            </span>
-          ) : null}
+          <Icon name="chevron" size={11} className={cn("transition-transform duration-150", open && "rotate-90")} />
         </button>
         <button
           type="button"
-          className="tree-row__link"
+          className="flex h-full min-w-0 flex-1 items-center gap-2 text-left"
           aria-current={active ? "page" : undefined}
-          onClick={() => {
-            store.navigate({ name: "page", id: page.id });
-            onPick();
-          }}
+          onClick={() => store.navigate({ name: "page", id: page.id })}
         >
-          <span className="tree-row__mark">{page.mark}</span>
-          <span className="tree-row__title">{displayTitle(page)}</span>
+          <span className={cn("w-[18px] flex-none text-center font-serif", active ? "text-accent" : "text-ink-3")}>{page.mark}</span>
+          <span className="truncate">{displayTitle(page)}</span>
         </button>
-        <button
-          type="button"
-          className="tree-row__add"
-          aria-label={`Add a page inside ${displayTitle(page)}`}
-          title="Add a page inside"
-          onClick={() => {
-            newPage("doc", page.id);
-            onPick();
-          }}
-        >
-          <Icon name="plus" size={14} />
-        </button>
+        <span className="flex flex-none items-center opacity-0 transition-opacity focus-within:opacity-100 group-hover/row:opacity-100 max-[860px]:opacity-100">
+          <PageMenu page={page} trigger={<IconButton icon="more" label="Page actions" size="xs" tooltip={false} />} />
+          <IconButton icon="plus" label={`Add a page inside ${displayTitle(page)}`} size="xs" tooltip={false} onClick={() => newPage("doc", page.id)} />
+        </span>
       </div>
-      {kids.length > 0 && page.expanded && (
-        <ul className="tree">
+      {open && (
+        <ul role="group" className="m-0 flex list-none flex-col gap-px p-0">
           {kids.map((k) => (
-            <TreeRow key={k.id} page={k} depth={depth + 1} onPick={onPick} />
+            <TreeRow key={k.id} page={k} depth={depth + 1} />
           ))}
         </ul>
       )}
@@ -66,158 +65,127 @@ export function TreeRow({ page, depth, onPick }: { page: Page; depth: number; on
   );
 }
 
-export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function Sidebar() {
   const pages = useStore((s) => s.pages);
   const route = useStore((s) => s.route);
-  const status = useStore((s) => s.saveStatus);
-  const [q, setQ] = useState("");
-  const searchRef = useRef<HTMLInputElement>(null);
+  const open = useUI((s) => s.nav);
+  const [showTags, setShowTags] = useState(true);
   const roots = childrenOf(pages, null);
-
-  // ⌘K / Ctrl+K jumps to search from anywhere.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        searchRef.current?.focus();
-        searchRef.current?.select();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
-  const results = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    if (!term) return [];
-    return Object.values(pages)
-      .filter((p) => displayTitle(p).toLowerCase().includes(term) || pageText(p).toLowerCase().includes(term))
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, 20);
-  }, [q, pages]);
-
-  const go = (r: Parameters<typeof store.navigate>[0]) => {
-    store.navigate(r);
-    onClose();
-  };
+  const favorites = favoritePages(pages);
+  const tags = useMemo(() => tagIndex(pages).slice(0, 12), [pages]);
+  const trashCount = useMemo(() => Object.values(pages).filter((p) => p.deletedAt).length, [pages]);
 
   return (
-    <aside className={`sidebar${open ? " is-open" : ""}`} aria-label="Pages">
-      <div className="sidebar__top">
-        <button type="button" className="brand" onClick={() => go({ name: "home" })}>
-          <span className="brand__tile" aria-hidden="true">D</span>
-          <span className="brand__name">Dovli</span>
+    <aside
+      aria-label="Sidebar"
+      data-print="hide"
+      className={cn(
+        "flex min-h-0 flex-col gap-1 overflow-hidden rounded-shell px-2.5 pb-2.5 pt-3 shadow-shell surface-sidebar [border-right:var(--d-divider)]",
+        "max-[860px]:fixed max-[860px]:inset-y-0 max-[860px]:left-0 max-[860px]:z-50 max-[860px]:w-[min(304px,86vw)] max-[860px]:rounded-l-none max-[860px]:[background:linear-gradient(var(--d-sidebar),var(--d-sidebar)),var(--d-bg)] max-[860px]:pb-[calc(12px+env(safe-area-inset-bottom))] max-[860px]:pt-[calc(14px+env(safe-area-inset-top))] max-[860px]:shadow-pop max-[860px]:transition-transform max-[860px]:duration-200",
+        open ? "max-[860px]:translate-x-0" : "max-[860px]:invisible max-[860px]:-translate-x-[102%]",
+      )}
+    >
+      <div className="flex h-10 items-center gap-2.5 px-1.5">
+        <button type="button" onClick={() => store.navigate({ name: "home" })} className="-m-1 flex items-center gap-2.5 rounded-md p-1 hover:bg-hover">
+          <span className="grid size-7 place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink" aria-hidden="true">
+            D
+          </span>
+          <span className="font-display text-lg font-bold tracking-tight text-ink">Dovli</span>
+          <span className="sr-only">, go to Home</span>
         </button>
-        <button type="button" className="icon-btn sidebar__close" aria-label="Close sidebar" onClick={onClose}>
-          <Icon name="close" />
-        </button>
+        <IconButton icon="close" label="Close sidebar" size="sm" className="ml-auto min-[861px]:hidden" onClick={() => ui.set({ nav: false })} />
       </div>
 
-      <label className="search" htmlFor="search">
+      <button
+        type="button"
+        onClick={() => ui.set({ palette: true })}
+        className="my-1.5 flex h-9 items-center gap-2 rounded-md bg-well px-3 text-base text-ink-3 shadow-sm transition-colors hover:text-ink-2"
+      >
         <Icon name="search" size={15} />
-        <input
-          id="search"
-          ref={searchRef}
-          type="search"
-          placeholder="Search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === "Escape" && (setQ(""), searchRef.current?.blur())}
-        />
-        <kbd className="search__kbd" aria-hidden="true">⌘K</kbd>
-      </label>
+        <span className="flex-1 text-left">Search</span>
+        <Kbd className="max-[860px]:hidden">{modKey()}K</Kbd>
+      </button>
 
-      <nav className="sidebar__nav" aria-label="Main">
-        <button type="button" className={`nav-link${route.name === "home" ? " is-active" : ""}`} onClick={() => go({ name: "home" })}>
-          <Icon name="home" />
-          Home
-        </button>
-        <button
-          type="button"
-          className={`nav-link${route.name === "templates" ? " is-active" : ""}`}
-          onClick={() => go({ name: "templates" })}
-        >
-          <Icon name="templates" />
-          Templates
-        </button>
+      <nav aria-label="Main" className="flex flex-col gap-px">
+        <NavRow icon="home" label="Home" active={route.name === "home"} onClick={() => store.navigate({ name: "home" })} />
+        <NavRow icon="templates" label="Templates" active={route.name === "templates"} onClick={() => store.navigate({ name: "templates" })} />
       </nav>
 
-      <div className="sidebar__scroll">
-        {q.trim() ? (
-          <>
-            <div className="sidebar__label">
-              <span>{results.length ? `${results.length} ${results.length === 1 ? "result" : "results"}` : "No pages match"}</span>
-            </div>
-            <ul className="tree">
-              {results.map((p) => (
+      <div className="-mx-1 mt-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+        {favorites.length > 0 && (
+          <section aria-label="Favourites" className="mt-3">
+            <SectionLabel>Favourites</SectionLabel>
+            <ul className="m-0 flex list-none flex-col gap-px p-0">
+              {favorites.map((p) => (
                 <li key={p.id}>
-                  <div className="tree-row" style={{ paddingLeft: 4 }}>
-                    <span className="tree-row__chev" />
-                    <button
-                      type="button"
-                      className="tree-row__link"
-                      onClick={() => {
-                        go({ name: "page", id: p.id });
-                        setQ("");
-                      }}
-                    >
-                      <span className="tree-row__mark">{p.mark}</span>
-                      <span className="tree-row__title">{displayTitle(p)}</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    className={cn(rowBase, route.name === "page" && route.id === p.id && rowActive)}
+                    onClick={() => store.navigate({ name: "page", id: p.id })}
+                  >
+                    <span className="w-[18px] flex-none text-center font-serif text-ink-3">{p.mark}</span>
+                    <span className="truncate">{displayTitle(p)}</span>
+                  </button>
                 </li>
               ))}
             </ul>
-          </>
-        ) : (
-          <>
-            <div className="sidebar__label">
-              <span>Pages</span>
-              <button
-                type="button"
-                className="icon-btn icon-btn--sm"
-                aria-label="New page"
-                title="New page"
-                onClick={() => {
-                  newPage();
-                  onClose();
-                }}
-              >
-                <Icon name="plus" size={14} />
-              </button>
-            </div>
-            <ul className="tree">
+          </section>
+        )}
+
+        <section aria-label="Pages" className="mt-3">
+          <SectionLabel action={<IconButton icon="plus" label="New page" size="xs" onClick={() => newPage()} />}>Pages</SectionLabel>
+          {roots.length ? (
+            <ul role="tree" aria-label="Pages" className="m-0 flex list-none flex-col gap-px p-0">
               {roots.map((p) => (
-                <TreeRow key={p.id} page={p} depth={0} onPick={onClose} />
+                <TreeRow key={p.id} page={p} depth={0} />
               ))}
             </ul>
-          </>
+          ) : (
+            <p className="m-0 px-2.5 py-2 text-sm text-ink-3">No pages yet.</p>
+          )}
+        </section>
+
+        {tags.length > 0 && (
+          <section aria-label="Tags" className="mt-3">
+            <SectionLabel
+              action={<IconButton icon={showTags ? "chevronDown" : "chevron"} label={showTags ? "Hide tags" : "Show tags"} size="xs" tooltip={false} onClick={() => setShowTags((v) => !v)} />}
+            >
+              Tags
+            </SectionLabel>
+            {showTags && (
+              <ul className="m-0 flex list-none flex-col gap-px p-0">
+                {tags.map((t) => (
+                  <li key={t.tag}>
+                    <button
+                      type="button"
+                      className={cn(rowBase, route.name === "tag" && route.tag === t.tag && rowActive)}
+                      onClick={() => store.navigate({ name: "tag", tag: t.tag })}
+                    >
+                      <Icon name="hash" size={14} className="text-ink-3" />
+                      <span className="flex-1 truncate">{t.tag}</span>
+                      <span className="text-xs tabular-nums text-ink-4">{t.pages.length}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         )}
+
+        <div className="mt-3">
+          <NavRow icon="trash" label="Trash" count={trashCount} active={route.name === "trash"} onClick={() => store.navigate({ name: "trash" })} />
+        </div>
       </div>
 
-      <div className="sidebar__foot">
-        <button
-          type="button"
-          className="btn btn--primary btn--block"
-          onClick={() => {
-            newPage();
-            onClose();
-          }}
-        >
-          <Icon name="plus" size={15} />
+      <div className="flex flex-col gap-2 pt-2">
+        <Button variant="primary" block icon="plus" onClick={() => newPage()}>
           New page
-        </button>
-        <p className={`save-status save-status--${status}`}>
-          <span className="save-status__dot" aria-hidden="true" />
-          {status === "saved" && "Saved on this device"}
-          {status === "saving" && "Saving"}
-          {status === "error" && "Couldn't save. Browser storage is full or blocked."}
-        </p>
+        </Button>
+        <div className="flex items-center gap-1">
+          <SyncBadge />
+          <IconButton icon="settings" label="Settings" shortcut={`${modKey()},`} size="sm" className="ml-auto" onClick={() => ui.set({ settings: "appearance" })} />
+        </div>
       </div>
     </aside>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Top bar                                                             */
-/* ------------------------------------------------------------------ */

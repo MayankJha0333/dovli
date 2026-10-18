@@ -1,70 +1,125 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { displayTitle, timeAgo } from "@dovli/core";
-import { color, font, radius, space, touchTarget } from "@dovli/theme";
+import { displayTitle, timeAgo, type Page } from "@dovli/core";
+import { getStyle, space, touchTarget } from "@dovli/theme";
 import { Glass } from "@/components/Glass";
-import { usePages } from "@/lib/store";
-import { BlockList } from "./BlockList";
+import { usePalette } from "@/components/ui";
+import { store, usePages } from "@/lib/store";
+import PageEditorDom from "@/dom/PageEditorDom";
 
 export function PageScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const page = usePages((p) => p[id]);
+  const p = usePalette();
+  const page = usePages((x) => x[id]);
+  const pages = usePages((x) => x);
+  // The editor keeps its own copy while you type; give it the page once, when it opens.
+  const [initial] = useState<Page | undefined>(() => store.getPages()[id]);
+  const others = useMemo(
+    () =>
+      Object.values(pages)
+        .filter((x) => x.id !== id)
+        .map(({ id: pid, title, mark, kind, parentId, deletedAt, updatedAt, createdAt, order }) => ({ id: pid, title, mark, kind, parentId, deletedAt, updatedAt, createdAt, order })),
+    [pages, id],
+  );
 
-  if (!page) {
+  useEffect(() => store.markOpened(id), [id]);
+
+  const titleRef = useRef<TextInputInstance>(null);
+  const onExitTop = useCallback(async () => titleRef.current?.focus(), []);
+
+  const onSave = useCallback(async (blocks: any[]) => store.updatePage(id, { blocks }), [id]);
+  const onOpenPage = useCallback(async (to: string) => void router.push({ pathname: "/page/[id]", params: { id: to } }), [router]);
+  const onCreatePage = useCallback(async (newId: string, kind: "doc" | "board", title: string) => void store.createPage({ id: newId, kind, title, parentId: id }), [id]);
+
+  if (!page || !initial || page.deletedAt) {
     return (
-      <View style={[styles.missing, { paddingTop: insets.top + space.xl }]}>
-        <Text style={styles.missingText}>This page was deleted.</Text>
+      <View style={{ flex: 1, alignItems: "center", paddingTop: insets.top + space.xxl, backgroundColor: p.bg }}>
+        <Text style={{ color: p.ink3 }}>This page is in the trash or was deleted.</Text>
       </View>
     );
   }
 
+  const style = getStyle(page.style);
+  const paper = style ? style.paper : p.panel;
+  const ink = style ? style.ink : p.ink;
+
+  const more = () =>
+    Alert.alert(displayTitle(page), undefined, [
+      { text: page.favorite ? "Remove from favourites" : "Add to favourites", onPress: () => store.toggleFavorite(page.id) },
+      {
+        text: "Move to trash",
+        style: "destructive",
+        onPress: () => {
+          store.trashPage(page.id);
+          router.back();
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+
   return (
-    <View style={styles.screen}>
-      <View style={[styles.cover, { height: insets.top + 190 }]} />
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 150, paddingBottom: insets.bottom + 48 }}>
-        <View style={styles.sheet}>
-          <View style={styles.markTile}>
-            <Text style={styles.mark}>{page.mark}</Text>
-          </View>
-          <Text style={styles.title} accessibilityRole="header">
-            {displayTitle(page)}
-          </Text>
-          <Text style={styles.meta}>Edited {timeAgo(page.updatedAt)}</Text>
-          {page.kind === "board" ? (
-            <Text style={styles.note}>Whiteboards open on the web for now. They come to the phone app next.</Text>
-          ) : (
-            <BlockList blocks={page.blocks ?? []} />
-          )}
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: paper }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ paddingTop: insets.top + 56, paddingHorizontal: space.xl - 4 }}>
+        <View style={[styles.markTile, { backgroundColor: p.accentSoft, borderRadius: p.radius.lg }]}>
+          <Text style={{ fontSize: 26, color: style ? style.accent : p.accent }}>{page.mark}</Text>
         </View>
-      </ScrollView>
+        <TextInput
+          ref={titleRef}
+          value={page.title}
+          onChangeText={(title) => store.updatePage(page.id, { title: title.replace(/\n/g, "") })}
+          placeholder={page.kind === "board" ? "Untitled board" : "Untitled"}
+          placeholderTextColor={p.ink3}
+          accessibilityLabel="Page title"
+          multiline
+          style={[styles.title, { color: ink, fontWeight: String(p.t.fonts.displayWeight) as any }]}
+        />
+        <Text style={{ marginTop: space.xs, marginBottom: space.md, color: p.ink3, fontSize: 12.5 }}>Edited {timeAgo(page.updatedAt)}</Text>
+      </View>
+
+      {page.kind === "board" ? (
+        <View style={{ paddingHorizontal: space.xl - 4 }}>
+          <Text style={{ color: ink, fontSize: 15, lineHeight: 22 }}>Whiteboards open on the web for now. They come to the phone app next.</Text>
+        </View>
+      ) : (
+        <View style={{ flex: 1, paddingHorizontal: space.md }}>
+          <PageEditorDom
+            page={initial}
+            others={others}
+            themeId={p.t.id}
+            background={paper}
+            onSave={onSave}
+            onOpenPage={onOpenPage}
+            onCreatePage={onCreatePage}
+            onExitTop={onExitTop}
+            dom={{ style: { flex: 1, backgroundColor: "transparent" }, scrollEnabled: true, contentInsetAdjustmentBehavior: "never" } as any}
+          />
+        </View>
+      )}
 
       <View style={[styles.topBar, { top: insets.top + space.sm }]}>
-        <Glass tone="clear" style={styles.round}>
+        <Glass style={styles.round}>
           <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => router.back()} style={styles.roundHit}>
-            <Text style={styles.back}>‹</Text>
+            <Text style={{ color: p.ink, fontSize: 28, lineHeight: 30, marginTop: -2 }}>‹</Text>
+          </Pressable>
+        </Glass>
+        <Glass style={styles.round}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Page actions" onPress={more} style={styles.roundHit}>
+            <Text style={{ color: p.ink, fontSize: 20 }}>•••</Text>
           </Pressable>
         </Glass>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: color.paper },
-  cover: { position: "absolute", left: 0, right: 0, top: 0, backgroundColor: color.cover },
-  sheet: { minHeight: 600, backgroundColor: color.paper, borderTopLeftRadius: radius.sheet, borderTopRightRadius: radius.sheet, paddingHorizontal: space.xl - 2, paddingBottom: space.xxl },
-  markTile: { marginTop: -28, width: 56, height: 56, borderRadius: 18, backgroundColor: color.paper, alignItems: "center", justifyContent: "center", shadowColor: "#0A1032", shadowOpacity: 0.18, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
-  mark: { fontSize: 26, color: color.accent },
-  title: { marginTop: space.lg, color: color.ink, fontSize: font.size.h1Phone, fontWeight: "800", letterSpacing: -1 },
-  meta: { marginTop: space.sm, marginBottom: space.lg, color: color.inkMuted, fontSize: font.size.caption },
-  note: { color: color.inkSoft, fontSize: font.size.body, lineHeight: 24 },
-  topBar: { position: "absolute", left: space.md + 2 },
-  round: { width: touchTarget + 4, height: touchTarget + 4, borderRadius: radius.pill, overflow: "hidden" },
+  markTile: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
+  title: { marginTop: space.lg, fontSize: 30, letterSpacing: -1, padding: 0 },
+  topBar: { position: "absolute", left: space.md, right: space.md, flexDirection: "row", justifyContent: "space-between" },
+  round: { width: touchTarget + 2, height: touchTarget + 2, borderRadius: 999, overflow: "hidden" },
   roundHit: { flex: 1, alignItems: "center", justifyContent: "center" },
-  back: { color: color.onGlassClear, fontSize: 30, lineHeight: 32, marginTop: -2 },
-  missing: { flex: 1, alignItems: "center" },
-  missingText: { color: color.inkMuted },
 });

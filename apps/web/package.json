@@ -12,12 +12,26 @@
   "dependencies": {
     "@dovli/core": "workspace:*",
     "@dovli/editor": "workspace:*",
+    "@dovli/sync": "workspace:*",
     "@dovli/theme": "workspace:*",
+    "@dovli/ui": "workspace:*",
     "@excalidraw/excalidraw": "^0.18.1",
+    "@supabase/supabase-js": "^2.118.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "fflate": "^0.8.3",
+    "idb": "^8.0.4",
     "nanoid": "^6.0.2",
     "next": "^16.4.2",
+    "postcss": "^8.5.30",
+    "radix-ui": "^1.8.1",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.7.0",
+    "tailwindcss": "^4.3.3"
   },
   "devDependencies": {
     "@dovli/config": "workspace:*",

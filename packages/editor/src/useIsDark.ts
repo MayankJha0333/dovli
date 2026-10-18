@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 
-/** Dark when the host sets data-theme="dark", or when it sets nothing and the system prefers dark. */
+/**
+ * Dark when the app's theme is dark (<html data-scheme="dark">), or when no theme is set and the
+ * device prefers dark. Pages with a dark page style pass their own value instead.
+ */
 function computeDark(): boolean {
-  const attr = document.documentElement.getAttribute("data-theme");
+  const attr = document.documentElement.getAttribute("data-scheme");
   if (attr === "dark") return true;
   if (attr === "light") return false;
   try {
@@ -19,7 +22,7 @@ export function useIsDark(): boolean {
     const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
     mq?.addEventListener?.("change", update);
     const obs = new MutationObserver(update);
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-scheme"] });
     return () => {
       mq?.removeEventListener?.("change", update);
       obs.disconnect();

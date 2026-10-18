@@ -1,0 +1,114 @@
+/* Dovli editor styles: BlockNote, Mantine menus, Excalidraw and text highlights, dressed in the
+   app theme's --d-* variables. Shared by the web app and the phone app's editor.
+   Import after @dovli/ui/styles.css. */
+
+@source "./";
+
+/* ---------- Text highlights (find in page, #tags) ---------- */
+::highlight(dovli-find) { background-color: color-mix(in srgb, var(--d-warn) 30%, transparent); color: inherit; }
+::highlight(dovli-find-current) { background-color: var(--d-warn); color: #111; }
+.dovli-tag { color: var(--d-accent); background-color: var(--d-accent-soft); border-radius: 4px; padding: 0 1px; }
+
+/* ---------- Editor (BlockNote + Mantine), dressed in the theme ---------- */
+.dovli-editor.bn-container,
+.bn-container[data-color-scheme] {
+  --bn-colors-editor-background: transparent;
+  --bn-colors-editor-text: var(--d-ink);
+  --bn-colors-menu-background: var(--d-raised);
+  --bn-colors-menu-text: var(--d-ink);
+  --bn-colors-tooltip-background: var(--d-ink);
+  --bn-colors-tooltip-text: var(--d-bg);
+  --bn-colors-hovered-background: var(--d-hover);
+  --bn-colors-hovered-text: var(--d-ink);
+  --bn-colors-selected-background: var(--d-active-bg);
+  --bn-colors-selected-text: var(--d-active-ink);
+  --bn-colors-disabled-background: var(--d-well);
+  --bn-colors-disabled-text: var(--d-ink-4);
+  --bn-colors-border: var(--d-line);
+  --bn-colors-side-menu: var(--d-ink-4);
+  --bn-colors-highlights-gray-background: var(--d-well);
+  --bn-font-family: var(--d-font-sans);
+  --bn-border-radius: var(--d-radius-md);
+  --bn-border-radius-small: var(--d-radius-sm);
+  --bn-border-radius-medium: var(--d-radius-md);
+  --bn-border-radius-large: var(--d-radius-lg);
+  --bn-shadow-medium: var(--d-shadow-pop);
+  --bn-shadow-light: var(--d-shadow-sm);
+  --bn-border: 0;
+}
+.dovli-editor .bn-editor { padding-inline: 54px; background: transparent; font-family: var(--d-font-sans); font-size: 1rem; line-height: 1.7; color: var(--d-ink); }
+@media (max-width: 640px) { .dovli-editor .bn-editor { padding-inline: 2px; } }
+.dovli-editor .bn-editor:focus,
+.dovli-editor .bn-editor:focus-visible,
+.dovli-editor [contenteditable]:focus-visible { outline: none; }
+.dovli-editor .bn-block-outer { margin-block: 1px; }
+.dovli-editor .bn-inline-content { word-break: break-word; }
+.dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--d-font-display); font-weight: var(--d-display-weight); letter-spacing: -0.02em; line-height: 1.25; }
+.page-styled .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--title-font, var(--d-font-display)); font-style: var(--title-style, normal); }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="1"] { --level: 1.75em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="2"] { --level: 1.38em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="3"] { --level: 1.14em; }
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 1.1em; }
+.dovli-editor .bn-block-outer:first-child:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 0; }
+.dovli-editor .bn-block-content[data-content-type="quote"] blockquote { border-left: 3px solid var(--d-line-strong); color: var(--d-ink-2); padding-left: 14px; margin: 2px 0; }
+.dovli-editor code,
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] { font-family: var(--d-font-mono); }
+.dovli-editor .bn-inline-content code { font-size: 0.86em; background: var(--d-well); color: var(--d-danger); padding: 2px 5px; border-radius: 5px; }
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] { background: var(--d-well); color: var(--d-ink); border-radius: var(--d-radius-md); font-size: 0.88em; box-shadow: inset 0 0 0 1px var(--d-line); }
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] pre { background: transparent; color: inherit; padding: 14px 18px; }
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] select { color: var(--d-ink-3); font-family: var(--d-font-sans); }
+.dovli-editor .bn-block-content[data-content-type="table"] table { border-collapse: separate; border-spacing: 0; border-radius: var(--d-radius-md); overflow: hidden; box-shadow: inset 0 0 0 1px var(--d-line); }
+.dovli-editor .bn-block-content[data-content-type="table"] td,
+.dovli-editor .bn-block-content[data-content-type="table"] th { border: 0 !important; border-right: 1px solid var(--d-line) !important; border-bottom: 1px solid var(--d-line) !important; padding: 7px 12px; }
+.dovli-editor .bn-block-content[data-content-type="table"] tr > :last-child { border-right: 0 !important; }
+.dovli-editor .bn-block-content[data-content-type="table"] tr:last-child > * { border-bottom: 0 !important; }
+.dovli-editor .bn-block-content[data-content-type="table"] th { background: var(--d-well); color: var(--d-ink-2); font-weight: 600; }
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] { accent-color: var(--d-accent); width: 1.05em; height: 1.05em; }
+.dovli-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--d-ink-4); text-decoration: line-through; }
+.dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; border-top: 1px solid var(--d-line); margin: 14px 0; }
+.dovli-editor [data-placeholder]::before,
+.dovli-editor .bn-inline-content.is-empty::before { color: var(--d-ink-4) !important; font-style: normal; }
+.dovli-editor a { color: var(--d-accent); text-decoration-color: color-mix(in srgb, var(--d-accent) 35%, transparent); text-underline-offset: 3px; }
+.dovli-editor a:hover { text-decoration-color: var(--d-accent); }
+.dovli-editor .bn-file-block-content-wrapper,
+.dovli-editor .bn-visual-media-wrapper { border-radius: var(--d-radius-md); }
+.dovli-editor .bn-add-file-button { background: var(--d-well); color: var(--d-ink-3); border-radius: var(--d-radius-md); }
+.dovli-editor .bn-add-file-button:hover { background: var(--d-hover); color: var(--d-ink); }
+.dovli-editor .bn-block-content[data-content-type="embed"],
+.dovli-editor .bn-block-content[data-content-type="flowchart"],
+.dovli-editor .bn-block-content[data-content-type="dataTable"],
+.dovli-editor .bn-block-content[data-content-type="pdf"],
+.dovli-editor .bn-block-content[data-content-type="callout"] { width: 100%; }
+
+.bn-mantine .bn-suggestion-menu { padding: 6px; border-radius: var(--d-radius-lg); max-width: 360px; background: var(--d-raised); box-shadow: var(--d-shadow-pop); backdrop-filter: var(--d-filter-raised, none); }
+.bn-mantine .bn-suggestion-menu-label { font-family: var(--d-label-font); text-transform: var(--d-label-transform); letter-spacing: var(--d-label-tracking); color: var(--d-ink-3); font-size: var(--d-label-size); font-weight: 600; padding: 8px 8px 4px; }
+.bn-mantine .bn-suggestion-menu-item { border-radius: var(--d-radius-sm); padding: 6px 8px; }
+.bn-mantine .bn-suggestion-menu-item:not(.bn-suggestion-menu-item-small) { min-height: 46px; }
+.bn-mt-suggestion-menu-item-section[data-position="left"] { background: var(--d-well); color: var(--d-ink-2); border-radius: var(--d-radius-sm); padding: 8px; }
+.bn-mantine .bn-suggestion-menu-item[aria-selected="true"] .bn-mt-suggestion-menu-item-section[data-position="left"] { background: var(--d-panel); color: var(--d-accent); }
+.bn-mt-suggestion-menu-item-title { font-size: 0.84rem; font-weight: 600; color: var(--d-ink); }
+.bn-mt-suggestion-menu-item-subtitle { font-size: 0.72rem; color: var(--d-ink-3); }
+.bn-mantine .bn-toolbar { padding: 4px; border-radius: var(--d-radius-md); background: var(--d-raised); box-shadow: var(--d-shadow-pop); backdrop-filter: var(--d-filter-raised, none); }
+.bn-mantine .bn-side-menu .mantine-UnstyledButton-root:hover { background: var(--d-hover); }
+.bn-mantine [class*="mantine-Menu-dropdown"],
+.bn-mantine [class*="mantine-Popover-dropdown"] { border-radius: var(--d-radius-lg); box-shadow: var(--d-shadow-pop); border: 0; padding: 6px; background: var(--d-raised); backdrop-filter: var(--d-filter-raised, none); }
+.bn-mantine [class*="mantine-Menu-item"] { border-radius: var(--d-radius-sm); }
+.bn-mantine .bn-suggestion-menu,
+.bn-mantine .bn-toolbar,
+.bn-mantine [class*="mantine-Menu"] { font-family: var(--d-font-sans); }
+
+/* ---------- Excalidraw (whiteboards and flowcharts) ---------- */
+.dovli-canvas .excalidraw {
+  --color-primary: var(--d-accent);
+  --color-primary-darker: var(--d-accent-hover);
+  --color-primary-darkest: var(--d-accent-hover);
+  --color-primary-light: var(--d-accent-soft);
+  --ui-font: var(--d-font-sans);
+  --island-bg-color: var(--d-raised);
+  --border-radius-lg: var(--d-radius-md);
+}
+
+/* Touch screens have no keyboard shortcuts to show in the "/" menu. */
+@media (hover: none) and (pointer: coarse) {
+  .bn-suggestion-menu .bn-mt-suggestion-menu-item-section[data-position="right"] { display: none; }
+}

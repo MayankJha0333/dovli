@@ -1,0 +1,61 @@
+// Which overlay is open (command palette, settings, share…). Kept outside React components so any
+// part of the app, including the editor bridge, can open one.
+
+import { useSyncExternalStore } from "react";
+import type { AISelection } from "@dovli/editor";
+
+export type SettingsSection = "appearance" | "account" | "sync" | "data" | "ai" | "privacy" | "shortcuts";
+
+export interface UIState {
+  palette: boolean;
+  settings: SettingsSection | null;
+  signIn: boolean;
+  share: string | null;
+  ai: (AISelection & { mode?: "edit" | "summary" }) | null;
+  picker: { title: string; exclude: string; resolve: (id: string | null) => void } | null;
+  styleFor: string | null;
+  /** The sidebar drawer on small screens. */
+  nav: boolean;
+}
+
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false };
+const listeners = new Set<() => void>();
+
+// A page made with "New page" should put the cursor in its title, ready to type.
+let titleFocusFor: string | null = null;
+export const requestTitleFocus = (pageId: string) => {
+  titleFocusFor = pageId;
+};
+/** True once for the page that asked for title focus. */
+export const takeTitleFocus = (pageId: string) => {
+  if (titleFocusFor !== pageId) return false;
+  titleFocusFor = null;
+  return true;
+};
+
+export const ui = {
+  get: () => state,
+  set(patch: Partial<UIState>) {
+    state = { ...state, ...patch };
+    listeners.forEach((l) => l());
+  },
+  subscribe(l: () => void) {
+    listeners.add(l);
+    return () => listeners.delete(l);
+  },
+  /** Ask the person to pick a page. Resolves to its id, or null if they close the picker. */
+  pickPage(title: string, exclude = ""): Promise<string | null> {
+    return new Promise((resolve) => ui.set({ picker: { title, exclude, resolve } }));
+  },
+};
+
+/** The editor of the page on screen, for actions that start outside it (summaries from the page menu). */
+let activeEditor: any = null;
+export const setActiveEditor = (e: any) => {
+  activeEditor = e;
+};
+export const getActiveEditor = () => activeEditor;
+
+export function useUI<T>(select: (s: UIState) => T): T {
+  return useSyncExternalStore(ui.subscribe, () => select(state), () => select(state));
+}

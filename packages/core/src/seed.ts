@@ -1,5 +1,5 @@
 import type { Page } from "./types";
-import { h2, h3, p, li, num, todo, toggle, quote, table, subpage, divider, flowchart, embed } from "./blocks";
+import { h2, h3, p, li, num, todo, toggle, quote, table, subpage, divider, flowchart, embed, pageWithBlockIds } from "./blocks";
 import { userFlowSkeleton } from "./templates";
 
 const HOUR = 3600_000;
@@ -43,7 +43,7 @@ export function seedPages(): Record<string, Page> {
         h2("Start from a template"),
         p("Open **Templates** in the sidebar. Meeting notes, project briefs, journals, user flows and more."),
         divider(),
-        p("*Your pages are saved in this browser as you type. Clearing your browser data removes them.*"),
+        p("*Your pages are saved on this device as you type, even offline. Sign in from Settings to keep them in step on your phone and computer.*"),
       ],
     }),
     page({
@@ -179,5 +179,5 @@ export function seedPages(): Record<string, Page> {
     }),
   ];
 
-  return Object.fromEntries(pages.map((p) => [p.id, p]));
+  return Object.fromEntries(pages.map((p) => [p.id, pageWithBlockIds(p)]));
 }

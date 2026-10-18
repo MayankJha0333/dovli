@@ -1,0 +1,11 @@
+/* Styles for the editor inside the phone app (a DOM component, rendered in a web view).
+   The same theme tokens, page styles and editor styles as the web app. */
+@import "tailwindcss";
+@import "@dovli/ui/styles.css";
+@import "@dovli/editor/editor.css";
+
+@source "./";
+
+html, body { margin: 0; background: transparent; }
+body { -webkit-tap-highlight-color: transparent; }
+.dovli-editor .bn-editor { padding-inline: 2px; font-size: 17px; }

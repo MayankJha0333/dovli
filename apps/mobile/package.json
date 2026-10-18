@@ -9,25 +9,39 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf .expo dist .turbo"
+    "clean": "rm -rf .expo dist .turbo",
+    "export": "EXPO_NO_BUNDLE_SPLITTING=1 expo export"
   },
   "dependencies": {
     "@dovli/core": "workspace:*",
+    "@dovli/editor": "workspace:*",
+    "@dovli/sync": "workspace:*",
     "@dovli/theme": "workspace:*",
+    "@dovli/ui": "workspace:*",
+    "@expo/dom-webview": "~58.0.2",
+    "@expo/metro-runtime": "~58.0.14",
+    "@supabase/supabase-js": "^2.118.0",
     "expo": "~58.0.14",
     "expo-constants": "~58.0.12",
     "expo-glass-effect": "~58.0.4",
     "expo-linking": "~58.0.13",
     "expo-router": "~58.0.23",
+    "expo-sqlite": "~58.0.13",
     "expo-status-bar": "~58.0.3",
     "react": "19.3.0",
+    "react-dom": "19.3.0",
     "react-native": "0.88.0",
     "react-native-safe-area-context": "~5.10.1",
-    "react-native-screens": "~4.30.0"
+    "react-native-screens": "~4.30.0",
+    "react-native-web": "^0.21.4"
   },
   "devDependencies": {
     "@dovli/config": "workspace:*",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
+    "postcss": "^8.5.30",
+    "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3"
   }
 }

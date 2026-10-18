@@ -2,12 +2,16 @@
   "name": "@dovli/editor",
   "version": "0.1.0",
   "private": true,
-  "description": "Dovli's block editor (BlockNote) with sub-pages, link previews and flowcharts. Web only.",
+  "description": "Dovli block editor (BlockNote): sub-pages, page links, tags, callouts, tables, PDFs, link previews, flowcharts, find and replace. Runs in the web app, and in the phone app as an Expo DOM component.",
   "type": "module",
-  "sideEffects": ["**/*.css"],
+  "sideEffects": [
+    "**/*.css"
+  ],
   "exports": {
     ".": "./src/index.ts",
-    "./page-editor": "./src/PageEditor.tsx"
+    "./page-editor": "./src/PageEditor.tsx",
+    "./convert": "./src/convert.ts",
+    "./editor.css": "./src/editor.css"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -18,9 +22,14 @@
     "@blocknote/react": "^0.56.0",
     "@dovli/core": "workspace:*",
     "@dovli/theme": "workspace:*",
+    "@dovli/ui": "workspace:*",
     "@excalidraw/excalidraw": "^0.18.1",
     "@mantine/core": "^9.7.2",
-    "@mantine/hooks": "^9.7.2"
+    "@mantine/hooks": "^9.7.2",
+    "nanoid": "^6.0.2",
+    "prosemirror-model": "^1.25.11",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.5"
   },
   "peerDependencies": {
     "react": "^19.0.0",

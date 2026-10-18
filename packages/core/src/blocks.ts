@@ -61,3 +61,31 @@ export function previewLines(blocks: any[], max = 9): { kind: string; text: stri
   walk(blocks);
   return lines;
 }
+
+/**
+ * Give every block an id. The editor, the page outline and merging all find blocks by id, and
+ * hand-written blocks (sample pages, templates) don't have one. The ids are made from the page id
+ * and the block's position, so two devices fixing the same page get the same ids.
+ * Returns the same array when nothing was missing.
+ */
+export function withBlockIds<T extends { id?: string; children?: T[] }>(blocks: T[] | undefined, prefix: string): T[] | undefined {
+  if (!blocks) return blocks;
+  const walk = (list: T[], path: string): T[] => {
+    let changed = false;
+    const out = list.map((b, i) => {
+      const id = b.id || `${prefix}-${path}${i}`;
+      const children = b.children?.length ? walk(b.children, `${path}${i}.`) : b.children;
+      if (id === b.id && children === b.children) return b;
+      changed = true;
+      return { ...b, id, children };
+    });
+    return changed ? out : list;
+  };
+  return walk(blocks, "");
+}
+
+/** The page with ids on all its blocks, or the same page when nothing was missing. */
+export function pageWithBlockIds<P extends { id: string; blocks?: any[] }>(page: P): P {
+  const blocks = withBlockIds(page.blocks, page.id);
+  return blocks === page.blocks ? page : { ...page, blocks };
+}

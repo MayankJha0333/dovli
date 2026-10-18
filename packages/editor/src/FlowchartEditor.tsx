@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { Excalidraw, MainMenu } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
+import { Button } from "@dovli/ui";
 import { parseScene } from "./excalidrawKit";
 import { useIsDark } from "./useIsDark";
 
@@ -19,15 +20,20 @@ export default function FlowchartEditor({ scene, onDone }: { scene: string; onDo
   };
 
   return (
-    <div className="flow-modal" role="dialog" aria-modal="true" aria-label="Edit flowchart">
-      <header className="flow-modal__bar">
-        <span className="flow-modal__title">Edit flowchart</span>
-        <span className="flow-modal__hint hide-sm">Changes appear in the page when you click Done</span>
-        <button type="button" className="btn btn--primary" onClick={done}>
+    <div
+      className="fixed inset-0 z-[300] flex flex-col bg-bg pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] text-ink"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit flowchart"
+    >
+      <header className="flex h-14 flex-none items-center gap-3 border-b border-line pl-[max(18px,env(safe-area-inset-left,0px))] pr-[max(12px,env(safe-area-inset-right,0px))]">
+        <span className="display-text text-xl">Edit flowchart</span>
+        <span className="hidden text-sm text-ink-3 sm:inline">Changes appear in the page when you click Done</span>
+        <Button variant="primary" className="ml-auto" onClick={done}>
           Done
-        </button>
+        </Button>
       </header>
-      <div className="flow-modal__canvas">
+      <div className="dovli-canvas relative min-h-0 flex-1">
         <Excalidraw
           initialData={{
             elements: initial.elements,
