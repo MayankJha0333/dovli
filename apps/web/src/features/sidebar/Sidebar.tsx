@@ -2,7 +2,7 @@
 // all pages, starred, the page tree and tags; the page side shows the open page's contents,
 // to-dos, attachments and links. The dots at the bottom switch sides.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { childrenOf, displayTitle, favoritePages, tagIndex, type Page } from "@dovli/core";
 import { Icon, IconButton, Kbd, SectionLabel, cn, modKey, type IconName } from "@dovli/ui";
 import { settings } from "@/lib/settings";
@@ -11,7 +11,7 @@ import { keepSpaceSidebar, ui, useUI } from "@/lib/ui";
 import { newPage } from "@/features/pages/actions";
 import { PageMenu } from "@/features/page/PageMenu";
 import { PageSide } from "./PageSide";
-import { SyncBadge } from "./SyncBadge";
+import { SyncNotice } from "./SyncNotice";
 
 /** One row in the sidebar. Every theme gets its own height, radius and active look from tokens. */
 const rowBase =
@@ -87,16 +87,32 @@ function TreeRow({ page, depth }: { page: Page; depth: number }) {
   );
 }
 
-/** A section title that can fold its list away. */
-function Fold({ title, open, onToggle, action }: { title: string; open: boolean; onToggle: () => void; action?: React.ReactNode }) {
+/** A section title that can fold its list away. Folded, it shows how many items it holds. */
+function Fold({ title, open, onToggle, action, count }: { title: string; open: boolean; onToggle: () => void; action?: React.ReactNode; count?: number }) {
   return (
     <SectionLabel action={action}>
       <button type="button" aria-expanded={open} onClick={onToggle} className="-mx-1 flex items-center gap-1 rounded-xs px-1 hover:text-ink">
         {title}
         <Icon name={open ? "chevronDown" : "chevron"} size={10} className="opacity-60" />
+        {!open && !!count && <span className="ml-0.5 tabular-nums font-normal normal-case tracking-normal text-ink-4">{count}</span>}
       </button>
     </SectionLabel>
   );
+}
+
+// Which sections are open, remembered in this browser. Favourites and Tags start folded so the
+// page tree has the room; Pages starts open.
+type Folds = { starred: boolean; pages: boolean; tags: boolean };
+const FOLDS_KEY = "dovli.sidebarFolds.v1";
+const DEFAULT_FOLDS: Folds = { starred: false, pages: true, tags: false };
+/** How many favourites the workspace side last showed (null until it first shows). */
+let seenFavourites: number | null = null;
+function loadFolds(): Folds {
+  try {
+    return { ...DEFAULT_FOLDS, ...JSON.parse(localStorage.getItem(FOLDS_KEY) ?? "{}") };
+  } catch {
+    return DEFAULT_FOLDS;
+  }
 }
 
 function Hint({ children }: { children: React.ReactNode }) {
@@ -106,10 +122,24 @@ function Hint({ children }: { children: React.ReactNode }) {
 function SpaceSide() {
   const pages = useStore((s) => s.pages);
   const route = useStore((s) => s.route);
-  const [open, setOpen] = useState({ starred: true, pages: true, tags: true });
-  const toggle = (k: keyof typeof open) => setOpen((o) => ({ ...o, [k]: !o[k] }));
+  const [open, setOpen] = useState<Folds>(loadFolds);
+  const save = (next: Folds) => {
+    setOpen(next);
+    try {
+      localStorage.setItem(FOLDS_KEY, JSON.stringify(next));
+    } catch {
+      /* private window: the choice lasts until the page closes */
+    }
+  };
+  const toggle = (k: keyof Folds) => save({ ...open, [k]: !open[k] });
   const roots = childrenOf(pages, null);
   const favorites = favoritePages(pages);
+  // Adding a favourite opens the section, so you see where the page went. The count is kept
+  // outside this component, so a favourite added while the page side was showing counts too.
+  useEffect(() => {
+    if (seenFavourites !== null && favorites.length > seenFavourites && !open.starred) save({ ...open, starred: true });
+    seenFavourites = favorites.length;
+  }, [favorites.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const tags = useMemo(() => tagIndex(pages).slice(0, 12), [pages]);
   const trashCount = useMemo(() => Object.values(pages).filter((p) => p.deletedAt).length, [pages]);
 
@@ -136,7 +166,7 @@ function SpaceSide() {
 
       <div className="-mx-1 mt-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
         <section aria-label="Favourites" className="mt-4">
-          <Fold title="Favourites" open={open.starred} onToggle={() => toggle("starred")} />
+          <Fold title="Favourites" open={open.starred} count={favorites.length} onToggle={() => toggle("starred")} />
           {open.starred &&
             (favorites.length ? (
               <ul className="m-0 flex list-none flex-col gap-px p-0">
@@ -188,7 +218,7 @@ function SpaceSide() {
         </section>
 
         <section aria-label="Tags" className="mt-4">
-          <Fold title="Tags" open={open.tags} onToggle={() => toggle("tags")} />
+          <Fold title="Tags" open={open.tags} count={tags.length} onToggle={() => toggle("tags")} />
           {open.tags &&
             (tags.length ? (
               <ul className="m-0 flex list-none flex-col gap-px p-0">
@@ -260,36 +290,37 @@ export function Sidebar() {
 
       {showPage ? <PageSide page={page} /> : <SpaceSide />}
 
-      <div role="tablist" aria-label="Sidebar view" className="flex items-center justify-center gap-1 pt-1">
-        {(
-          [
-            ["space", "Show all pages"],
-            ["page", page ? `Show the contents of ${displayTitle(page)}` : "Open a page to see its contents"],
-          ] as const
-        ).map(([m, label]) => {
-          const on = m === "page" ? showPage : !showPage;
-          return (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              aria-label={label}
-              title={label}
-              disabled={m === "page" && !page}
-              onClick={() => ui.set({ sidebarMode: m })}
-              className="group/dot grid h-5 w-6 place-items-center rounded-full disabled:opacity-40"
-            >
-              <span className={cn("block h-[7px] rounded-full transition-all duration-200", on ? "w-4 bg-ink-2" : "w-[7px] bg-ink-4 group-hover/dot:bg-ink-3")} />
-            </button>
-          );
-        })}
-      </div>
-      <div className="flex items-center gap-0.5 border-t border-line pt-1.5">
-        <SyncBadge />
-        <IconButton icon="importIcon" label="Import" size="sm" onClick={() => ui.set({ settings: "data" })} />
-        <IconButton icon="help" label="Keyboard shortcuts" size="sm" onClick={() => ui.set({ settings: "shortcuts" })} />
-        <IconButton icon="settings" label="Settings" shortcut={`${modKey()},`} size="sm" onClick={() => ui.set({ settings: "appearance" })} />
+      {/* Only shown when something needs you: saving failed, sync stopped, or offline with changes waiting. */}
+      <SyncNotice />
+      {/* One quiet row: the two sides of the sidebar in the middle, Settings on the right. */}
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center pt-1">
+        <span aria-hidden="true" />
+        <div role="tablist" aria-label="Sidebar view" className="flex items-center justify-center gap-1">
+          {(
+            [
+              ["space", "Show all pages"],
+              ["page", page ? `Show the contents of ${displayTitle(page)}` : "Open a page to see its contents"],
+            ] as const
+          ).map(([m, label]) => {
+            const on = m === "page" ? showPage : !showPage;
+            return (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                aria-label={label}
+                title={label}
+                disabled={m === "page" && !page}
+                onClick={() => ui.set({ sidebarMode: m })}
+                className="group/dot grid h-5 w-6 place-items-center rounded-full disabled:opacity-40"
+              >
+                <span className={cn("block h-[7px] rounded-full transition-all duration-200", on ? "w-4 bg-ink-2" : "w-[7px] bg-ink-4 group-hover/dot:bg-ink-3")} />
+              </button>
+            );
+          })}
+        </div>
+        <IconButton icon="settings" label="Settings" shortcut={`${modKey()},`} size="sm" className="justify-self-end" onClick={() => ui.set({ settings: "appearance" })} />
       </div>
     </aside>
   );
