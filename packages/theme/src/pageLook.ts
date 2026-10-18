@@ -17,13 +17,17 @@ export interface LookInput {
   wide?: boolean;
 }
 
-const SERIF = '"Newsreader", "Iowan Old Style", Georgia, serif';
 
-export const PAGE_FONTS: Record<PageFontId, { label: string; sample: string; family: string; titleWeight: number }> = {
-  system: { label: "System", sample: "Aa", family: "var(--d-font-sans)", titleWeight: 700 },
-  serif: { label: "Serif", sample: "Ss", family: SERIF, titleWeight: 500 },
-  mono: { label: "Mono", sample: "00", family: "var(--d-font-mono)", titleWeight: 500 },
-  round: { label: "Round", sample: "Rr", family: '"Nunito", ui-rounded, "SF Pro Rounded", system-ui, sans-serif', titleWeight: 800 },
+/**
+ * Page fonts, as in Craft: System (SF Pro on Apple devices), Serif (New York where the browser
+ * allows, else Source Serif 4), Mono and Round. The stacks live in @dovli/ui styles.css (--d-doc-*).
+ * `scale` evens out how big each face looks next to the system font.
+ */
+export const PAGE_FONTS: Record<PageFontId, { label: string; sample: string; family: string; titleWeight: number; scale: number }> = {
+  system: { label: "System", sample: "Aa", family: "var(--d-doc-sans)", titleWeight: 700, scale: 1 },
+  serif: { label: "Serif", sample: "Ss", family: "var(--d-doc-serif)", titleWeight: 700, scale: 1.04 },
+  mono: { label: "Mono", sample: "00", family: "var(--d-doc-mono)", titleWeight: 600, scale: 0.92 },
+  round: { label: "Round", sample: "Rr", family: "var(--d-doc-rounded)", titleWeight: 700, scale: 1 },
 };
 
 export const DIVIDER_STYLES: { id: DividerStyleId; label: string }[] = [
@@ -93,6 +97,7 @@ export function resolveLook(styleId: string | null | undefined, look: LookInput 
     vars["--title-font"] = f.family;
     vars["--title-style"] = "normal";
     vars["--title-weight"] = String(f.titleWeight);
+    vars["--page-scale"] = String(f.scale);
   }
   return { style, vars, customColors, divider: l.divider ?? "line", wide: !!l.wide, font };
 }

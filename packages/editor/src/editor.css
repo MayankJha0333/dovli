@@ -36,39 +36,78 @@
   --bn-shadow-light: var(--d-shadow-sm);
   --bn-border: 0;
 }
-.dovli-editor .bn-editor { padding-inline: 54px; background: transparent; font-family: var(--page-font, var(--d-font-sans)); font-size: 1.0625rem; line-height: 1.7; color: var(--d-ink); }
+/* Reading rhythm, taken from Craft's own page stylesheet (Craft.app/Contents/Resources/PageStyles/
+   default.css): the device's system font, body 17px on phones and 15px on Macs (here 16px), line
+   height 1.25 x the font's own (about 1.5 in CSS), 12px between paragraphs (0.7em), headings at
+   24 / 22 / 20px with 48 / 36 / 28px above them. Everything is in em, so it scales with the page
+   font (--page-scale) and in Present mode. */
+.dovli-editor .bn-editor {
+  --flow: 0.35em; /* space above and below a paragraph: 0.7em between two */
+  --flow-tight: 0.1em; /* list items and to-dos sit closer together */
+  padding-inline: 54px; background: transparent; font-family: var(--page-font, var(--d-doc-sans));
+  font-size: calc(1rem * var(--page-scale, 1)); line-height: 1.5; color: var(--d-ink);
+  font-optical-sizing: auto; font-kerning: normal; text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
 @media (max-width: 640px) { .dovli-editor .bn-editor { padding-inline: 2px; } }
+.dovli-editor .bn-block-content { padding-block: var(--flow); }
+.dovli-editor .bn-block-content:is([data-content-type="bulletListItem"], [data-content-type="numberedListItem"], [data-content-type="checkListItem"], [data-content-type="toggleListItem"]) { padding-block: var(--flow-tight); }
+/* A list after a paragraph (or the reverse) keeps the paragraph gap. */
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content:not([data-content-type$="ListItem"])) + .bn-block-outer > .bn-block > .bn-block-content[data-content-type$="ListItem"] { padding-top: var(--flow); }
+.dovli-editor .bn-inline-content strong, .dovli-editor .bn-inline-content b { font-weight: 650; }
+.dovli-editor .bn-inline-content em, .dovli-editor .bn-inline-content i { font-style: italic; }
+/* Nested blocks: a quiet guide line instead of a hard rule. */
+.dovli-editor .bn-block-group .bn-block-group .bn-block-outer:not([data-prev-depth-changed])::before { border-left-color: var(--d-line) !important; }
 .dovli-editor .bn-editor:focus,
 .dovli-editor .bn-editor:focus-visible,
 .dovli-editor [contenteditable]:focus-visible { outline: none; }
-.dovli-editor .bn-block-outer { margin-block: 1px; scroll-margin-top: 76px; } /* clear of the floating top bar */
+.dovli-editor .bn-block-outer { margin-block: 0; scroll-margin-top: 76px; } /* clear of the floating top bar */
 .dovli-editor .bn-inline-content { word-break: break-word; }
-.dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--d-font-display); font-weight: var(--d-display-weight); letter-spacing: -0.02em; line-height: 1.25; }
-.page-styled .dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--title-font, var(--d-font-display)); font-style: var(--title-style, normal); }
+/* Headings use the page style's title font when it has one, else the page's own font (as in Craft). */
+.dovli-editor .bn-block-content[data-content-type="heading"] { font-family: var(--title-font, var(--page-font, var(--d-doc-sans))); font-style: var(--title-style, normal); font-weight: 700; letter-spacing: -0.012em; line-height: 1.3; text-wrap: balance; padding-bottom: 0.32em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="3"] { font-weight: 600; padding-bottom: 0.15em; }
 /* Level 1 has no data-level attribute (it's the default), so match "no level" too. Headings in
    the page stay smaller than the page title above them. */
 .dovli-editor .bn-block-content[data-content-type="heading"]:not([data-level]),
-.dovli-editor .bn-block-content[data-content-type="heading"][data-level="1"] { --level: 1.75em; }
-.dovli-editor .bn-block-content[data-content-type="heading"][data-level="2"] { --level: 1.38em; }
-.dovli-editor .bn-block-content[data-content-type="heading"][data-level="3"] { --level: 1.14em; }
-.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 1.1em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="1"] { --level: 1.42em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="2"] { --level: 1.3em; }
+.dovli-editor .bn-block-content[data-content-type="heading"][data-level="3"] { --level: 1.18em; }
+/* Room above a heading, more for bigger ones; less right after a divider, which already spaces it. */
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 2.3em; }
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"][data-level="2"]) { margin-top: 1.7em; }
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"][data-level="3"]) { margin-top: 1.25em; }
+.dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="divider"]) + .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 0.4em; }
 .dovli-editor .bn-block-outer:first-child:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 0; }
-.dovli-editor .bn-block-content[data-content-type="quote"] blockquote { border-left: 3px solid var(--d-line-strong); color: var(--d-ink-2); padding-left: 14px; margin: 2px 0; }
+/* Quotes read as a soft panel (how Craft shows a highlighted block): full-strength text on a light
+   wash, with a faint accent edge. Imported "> " notes and callout-style intros land here. */
+.dovli-editor .bn-block-content[data-content-type="quote"] { padding-block: calc(var(--flow) + 0.12em); }
+.dovli-editor .bn-block-content[data-content-type="quote"] blockquote {
+  margin: 0; width: 100%; padding: 0.72em 1.05em; border: 0; border-radius: var(--d-radius-md); color: var(--d-ink);
+  background: var(--d-well); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--d-accent) 55%, transparent);
+}
 .dovli-editor code,
-.dovli-editor .bn-block-content[data-content-type="codeBlock"] { font-family: var(--d-font-mono); }
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] { font-family: var(--d-doc-mono); }
 .dovli-editor .bn-inline-content code { font-size: 0.86em; background: var(--d-well); color: var(--d-danger); padding: 2px 5px; border-radius: 5px; }
-.dovli-editor .bn-block-content[data-content-type="codeBlock"] { background: var(--d-well); color: var(--d-ink); border-radius: var(--d-radius-md); font-size: 0.88em; box-shadow: inset 0 0 0 1px var(--d-line); }
-.dovli-editor .bn-block-content[data-content-type="codeBlock"] pre { background: transparent; color: inherit; padding: 14px 18px; }
+/* Code and text diagrams: a framed panel. Lines never wrap (diagrams stay intact); wide ones scroll. */
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] { margin-block: 0.42em; padding: 0; background: var(--d-well); color: var(--d-ink); border-radius: var(--d-radius-lg); font-size: 0.84em; line-height: 1.5; box-shadow: inset 0 0 0 1px var(--d-line); }
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] pre { background: transparent; color: inherit; padding: 1.15em 1.35em; white-space: pre; overflow-x: auto; scrollbar-width: thin; }
+/* BlockNote's text wraps (pre-wrap); in code that would break diagrams apart, so keep lines whole. */
+.dovli-editor .bn-block-content[data-content-type="codeBlock"] pre code { font-variant-ligatures: none; white-space: pre; }
+@media (max-width: 640px) { .dovli-editor .bn-block-content[data-content-type="codeBlock"] { font-size: 0.78em; } .dovli-editor .bn-block-content[data-content-type="codeBlock"] pre { padding: 0.95em 1em; } }
 .dovli-editor .bn-block-content[data-content-type="codeBlock"] select { color: var(--d-ink-3); font-family: var(--d-font-sans); }
-.dovli-editor .bn-block-content[data-content-type="table"] table { border-collapse: separate; border-spacing: 0; border-radius: var(--d-radius-md); overflow: hidden; box-shadow: inset 0 0 0 1px var(--d-line); }
+/* BlockNote pads tables on the left for its row handles; pull them back so tables line up with the
+   text, and keep its own sideways scrolling for wide tables. */
+.dovli-editor .bn-block-content[data-content-type="table"] { margin-block: 0.3em; }
+.dovli-editor .bn-block-content[data-content-type="table"] .tableWrapper { margin-left: -9px; padding-top: 4px; scrollbar-width: thin; }
+.dovli-editor .bn-block-content[data-content-type="table"] table { border-collapse: separate; border-spacing: 0; border-radius: var(--d-radius-md); overflow: hidden; box-shadow: inset 0 0 0 1px var(--d-line); font-size: 0.94em; line-height: 1.5; }
 .dovli-editor .bn-block-content[data-content-type="table"] td,
-.dovli-editor .bn-block-content[data-content-type="table"] th { border: 0 !important; border-right: 1px solid var(--d-line) !important; border-bottom: 1px solid var(--d-line) !important; padding: 7px 12px; }
+.dovli-editor .bn-block-content[data-content-type="table"] th { border: 0 !important; border-right: 1px solid var(--d-line) !important; border-bottom: 1px solid var(--d-line) !important; padding: 0.55em 0.85em; vertical-align: top; }
 .dovli-editor .bn-block-content[data-content-type="table"] tr > :last-child { border-right: 0 !important; }
 .dovli-editor .bn-block-content[data-content-type="table"] tr:last-child > * { border-bottom: 0 !important; }
-.dovli-editor .bn-block-content[data-content-type="table"] th { background: var(--d-well); color: var(--d-ink-2); font-weight: 600; }
+.dovli-editor .bn-block-content[data-content-type="table"] th { background: var(--d-well); color: var(--d-ink); font-weight: 650; text-align: left; }
 .dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] { accent-color: var(--d-accent); width: 1.05em; height: 1.05em; }
 .dovli-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--d-ink-4); text-decoration: line-through; }
-.dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; border-top: 1px solid var(--d-line); margin: 14px 0; }
+.dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; border-top: 1px solid var(--d-line); margin: 1.1em 0; }
 .dovli-editor [data-placeholder]::before,
 .dovli-editor .bn-inline-content.is-empty::before { color: var(--d-ink-4) !important; font-style: normal; }
 .dovli-editor a { color: var(--d-accent); text-decoration-color: color-mix(in srgb, var(--d-accent) 35%, transparent); text-underline-offset: 3px; }
@@ -121,20 +160,20 @@
 
 /* ---------- Craft-style text styles (Aa panel) ---------- */
 .dovli-editor .dovli-caption { font-size: 0.84em; line-height: 1.55; color: var(--d-ink-3); }
-.dovli-editor [data-font="serif"] { font-family: "Newsreader", "Iowan Old Style", Georgia, serif; font-size: 1.06em; }
-.dovli-editor [data-font="mono"] { font-family: var(--d-font-mono); font-size: 0.92em; }
-.dovli-editor [data-font="round"] { font-family: "Nunito", ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
-.dovli-editor [data-font="system"] { font-family: var(--d-font-sans); }
+.dovli-editor [data-font="serif"] { font-family: var(--d-doc-serif); font-size: 1.04em; }
+.dovli-editor [data-font="mono"] { font-family: var(--d-doc-mono); font-size: 0.92em; }
+.dovli-editor [data-font="round"] { font-family: var(--d-doc-rounded); }
+.dovli-editor [data-font="system"] { font-family: var(--d-doc-sans); }
 /* Box decoration: the gray background as a soft rounded box. */
 .dovli-editor .bn-block-content[data-background-color="gray"] { background: var(--d-well); border-radius: var(--d-radius-md); padding: 6px 12px; margin-block: 3px; }
-/* Focus decoration (a quote): a bold accent bar. */
-.dovli-editor .bn-block-content[data-content-type="quote"] blockquote { border-left-color: var(--d-accent); }
+/* The Focus decoration (a quote) is the soft panel above. */
 
 /* ---------- Divider styles (Style panel) ---------- */
-[data-divider] .dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; height: 1px; background: var(--d-line-strong); margin: 14px 0; }
+[data-divider] .dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; height: 1px; background: var(--d-line); margin: 1.1em 0; }
 [data-divider="dots"] .dovli-editor .bn-block-content[data-content-type="divider"] { justify-content: center; }
+/* Craft's "• • •": three soft dots, centred, with room on both sides. */
 [data-divider="dots"] .dovli-editor .bn-block-content[data-content-type="divider"] hr {
-  height: 6px; background: radial-gradient(circle, var(--d-ink-4) 1.6px, transparent 2px) center / 18px 6px repeat-x; flex: 0 0 90px; width: 90px; margin-inline: auto;
+  height: 6px; background: radial-gradient(circle, var(--d-ink-4) 1.7px, transparent 2.1px) center / 18px 6px repeat-x; flex: 0 0 54px; width: 54px; margin: 1.5em auto;
 }
 [data-divider="wave"] .dovli-editor .bn-block-content[data-content-type="divider"] hr {
   height: 10px; background: none;
@@ -157,7 +196,7 @@
 
 /* ---------- Divider previews in the Style panel ---------- */
 .dovli-divider-sample-line { height: 1.5px !important; margin-block: 4px; background: var(--d-ink-3); border-radius: 1px; }
-.dovli-divider-sample-dots { background: radial-gradient(circle, var(--d-ink-3) 1.6px, transparent 2px) center / 9px 6px repeat-x; }
+.dovli-divider-sample-dots { background: radial-gradient(circle, var(--d-ink-3) 1.6px, transparent 2px) center / 9px 6px repeat-x; width: 27px !important; margin-inline: auto; }
 .dovli-divider-sample-wave {
   background-color: var(--d-ink-3);
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='10'%3E%3Cpath d='M0 5q3-4 6 0t6 0' fill='none' stroke='black' stroke-width='1.6'/%3E%3C/svg%3E") center / 12px 10px repeat-x;
@@ -166,7 +205,7 @@
 
 /* ---------- Present: bigger, calmer, nothing to click by accident ---------- */
 .dovli-presenting article { padding-top: 9vh; }
-.dovli-presenting .dovli-editor .bn-editor { font-size: 1.32rem; line-height: 1.65; }
+.dovli-presenting .dovli-editor .bn-editor { font-size: calc(1.3rem * var(--page-scale, 1)); line-height: 1.55; }
 .dovli-presenting #page-title { font-size: clamp(2.6rem, 5vw, 3.6rem); }
 .dovli-presenting .dovli-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"]) { margin-top: 2.2em; }
 .dovli-presenting .bn-side-menu, .dovli-presenting .bn-formatting-toolbar { display: none !important; }

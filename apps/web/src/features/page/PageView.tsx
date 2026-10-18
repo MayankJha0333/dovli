@@ -272,6 +272,8 @@ export function PageView({ id }: { id: string }) {
                   </button>
                 ))}
               </div>
+              {/* A hairline under the title, as in Craft, so the document starts clearly. */}
+              {page.kind === "doc" && <div aria-hidden="true" className="mt-5 h-px bg-line max-[640px]:mt-4" />}
             </header>
             <Suspense fallback={<div className="px-[54px] py-6 text-ink-3 max-[640px]:px-0">Opening page</div>}>
               <PageEditor

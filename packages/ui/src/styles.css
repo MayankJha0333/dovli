@@ -47,7 +47,7 @@
   --font-sans: var(--d-font-sans);
   --font-display: var(--d-font-display);
   --font-mono: var(--d-font-mono);
-  --font-serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --font-serif: var(--d-doc-serif);
   --font-label: var(--d-label-font);
 
   /* Text sizes in rem, so they grow with the browser's text size and Dovli's own text-size setting. */
@@ -204,13 +204,26 @@
    A styled page paints the scroll area with its backdrop and floats the page on it as a sheet of
    paper. Inside the sheet every token is re-derived from the style's paper, ink and accent, so all
    Tailwind classes there (text-ink-3, bg-well…) follow the style without knowing about it. */
+/* Document fonts, the way Craft does it: the device's own fonts first (Craft's PageStyles/
+   default.css uses "system", "system-serif", "system-mono" and "system-rounded", which are SF Pro,
+   New York, SF Mono and SF Rounded on Apple devices). Safari can reach all four through ui-*;
+   Chrome and others only reach the system sans, so the others fall back to close free faces:
+   Source Serif 4 (loaded with the app fonts), the theme's mono, and Nunito. */
+:root {
+  --d-doc-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --d-doc-serif: ui-serif, "Source Serif 4", Charter, "Iowan Old Style", Georgia, serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --d-doc-mono: ui-monospace, "SF Mono", var(--d-font-mono), Menlo, Consolas, monospace;
+  --d-doc-rounded: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
 .page-styled {
   --d-panel: var(--s-paper);
   --d-sheet: var(--s-paper);
   --d-raised: var(--s-paper);
   --d-ink: var(--s-ink);
   --d-ink-2: color-mix(in srgb, var(--s-ink) 76%, var(--s-paper));
-  --d-ink-3: color-mix(in srgb, var(--s-ink) 60%, var(--s-paper));
+  /* Secondary text (dates, word counts, hints): dark enough for 4.5:1 on every page style. */
+  --d-ink-3: color-mix(in srgb, var(--s-ink) 66%, var(--s-paper));
   --d-ink-4: color-mix(in srgb, var(--s-ink) 52%, var(--s-paper));
   --d-line: color-mix(in srgb, var(--s-ink) 12%, var(--s-paper));
   --d-line-strong: color-mix(in srgb, var(--s-ink) 22%, var(--s-paper));

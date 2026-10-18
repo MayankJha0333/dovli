@@ -40,6 +40,19 @@ const stars = svg(
   140,
 );
 
+/** A fine, uneven scatter of stars (Starlight): two tiles of different sizes, so no grid shows. */
+function starDust(count: number, size: number, seed: number) {
+  let x = seed;
+  const rand = () => ((x = (x * 16807) % 2147483647) - 1) / 2147483646;
+  let out = "";
+  for (let i = 0; i < count; i++) {
+    const r = 0.35 + rand() ** 2.2 * 1.05;
+    out += `<circle cx='${(rand() * size).toFixed(1)}' cy='${(rand() * size).toFixed(1)}' r='${r.toFixed(2)}' opacity='${(0.25 + rand() * 0.6).toFixed(2)}'/>`;
+  }
+  return svg(`<g fill='#fff'>${out}</g>`, size, size);
+}
+const dust = `${starDust(46, 263, 7)}, ${starDust(28, 181, 4219)}`;
+
 const rain = svg(
   `<g stroke='#fff' stroke-opacity='.3' stroke-width='1.3' stroke-linecap='round'><path d='M12 4 8 16M42 18l-4 12M26 38l-4 12M56 44l-4 12'/></g>`,
   60,
@@ -104,6 +117,16 @@ export const PAGE_STYLES: PageStyle[] = [
     paper: "#f7f4ec",
     ink: "#18203f",
     accent: "#2f4fd8",
+    title: "serif",
+  },
+  {
+    id: "starlight",
+    name: "Starlight",
+    tags: "purple violet stars night calm craft study notes",
+    backdrop: `${dust}, radial-gradient(ellipse at 18% 0%, rgba(176, 160, 255, 0.5), transparent 52%), radial-gradient(ellipse at 90% 85%, rgba(205, 180, 255, 0.4), transparent 50%), linear-gradient(172deg, #262a6e 0%, #4c45a8 48%, #8378d2 100%)`,
+    paper: "#ffffff",
+    ink: "#1d1d22",
+    accent: "#5146d9",
     title: "serif",
   },
   {
@@ -252,11 +275,11 @@ export function getStyle(id: string | undefined | null): PageStyle | null {
   return PAGE_STYLES.find((s) => s.id === id) ?? null;
 }
 
-const SERIF = '"Newsreader", "Iowan Old Style", Georgia, serif';
+const SERIF = "var(--d-doc-serif)";
 
 /** Title fonts. Sans and mono follow the app theme's own faces. */
 const FONTS: Record<TitleFont, { family: string; style: string; weight: number }> = {
-  serif: { family: SERIF, style: "normal", weight: 500 },
+  serif: { family: SERIF, style: "normal", weight: 700 },
   italic: { family: SERIF, style: "italic", weight: 500 },
   sans: { family: "var(--d-font-sans)", style: "normal", weight: 700 },
   mono: { family: "var(--d-font-mono)", style: "normal", weight: 500 },
