@@ -86,4 +86,9 @@ export async function recordSignIn(uid: string, signInMethod?: string) {
     createdAt: u.metadata.creationTime ? new Date(u.metadata.creationTime) : null,
     signedIn: true,
   });
+  // Pages shared with this email before the account existed.
+  if (u.email && u.emailVerified) {
+    const { sharingStore } = await import("./share");
+    await sharingStore().claim(uid, u.email);
+  }
 }

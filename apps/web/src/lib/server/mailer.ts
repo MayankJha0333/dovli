@@ -59,3 +59,30 @@ export async function sendSignInCode(to: string, code: string, minutes: number):
 </td></tr></table></td></tr></table></body></html>`,
   });
 }
+
+/** "Alice shared “Trip plan” with you": sent when someone is invited to a page. */
+export async function sendShareInvite(to: string, opts: { inviter: string; title: string; role: "viewer" | "editor"; url: string; hasAccount: boolean }): Promise<void> {
+  const can = opts.role === "editor" ? "view and edit" : "view";
+  const next = opts.hasAccount ? "Open it any time from “Shared with me” in Dovli." : "Create a free Dovli account with this email address to open it.";
+  if (mailDevLog) {
+    console.info(`[dovli] Share invite for ${to}: ${opts.inviter} shared “${opts.title}” (${opts.role}) ${opts.url}  (no SMTP set up, so it's shown here instead of emailed)`);
+    return;
+  }
+  if (!mailConfigured) throw new Error("Email isn't set up on this server (SMTP_URL or SMTP_HOST).");
+  const e = { inviter: escape(opts.inviter), title: escape(opts.title), url: escape(opts.url) };
+  await mailer().sendMail({
+    from,
+    to,
+    subject: `${opts.inviter} shared “${opts.title}” with you`,
+    text: `${opts.inviter} shared “${opts.title}” with you on Dovli. You can ${can} it.\n\nOpen it: ${opts.url}\n\n${next}`,
+    html: `<!doctype html><html><body style="margin:0;background:#f4f5f9;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#15171d">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px">
+<table role="presentation" width="100%" style="max-width:440px;background:#fff;border-radius:16px;padding:32px" cellpadding="0" cellspacing="0"><tr><td>
+<p style="margin:0 0 4px;font-size:15px;font-weight:700">Dovli</p>
+<p style="margin:0 0 16px;font-size:15px;color:#464b58"><strong style="color:#15171d">${e.inviter}</strong> shared a page with you. You can ${can} it.</p>
+<p style="margin:0 0 20px;font-size:20px;font-weight:700">${e.title}</p>
+<p style="margin:0 0 20px"><a href="${e.url}" style="display:inline-block;background:#5146D9;color:#fff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px">Open page</a></p>
+<p style="margin:0;font-size:13px;color:#6e7382">${escape(next)}</p>
+</td></tr></table></td></tr></table></body></html>`,
+  });
+}

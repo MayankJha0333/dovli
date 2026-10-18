@@ -7,10 +7,17 @@ import { userFromRequest, type RequestUser } from "./firebaseAdmin";
 
 /** A route for a signed-in person: checks the Firebase ID token, reads the JSON, turns errors into replies. */
 export function signedInRoute(handler: (user: RequestUser, body: Record<string, unknown>, req: Request) => Promise<unknown>, maxChars = 2_000) {
+  return route((user, body, req) => {
+    if (!user) throw new CloudError("forbidden", "Please sign in again.", 401);
+    return handler(user, body, req);
+  }, maxChars);
+}
+
+/** The same, for routes that also work without signing in (user is null then). */
+export function route(handler: (user: RequestUser | null, body: Record<string, unknown>, req: Request) => Promise<unknown>, maxChars = 2_000) {
   return async (req: Request) => {
     try {
       const user = await userFromRequest(req);
-      if (!user) return NextResponse.json({ error: "Please sign in again.", code: "signed_out" }, { status: 401, headers: noStore });
       const body = await readJson(req, maxChars);
       return NextResponse.json(await handler(user, body, req), { headers: noStore });
     } catch (e) {

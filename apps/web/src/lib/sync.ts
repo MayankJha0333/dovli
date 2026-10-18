@@ -1,7 +1,7 @@
 // Connects the store to the cloud. Every local change is noted in the "outbox" (IndexedDB);
 // the shared SyncEngine (@dovli/sync) sends it, pulls other devices' changes and merges conflicts.
 // With Firebase set up, pages go to Firestore through Dovli's own server (/api/sync/*), under the
-// signed-in person's record (users/{uid}/pages). See lib/server/cloudCore.ts.
+// signed-in person's workspace (workspaces/{id}/pages). See lib/server/cloudCore.ts.
 
 import { useSyncExternalStore } from "react";
 import { SyncEngine, httpTransport, supabaseTransport, type SyncHost, type SyncStatus } from "@dovli/sync";
@@ -128,4 +128,18 @@ export const sync = {
 
 export function useSyncStatus(): SyncStatus {
   return useSyncExternalStore(sync.subscribe, () => status, () => status);
+}
+
+/**
+ * Wait until a page has reached the account (it isn't waiting in the outbox any more), so it can
+ * be shared. Gives up quietly after `ms`; the server then says if it's still missing.
+ */
+export async function waitForPage(id: string, ms = 10_000) {
+  if (!syncOn || !engine) return;
+  engine.syncSoon(0);
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    if (!(await (await db()).get("outbox", id))) return;
+    await new Promise((r) => setTimeout(r, 300));
+  }
 }

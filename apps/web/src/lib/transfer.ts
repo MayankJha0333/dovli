@@ -137,6 +137,63 @@ export function exportPagePdf() {
   window.print();
 }
 
+/**
+ * The fonts a picture of the page needs, built in (as data), so the picture looks like the page.
+ * Only the families the page uses, Latin letters only. (The picture library can't read the font
+ * styles from Google itself; the browser blocks that.)
+ */
+async function embeddedFonts(root: HTMLElement): Promise<string> {
+  const link = document.querySelector<HTMLLinkElement>('link[rel="stylesheet"][href*="fonts.googleapis.com"]');
+  if (!link) return "";
+  const used = new Set<string>();
+  for (const el of [root, ...root.querySelectorAll<HTMLElement>("*")])
+    for (const f of getComputedStyle(el).fontFamily.split(",")) used.add(f.trim().replace(/["']/g, "").toLowerCase());
+  try {
+    const css = await (await fetch(link.href)).text();
+    const faces = [...css.matchAll(/(?:\/\*\s*([\w-]+)\s*\*\/\s*)?(@font-face\s*{[^}]*})/g)]
+      .filter(([, subset, face]) => (!subset || subset === "latin") && used.has((/font-family:\s*["']?([^;"']+)/.exec(face)?.[1] ?? "").trim().toLowerCase()))
+      .map(([, , face]) => face);
+    const withData = await Promise.all(
+      faces.map(async (face) => {
+        const url = /url\(([^)]+)\)/.exec(face)?.[1]?.replace(/["']/g, "");
+        if (!url) return "";
+        const data = await blobToDataUrl(await (await fetch(url)).blob());
+        return face.replace(/url\([^)]+\)/, `url(${data})`);
+      }),
+    );
+    return withData.join("\n");
+  } catch {
+    return ""; // no fonts: the picture uses the device's own fonts
+  }
+}
+
+/** One page as a Word document. */
+export async function exportPageDocx(page: Page) {
+  const { pageDocx } = await import("./exportDocx");
+  download(await pageDocx(page), `${fileName(displayTitle(page))}.docx`);
+}
+
+/**
+ * The open page as a picture (.png), exactly as it looks, at twice the screen's sharpness.
+ * The page must be open (the Share window is, so it is).
+ */
+export async function exportPageImage(page: Page) {
+  const sheet = document.querySelector<HTMLElement>('[data-print="sheet"]');
+  if (!sheet) throw new Error("Open the page first, then export it as an image.");
+  const { toBlob } = await import("html-to-image");
+  const bg = getComputedStyle(sheet).backgroundColor;
+  const blob = await toBlob(sheet, {
+    pixelRatio: 2,
+    cacheBust: true,
+    fontEmbedCSS: await embeddedFonts(sheet),
+    backgroundColor: bg && bg !== "rgba(0, 0, 0, 0)" ? bg : getComputedStyle(document.body).backgroundColor,
+    // Leave out buttons and menus that only make sense on screen.
+    filter: (n) => !(n instanceof HTMLElement && (n.dataset.print === "hide" || n.classList.contains("bn-side-menu") || n.classList.contains("bn-toolbar"))),
+  });
+  if (!blob) throw new Error("Couldn't make the picture. Please try again.");
+  download(blob, `${fileName(displayTitle(page))}.png`);
+}
+
 /** Everything: Markdown and HTML for every page (in folders that match the page tree), files, boards, and a backup. */
 export async function exportWorkspace(onProgress?: (done: number, total: number) => void) {
   const { blocksToHTML } = await convert();

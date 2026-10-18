@@ -1,13 +1,12 @@
 // The top-right of a page, like Craft: a Share button, then one group with Aa (format),
 // Style and Info. Each opens a panel beside the page that stays out of the way of the text.
 
-import { forwardRef, useEffect, useState, type ButtonHTMLAttributes } from "react";
+import { forwardRef, useEffect, useRef, useState, type ButtonHTMLAttributes } from "react";
 import type { DovliEditor } from "@dovli/editor";
 import type { Page } from "@dovli/core";
 import { Icon, PopoverContent, PopoverRoot, PopoverTrigger, Tooltip, cn, modKey, type IconName } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
-import { getShare } from "@/lib/share";
-import { cloudConfigured } from "@/lib/supabase";
+import { share, sharingOn } from "@/lib/share";
 import { ui, useUI } from "@/lib/ui";
 import { FormatPanel } from "./FormatPanel";
 import { InfoPanel } from "./InfoPanel";
@@ -37,23 +36,39 @@ const ToolButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButton
   );
 });
 
+/** Whether a page is shared (people or a link), remembered per page for this visit. */
+const shareState = new Map<string, { people: number; link: "viewer" | "editor" | null }>();
+
 /** Who can see this page, in a sentence, for the Share button's tooltip. */
 function useShareState(page: Page) {
   const signedIn = useAuth((s) => s.status === "signed-in");
-  const [shared, setShared] = useState<null | "view" | "edit">(null);
   const shareOpen = useUI((s) => s.share);
+  const [state, setState] = useState(() => shareState.get(page.id) ?? null);
+  const wasOpen = useRef<string | null>(null);
   useEffect(() => {
     let live = true;
-    if (cloudConfigured && signedIn)
-      getShare(page.id)
-        .then((s) => live && setShared(s?.enabled ? s.access : null))
-        .catch(() => {});
-    else setShared(null);
+    setState(shareState.get(page.id) ?? null);
+    const justClosed = wasOpen.current === page.id && shareOpen === null;
+    wasOpen.current = shareOpen;
+    // Check once per page per visit, and again right after its Share window closes.
+    if (!sharingOn || !signedIn || page.kind !== "doc" || shareOpen) return;
+    if (shareState.has(page.id) && !justClosed) return;
+    share.settings(page.id).then(
+      (s) => {
+        const v = { people: s.people.filter((p) => p.role !== "owner").length, link: s.link?.enabled ? s.link.role : null };
+        shareState.set(page.id, v);
+        if (live) setState(v);
+      },
+      () => {},
+    );
     return () => {
       live = false;
     };
-  }, [page.id, signedIn, shareOpen]);
-  const tip = shared ? (shared === "edit" ? "Anyone with the link can view and edit. Click to change." : "Anyone with the link can view. Click to change.") : "Only you can access this page. Click to share it with others.";
+  }, [page.id, page.kind, signedIn, shareOpen]);
+  const shared = !!state && (state.people > 0 || !!state.link);
+  const who = state?.people ? `${state.people} ${state.people === 1 ? "person has" : "people have"} access` : "";
+  const viaLink = state?.link ? (state.link === "editor" ? "anyone with the link can edit" : "anyone with the link can view") : "";
+  const tip = shared ? `${[who, viaLink].filter(Boolean).join(", and ").replace(/^./, (c) => c.toUpperCase())}. Click to change.` : "Only you can access this page. Click to share it or export it.";
   return { shared, tip };
 }
 

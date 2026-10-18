@@ -8,5 +8,5 @@ export const metadata: Metadata = {
 
 export default async function SharedPageRoute({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <SharedPageLoader shareId={id} />;
+  return <SharedPageLoader source={{ linkId: id }} />;
 }

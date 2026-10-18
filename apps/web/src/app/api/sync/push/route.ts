@@ -1,4 +1,5 @@
-// POST { id, data, baseRev, purged } → { ok, rev, data?, purged?, tooBig? }: save one page.
+// POST { id, data, baseRev, purged, workspaceId? } → { ok, rev, data?, purged?, tooBig? }: save one
+// page in a workspace (the person's own when none is given). Needs owner or editor access.
 
 import { MAX_PAGE_CHARS } from "@dovli/sync";
 import { cloudStore } from "@/lib/server/cloud";

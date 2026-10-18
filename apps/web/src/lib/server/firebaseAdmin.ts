@@ -64,7 +64,14 @@ export async function userFromRequest(req: Request, checkRevoked = false): Promi
   if (!token || !auth) return null;
   try {
     const t = await auth.verifyIdToken(token, checkRevoked);
-    return { id: t.uid, email: t.email, name: t.name as string | undefined, picture: t.picture, signInMethod: signInMethodOf(t.firebase?.sign_in_provider, t.signInMethod) };
+    return {
+      id: t.uid,
+      email: t.email,
+      emailVerified: t.email_verified === true,
+      name: t.name as string | undefined,
+      picture: t.picture,
+      signInMethod: signInMethodOf(t.firebase?.sign_in_provider, t.signInMethod),
+    };
   } catch {
     return null;
   }
@@ -73,6 +80,7 @@ export async function userFromRequest(req: Request, checkRevoked = false): Promi
 export interface RequestUser {
   id: string;
   email?: string;
+  emailVerified?: boolean;
   name?: string;
   picture?: string;
   /** "google" or "email-code", from how this token was made. */

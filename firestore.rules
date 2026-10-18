@@ -1,14 +1,17 @@
 rules_version = '2';
 
 // Dovli's Firestore. Only Dovli's server uses it (Admin SDK, which skips these rules), so every
-// read and write is checked there first (lib/server/cloudCore.ts):
-//   users/{uid}                     each person: email, name, photo, sign-in methods, plan,
-//                                   status, joined / last sign-in / last seen, page counts
-//   users/{uid}/pages/{pageId}      every page and board they made (details + content in `data`)
-//   users/{uid}/devices/{deviceId}  every browser or phone they use: platform, version, last seen
-//   authEmailCodes/*                sign-in code hashes, tries and send history
-//   authRateLimits/*                per-network send counts
-//   aiUsage/*                       each account's monthly AI use
+// read and write is checked there first, including each person's role (lib/server/cloudCore.ts):
+//   users/{uid}                          each person: email, name, photo, sign-in methods, plan,
+//                                        status, dates, personalWorkspaceId, deviceCount
+//   users/{uid}/devices/{deviceId}       their browsers and phones (personal, never shared)
+//   workspaces/{workspaceId}             a space of pages: name, kind, ownerId, memberIds, roles
+//                                        (owner / editor / viewer), counts, sync counter
+//   workspaces/{workspaceId}/pages/{id}  its pages and boards (details + content in `data`)
+//   shareLinks/{linkId}                  invitation links: page, view or edit, on or off
+//   users/{uid}/shared/{ws~page}         "Shared with me"
+//   pendingInvites/{emailKey}            invites waiting for that email to sign up
+//   authEmailCodes/*, authRateLimits/*, aiUsage/*   sign-in codes, send limits, AI use
 // Browsers and phones may read and write nothing directly.
 service cloud.firestore {
   match /databases/{database}/documents {

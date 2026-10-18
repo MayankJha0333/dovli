@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 import type { Page } from "@dovli/core";
 import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, modKey } from "@dovli/ui";
 import { store } from "@/lib/store";
-import { exportPageHtml, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
+import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
 import { ui } from "@/lib/ui";
 import { summarizePage } from "@/features/ai/AIPanel";
 import { copyLink, duplicate, moveWithPicker, newPage, trashWithUndo } from "@/features/pages/actions";
@@ -53,7 +53,16 @@ export function PageMenu({ page, trigger, onFind }: { page: Page; trigger: React
           <MenuSub>
             <MenuSubTrigger icon="download">Export</MenuSubTrigger>
             <MenuSubContent>
+              <MenuItem onSelect={() => void exportPageDocx(page)}>Word (.docx)</MenuItem>
               <MenuItem onSelect={() => void exportPageMarkdown(page)}>Markdown (.md)</MenuItem>
+              <MenuItem
+                onSelect={() => {
+                  if (store.get().route.name !== "page" || (store.get().route as any).id !== page.id) store.navigate({ name: "page", id: page.id });
+                  setTimeout(() => void exportPageImage(page).catch(() => {}), 500);
+                }}
+              >
+                Image (.png)
+              </MenuItem>
               <MenuItem onSelect={() => void exportPageHtml(page)}>Web page (.html)</MenuItem>
               <MenuItem
                 onSelect={() => {

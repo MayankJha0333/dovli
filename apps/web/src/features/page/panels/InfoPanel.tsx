@@ -7,7 +7,8 @@ import { Icon, Segmented, cn, modKey } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
 import { store, useStore } from "@/lib/store";
 import { ui } from "@/lib/ui";
-import { exportPageHtml, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
+import { toast } from "@dovli/ui";
+import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
 import { copyLink, duplicate, moveWithPicker, trashWithUndo } from "@/features/pages/actions";
 import { reviewPage, summarizePage, type ReviewFocus } from "@/features/ai/AIPanel";
 import { scrollToBlock } from "../PageInfo";
@@ -216,9 +217,11 @@ export function InfoPanel({ page, onFind, onPresent, close }: { page: Page; onFi
               <div className="grid grid-cols-3 gap-1.5">
                 {(
                   [
-                    ["Markdown", () => void exportPageMarkdown(page)],
-                    ["Web page", () => void exportPageHtml(page)],
                     ["PDF", () => setTimeout(exportPagePdf, 250)],
+                    ["Word", () => void exportPageDocx(page).catch((e) => toast(e.message, { tone: "danger" }))],
+                    ["Markdown", () => void exportPageMarkdown(page)],
+                    ["Image", () => void exportPageImage(page).catch((e) => toast(e.message, { tone: "danger" }))],
+                    ["Web page", () => void exportPageHtml(page)],
                   ] as const
                 ).map(([label, fn]) => (
                   <button key={label} type="button" onClick={go(fn)} className="h-8 rounded-sm bg-panel text-sm text-ink shadow-sm hover:bg-hover">

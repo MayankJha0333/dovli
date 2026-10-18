@@ -201,16 +201,37 @@ tests next to it.
 
 | Path | What it holds |
 |---|---|
-| `users/{uid}` | One per person: `email`, `name`, `photoURL`, `signInMethods`, `plan` (`free`), `status` (`active`), `createdAt`, `lastSignInAt`, `lastSeenAt`, `pageCount`, `boardCount`, `trashCount`, `deviceCount`, and `syncRev` (the sync counter). `plan` and `status` are set once, so you can change them in the console. |
-| `users/{uid}/pages/{pageId}` | Every page and board they made: `title`, `kind` (`doc` or `board`), `parentId`, `mark`, `favorite`, `inTrash`, `createdAt`, `updatedAt`, `size`, `rev`, and the full content as JSON text in `data`. Pages deleted for good stay as small markers (`purged: true`) so other devices hear about it. |
-| `users/{uid}/devices/{deviceId}` | Every browser or phone they use: `platform` (`web`, `ios`, `android`), `name` (like "Chrome on macOS"), `appVersion`, `installed`, `firstSeenAt`, `lastSeenAt`. |
+| `users/{uid}` | One per person: `email`, `name`, `photoURL`, `signInMethods`, `plan` (`free`), `status` (`active`), `createdAt`, `lastSignInAt`, `lastSeenAt`, `personalWorkspaceId`, `deviceCount`. `plan` and `status` are set once, so you can change them in the console. |
+| `users/{uid}/devices/{deviceId}` | Every browser or phone they use: `ownerId`, `platform` (`web`, `ios`, `android`), `name` (like "Chrome on macOS"), `appVersion`, `installed`, `firstSeenAt`, `lastSeenAt`. Devices are personal, so they stay under the person. |
+| `workspaces/{workspaceId}` | A space of pages: `name`, `kind` (`personal` or `team`), `ownerId`, `memberIds`, `roles` (each member's `owner`, `editor` or `viewer`), `pageCount`, `boardCount`, `trashCount`, `syncRev` (the sync counter). Everyone gets a personal one, `personal-{uid}`, on their first visit. |
+| `workspaces/{workspaceId}/pages/{pageId}` | Every page and board in it: `title`, `kind` (`doc` or `board`), `parentId`, `mark`, `favorite`, `inTrash`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`, `size`, `rev`, and the full content as JSON text in `data`. Pages deleted for good stay as small markers (`purged: true`) so other devices hear about it. |
 | `authEmailCodes`, `authRateLimits`, `aiUsage` | Sign-in code hashes, send limits, monthly AI use. |
 
+**Who can do what**: owners do everything, editors read and change pages, viewers only read.
+The server checks the role on every read and save. To list every page of every person, use
+the console's Query builder with the collection group `pages` (or `devices`).
+
+**Moving older data**: pages saved before workspaces (at `users/{uid}/pages`) move into the
+person's personal workspace on their next visit, keeping their change numbers, so devices don't
+download everything again.
+
 **Sync between devices**: every change is saved on the device first (it works offline), then
-sent to `users/{uid}/pages` through `/api/sync/push`; other devices fetch changes through
+sent to the workspace's `pages` through `/api/sync/push`; other devices fetch changes through
 `/api/sync/pull` when they open, every 30 seconds, and when you switch back to them. Edits
 made on two devices offline are merged. The web app and the phone app use the same engine
 (`packages/sync`). A page over about 900 KB stays on the device and Settings says so.
+
+**Sharing a page** (like Craft): the Share button opens one window with two tabs.
+- *Share*: invite people by email as **Can view** or **Can edit**. Someone with an account gets
+  it right away under "Shared with me"; a new email gets it once they sign up with that address.
+  Both get an email with a link (`/p/{workspace}/{page}`). Change or remove access any time.
+  The *invitation link* (`/s/{link}`) lets anyone open the page: view needs no account, edit
+  does. "Make a new link" stops the old one. Rules and tests: `lib/server/shareCore.ts`.
+- *Export*: PDF, Word (.docx), Markdown (.md), Image (.png) and Web page (.html).
+
+In Firestore, a shared page keeps `shared` (uid → role), `sharedIds`, `invited` and `linkId`;
+links are in `shareLinks/{id}`, each person's list in `users/{uid}/shared`, and invites for new
+emails in `pendingInvites/{emailKey}`.
 
 **Not yet**: pictures and attached files stay on the device they were added on (Firebase
 Storage needs the paid Blaze plan), and share links (built on Supabase) are off.

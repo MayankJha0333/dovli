@@ -12,6 +12,8 @@ import { newPage } from "@/features/pages/actions";
 import { PageMenu } from "@/features/page/PageMenu";
 import { PageSide } from "./PageSide";
 import { SyncNotice } from "./SyncNotice";
+import { useAuth } from "@/lib/auth";
+import { refreshShared, useSharedWithMe } from "@/lib/share";
 
 /** One row in the sidebar. Every theme gets its own height, radius and active look from tokens. */
 const rowBase =
@@ -102,9 +104,9 @@ function Fold({ title, open, onToggle, action, count }: { title: string; open: b
 
 // Which sections are open, remembered in this browser. Favourites and Tags start folded so the
 // page tree has the room; Pages starts open.
-type Folds = { starred: boolean; pages: boolean; tags: boolean };
+type Folds = { starred: boolean; shared: boolean; pages: boolean; tags: boolean };
 const FOLDS_KEY = "dovli.sidebarFolds.v1";
-const DEFAULT_FOLDS: Folds = { starred: false, pages: true, tags: false };
+const DEFAULT_FOLDS: Folds = { starred: false, shared: true, pages: true, tags: false };
 /** How many favourites the workspace side last showed (null until it first shows). */
 let seenFavourites: number | null = null;
 function loadFolds(): Folds {
@@ -141,6 +143,20 @@ function SpaceSide() {
     seenFavourites = favorites.length;
   }, [favorites.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const tags = useMemo(() => tagIndex(pages).slice(0, 12), [pages]);
+  const shared = useSharedWithMe();
+  const signedIn = useAuth((a) => a.status === "signed-in");
+  // Pages others shared with you: fetched when signed in, and again when Dovli comes back into view.
+  useEffect(() => {
+    if (!signedIn) return;
+    void refreshShared();
+    const onShow = () => document.visibilityState === "visible" && void refreshShared();
+    document.addEventListener("visibilitychange", onShow);
+    window.addEventListener("focus", onShow);
+    return () => {
+      document.removeEventListener("visibilitychange", onShow);
+      window.removeEventListener("focus", onShow);
+    };
+  }, [signedIn]);
   const trashCount = useMemo(() => Object.values(pages).filter((p) => p.deletedAt).length, [pages]);
 
   return (
@@ -187,6 +203,25 @@ function SpaceSide() {
               <Hint>Add pages to favourites to keep them close.</Hint>
             ))}
         </section>
+
+        {shared.length > 0 && (
+          <section aria-label="Shared with me" className="mt-4">
+            <Fold title="Shared with me" open={open.shared} count={shared.length} onToggle={() => toggle("shared")} />
+            {open.shared && (
+              <ul className="m-0 flex list-none flex-col gap-px p-0">
+                {shared.map((x) => (
+                  <li key={`${x.workspaceId}/${x.pageId}`}>
+                    <a href={`/p/${encodeURIComponent(x.workspaceId)}/${encodeURIComponent(x.pageId)}`} className={cn(rowBase, "no-underline")} title={`Shared by ${x.sharedByName} · ${x.role === "editor" ? "you can edit" : "view only"}`}>
+                      <span className="w-[18px] flex-none text-center font-serif text-ink-3">{x.mark || "¶"}</span>
+                      <span className="flex-1 truncate">{x.title}</span>
+                      {x.role === "viewer" && <Icon name="eye" size={13} className="flex-none text-ink-4" aria-label="View only" />}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
         <section aria-label="Pages" className="mt-4">
           <Fold

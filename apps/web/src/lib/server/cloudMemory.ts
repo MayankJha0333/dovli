@@ -12,13 +12,21 @@ export function memoryCloudStore(): CloudStore & { dump(): Map<string, Doc> } {
     dump: () => data,
     transaction<T>(fn: (tx: DocTx) => Promise<T>) {
       const run = queue.then(async () => {
-        const writes: [string, Doc, boolean][] = [];
+        const writes: [string, Doc | null, boolean][] = [];
         const tx: DocTx = {
-          get: async (path) => structuredClone(data.get(path)),
+          get: async (path) => {
+            // Firestore refuses a read after a write inside one transaction; so do we.
+            if (writes.length) throw new Error(`transaction read ${path} after a write`);
+            return structuredClone(data.get(path));
+          },
           set: (path, d, merge = false) => void writes.push([path, structuredClone(d), merge]),
+          delete: (path) => void writes.push([path, null, false]),
         };
         const out = await fn(tx);
-        for (const [path, d, merge] of writes) data.set(path, merge ? { ...(data.get(path) ?? {}), ...d } : d);
+        for (const [path, d, merge] of writes) {
+          if (d === null) data.delete(path);
+          else data.set(path, merge ? { ...(data.get(path) ?? {}), ...d } : d);
+        }
         return out;
       });
       queue = run.catch(() => {});
@@ -31,6 +39,13 @@ export function memoryCloudStore(): CloudStore & { dump(): Map<string, Doc> } {
         .map(([, v]) => structuredClone(v))
         .sort((a, b) => a.rev - b.rev)
         .slice(0, limit);
+    },
+    async list(collection, limit) {
+      const prefix = `${collection}/`;
+      return [...data.entries()]
+        .filter(([k]) => k.startsWith(prefix) && !k.slice(prefix.length).includes("/"))
+        .slice(0, limit)
+        .map(([, v]) => structuredClone(v));
     },
     async deleteTree(path) {
       for (const k of [...data.keys()]) if (k === path || k.startsWith(`${path}/`)) data.delete(k);

@@ -5,12 +5,15 @@ import { PageIconGlyph, hasOwnIcon } from "@/features/page/PageIcon";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
 import { coverPreset, resolveLook } from "@dovli/theme";
 import { Button, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
+import { auth, initAuth } from "@/lib/auth";
 import { applySettings } from "@/lib/settings";
-import { supabase } from "@/lib/supabase";
+import { share } from "@/lib/share";
 
 const PageEditor = lazy(() => import("@dovli/editor/page-editor"));
 
-type Loaded = { access: "view" | "edit"; page: Page; rev: number };
+/** Which shared page: one shared with you by invite, or one opened through a link. */
+export type SharedSource = { workspaceId: string; pageId: string } | { linkId: string };
+type Loaded = { role: "owner" | "editor" | "viewer"; signInToEdit: boolean; ownerName: string; page: Page };
 
 // A tiny store for the one shared page, so the editor bridge can read it like the real app.
 let current: Page | null = null;
@@ -23,28 +26,52 @@ const setCurrent = (p: Page) => {
   subs.forEach((s) => s());
 };
 
-/** A page someone shared with a link. No account needed to read it (or edit it, if they allowed that). */
-export default function SharedPage({ shareId }: { shareId: string }) {
-  const [state, setState] = useState<Loaded | "missing" | "unavailable" | null>(null);
+/** Wait until we know whether this browser is signed in (so a signed-in editor gets edit access). */
+function authSettled(): Promise<void> {
+  initAuth();
+  return new Promise((resolve) => {
+    if (auth.get().status !== "loading") return resolve();
+    const off = auth.subscribe(() => {
+      if (auth.get().status !== "loading") {
+        off();
+        resolve();
+      }
+    });
+  });
+}
+
+/**
+ * A page someone shared: by invite (only the invited people) or by link (anyone with it).
+ * Viewers read it; editors change it, and each change is saved back to the owner's page.
+ */
+export default function SharedPage({ source }: { source: SharedSource }) {
+  const [state, setState] = useState<Loaded | "missing" | null>(null);
   const [saving, setSaving] = useState<"saved" | "saving" | "error">("saved");
   const rev = useRef(0);
   const timer = useRef<number | undefined>(undefined);
+  const key = JSON.stringify(source);
+
+  async function load() {
+    try {
+      const r = await share.open(source);
+      // Your own page: open it in your workspace instead.
+      if (r.role === "owner" && "pageId" in source) return location.replace(`/#p-${encodeURIComponent(r.pageId)}`);
+      rev.current = r.rev;
+      setCurrent(r.page);
+      setState({ role: r.role, signInToEdit: r.signInToEdit, ownerName: r.ownerName, page: r.page });
+      setSaving("saved");
+      document.title = `${displayTitle(r.page)} · Dovli`;
+    } catch {
+      setState("missing");
+    }
+  }
 
   useEffect(() => {
     applySettings();
-    const sb = supabase();
-    if (!sb) return setState("unavailable");
-    void sb.rpc("get_shared_page", { p_share: shareId }).then(({ data, error }) => {
-      if (error || !data?.page) return setState("missing");
-      const page = { ...data.page } as Page;
-      rev.current = data.rev;
-      setCurrent(page);
-      setState({ access: data.access, page, rev: data.rev });
-      document.title = `${displayTitle(page)} · Dovli`;
-    });
-  }, [shareId]);
+    void authSettled().then(load);
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const editable = typeof state === "object" && state?.access === "edit";
+  const editable = typeof state === "object" && (state?.role === "editor" || state?.role === "owner");
 
   // Plug this page into the shared editor.
   useMemo(() => {
@@ -69,28 +96,26 @@ export default function SharedPage({ shareId }: { shareId: string }) {
         setSaving("saving");
         window.clearTimeout(timer.current);
         timer.current = window.setTimeout(async () => {
-          const { data, error } = await supabase()!.rpc("update_shared_page", {
-            p_share: shareId,
-            p_title: current!.title,
-            p_blocks: current!.blocks,
-            p_base_rev: rev.current,
-          });
-          if (error || !data?.ok) {
+          try {
+            const r = await share.save(source, { title: current!.title, blocks: current!.blocks ?? [], baseRev: rev.current });
+            if (!r.ok) {
+              setSaving("error");
+              toast("Someone else changed this page. Load their version to keep editing.", { tone: "danger", action: { label: "Load", onClick: () => void load() }, duration: 12000 });
+              return;
+            }
+            rev.current = r.rev;
+            setSaving("saved");
+          } catch (e) {
             setSaving("error");
-            toast(data?.conflict ? "Someone else changed this page. Reload to see the latest version." : (data?.error ?? "Couldn't save your change."), { tone: "danger" });
-            return;
+            toast(e instanceof Error ? e.message : "Couldn't save your change.", { tone: "danger" });
           }
-          rev.current = data.rev;
-          setSaving("saved");
         }, 800);
       },
-      resolveFileUrl: async (url) => {
-        const id = fileIdFromUrl(url);
-        return id ? `/api/share/${encodeURIComponent(shareId)}/file/${encodeURIComponent(id)}` : url;
-      },
+      // Pictures uploaded by the owner stay on their device for now; web pictures show here.
+      resolveFileUrl: async (url) => (fileIdFromUrl(url) ? "" : url),
       notify: (m) => toast(m),
     });
-  }, [shareId, editable]);
+  }, [key, editable]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (state === null)
     return (
@@ -98,19 +123,19 @@ export default function SharedPage({ shareId }: { shareId: string }) {
         <Spinner label="Opening page" />
       </div>
     );
-  if (state === "missing" || state === "unavailable")
+  if (state === "missing")
     return (
       <div className="grid min-h-dvh place-items-center bg-bg px-6 text-center">
-        <div className="flex max-w-sm flex-col items-center gap-3">
+        <main id="main" className="flex max-w-sm flex-col items-center gap-3">
           <span className="grid size-12 place-items-center rounded-lg bg-well text-ink-3">
             <Icon name="lock" size={22} />
           </span>
-          <h1 className="display-text m-0 text-2xl">This link doesn't work</h1>
-          <p className="m-0 text-ink-2">The page may have been unshared, deleted, or the link was typed wrong. Ask the person who sent it for a new link.</p>
+          <h1 className="display-text m-0 text-2xl">This page isn't available</h1>
+          <p className="m-0 text-ink-2">It may have been unshared or deleted, or the link was typed wrong. Ask the person who shared it for a new link.</p>
           <Button variant="primary" onClick={() => location.assign("/")}>
             Open Dovli
           </Button>
-        </div>
+        </main>
       </div>
     );
 
@@ -125,45 +150,59 @@ export default function SharedPage({ shareId }: { shareId: string }) {
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 surface-chip [border-radius:0]" data-print="hide">
           <a href="/" className="flex items-center gap-2 rounded-md px-1 py-1 text-ink no-underline hover:bg-hover">
             <span className="grid size-7 place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink">D</span>
-            <span className="font-display font-bold">Dovli</span>
+            <span className="font-display font-bold max-[420px]:sr-only">Dovli</span>
           </a>
-          <Pill className="ml-1">{editable ? "Anyone with the link can edit" : "View only"}</Pill>
-          {editable && <span className="text-xs text-ink-3">{saving === "saving" ? "Saving…" : saving === "error" ? "Not saved" : "Saved"}</span>}
-          <Button size="sm" variant="ghost" icon="download" className="ml-auto" onClick={() => window.print()}>
-            Save as PDF
-          </Button>
+          <Pill className="ml-1 max-[640px]:hidden">{`Shared by ${state.ownerName}`}</Pill>
+          <Pill>{editable ? "Can edit" : "View only"}</Pill>
+          {editable && (
+            <span className="text-xs text-ink-3" aria-live="polite">
+              {saving === "saving" ? "Saving…" : saving === "error" ? "Not saved" : "Saved"}
+            </span>
+          )}
+          <div className="ml-auto flex items-center gap-1">
+            {state.signInToEdit && (
+              <Button size="sm" variant="primary" icon="pencil" onClick={() => location.assign(`/login?next=${encodeURIComponent(location.pathname)}`)}>
+                Sign in to edit
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" icon="download" aria-label="Save as PDF" onClick={() => window.print()}>
+              <span className="max-[480px]:hidden">Save as PDF</span>
+            </Button>
+          </div>
         </header>
-        <article
-          data-print="sheet"
-          data-divider={look.divider}
-          className={cn(
-            "mx-auto w-full px-6 pb-[120px] max-[640px]:px-4",
-            cover ? "pt-0" : "pt-10",
-            look.wide ? "max-w-[1200px]" : "max-w-[860px]",
-            style && cn("page-styled my-10 rounded-sheet bg-[var(--s-paper)] pb-14 shadow-sheet max-[640px]:mx-2.5", !cover && "pt-14"),
-          )}
-        >
-          {cover && (
-            <div className={cn("-mx-6 max-[640px]:-mx-4", !style && "mt-6 overflow-hidden rounded-xl")}>
-              <div
-                className={cn("h-[clamp(140px,24vh,240px)] bg-well bg-cover bg-center", style && "rounded-t-sheet")}
-                style={{ background: coverPreset(page.cover)?.css ?? `center / cover no-repeat url(${JSON.stringify(page.cover)})` }}
-              />
-            </div>
-          )}
-          <header className="mb-6 px-[54px] max-[640px]:px-0">
-            {hasOwnIcon(page) && (
-              <div className={cn("relative z-[1] mb-3 flex", cover ? "-mt-[40px]" : "")}>
-                <PageIconGlyph mark={page.mark} onCover={cover} />
+        <main id="main">
+          <article
+            data-print="sheet"
+            data-divider={look.divider}
+            className={cn(
+              "mx-auto w-full px-6 pb-[120px] max-[640px]:px-4",
+              cover ? "pt-0" : "pt-10",
+              look.wide ? "max-w-[1200px]" : "max-w-[860px]",
+              style && cn("page-styled my-10 rounded-sheet bg-[var(--s-paper)] pb-14 shadow-sheet max-[640px]:mx-2.5", !cover && "pt-14"),
+            )}
+          >
+            {cover && (
+              <div className={cn("-mx-6 max-[640px]:-mx-4", !style && "mt-6 overflow-hidden rounded-xl")}>
+                <div
+                  className={cn("h-[clamp(140px,24vh,240px)] bg-well bg-cover bg-center", style && "rounded-t-sheet")}
+                  style={{ background: coverPreset(page.cover)?.css ?? `center / cover no-repeat url(${JSON.stringify(page.cover)})` }}
+                />
               </div>
             )}
-            {cover && !hasOwnIcon(page) && <div className="h-8" />}
-            <h1 className="m-0 font-[family-name:var(--title-font,var(--d-font-display))] text-[clamp(2rem,3.2vw,2.75rem)] leading-[1.1] tracking-[var(--d-display-tracking)] text-ink [font-style:var(--title-style,normal)] [font-weight:var(--title-weight,var(--d-display-weight))]">
-              {displayTitle(page)}
-            </h1>
-          </header>
-          <Suspense fallback={<Spinner />}>{page.kind === "doc" ? <PageEditor page={page} readOnly={!editable} /> : <p className="px-[54px] text-ink-2">Whiteboards can't be shared yet.</p>}</Suspense>
-        </article>
+            <header className="mb-6 px-[54px] max-[640px]:px-0">
+              {hasOwnIcon(page) && (
+                <div className={cn("relative z-[1] mb-3 flex", cover ? "-mt-[40px]" : "")}>
+                  <PageIconGlyph mark={page.mark} onCover={cover} />
+                </div>
+              )}
+              {cover && !hasOwnIcon(page) && <div className="h-8" />}
+              <h1 className="m-0 font-[family-name:var(--title-font,var(--d-font-display))] text-[clamp(2rem,3.2vw,2.75rem)] leading-[1.1] tracking-[var(--d-display-tracking)] text-ink [font-style:var(--title-style,normal)] [font-weight:var(--title-weight,var(--d-display-weight))]">
+                {displayTitle(page)}
+              </h1>
+            </header>
+            <Suspense fallback={<Spinner />}>{page.kind === "doc" ? <PageEditor page={page} readOnly={!editable} /> : <p className="px-[54px] text-ink-2">Whiteboards can't be shared yet.</p>}</Suspense>
+          </article>
+        </main>
       </div>
       <Toaster />
     </TooltipProvider>
