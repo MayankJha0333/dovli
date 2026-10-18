@@ -30,21 +30,46 @@ interface DovliDB extends DBSchema {
   synced: { key: string; value: { id: string; rev: number; page: Page } };
 }
 
+// Each account gets its own database on this device ("dovli-u-<account id>"), so a second
+// person signing in here never sees the first one's pages. Without accounts (no Firebase set up)
+// everything lives in "dovli", as before. Pages saved in "dovli" before accounts existed belong to
+// nobody: a signed-in person can move them into their account, or delete them (Settings → Account).
+
+const UNOWNED_DB = "dovli";
+const STORES = ["pages", "files", "meta", "backups", "outbox", "synced"] as const;
+
+function open(name: string) {
+  return openDB<DovliDB>(name, 1, {
+    upgrade(d) {
+      d.createObjectStore("pages", { keyPath: "id" });
+      d.createObjectStore("files", { keyPath: "id" });
+      d.createObjectStore("meta");
+      d.createObjectStore("backups", { keyPath: "id" }).createIndex("byDate", "createdAt");
+      d.createObjectStore("outbox", { keyPath: "id" });
+      d.createObjectStore("synced", { keyPath: "id" });
+    },
+  });
+}
+
+let account: string | null = null;
 let dbp: Promise<IDBPDatabase<DovliDB>> | null = null;
 
+/**
+ * Keep this device's data for this account only. Call once, before anything reads the database
+ * (the app does it as it starts, with the account from the server-checked session).
+ */
+export function setAccountStorage(accountId: string) {
+  if (account === accountId) return;
+  if (dbp) throw new Error("[dovli] storage was opened before the account was known");
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(accountId)) throw new Error("[dovli] unexpected account id");
+  account = accountId;
+}
+
+/** True when pages are kept per account (the sign-in gate is on). */
+export const perAccountStorage = () => account !== null;
+
 export function db() {
-  if (!dbp) {
-    dbp = openDB<DovliDB>("dovli", 1, {
-      upgrade(d) {
-        d.createObjectStore("pages", { keyPath: "id" });
-        d.createObjectStore("files", { keyPath: "id" });
-        d.createObjectStore("meta");
-        d.createObjectStore("backups", { keyPath: "id" }).createIndex("byDate", "createdAt");
-        d.createObjectStore("outbox", { keyPath: "id" });
-        d.createObjectStore("synced", { keyPath: "id" });
-      },
-    });
-  }
+  dbp ??= open(account ? `dovli-u-${account}` : UNOWNED_DB);
   return dbp;
 }
 
@@ -68,8 +93,73 @@ export async function setMeta(key: string, value: unknown) {
   await (await db()).put("meta", value, key);
 }
 
-/** Wipe everything on this device (used by "Delete all data on this device" and sign-out with wipe). */
+/** Wipe this workspace's data on this device: the signed-in account's, or everything without accounts. */
 export async function clearDevice() {
   const d = await db();
-  await Promise.all((["pages", "files", "meta", "backups", "outbox", "synced"] as const).map((s) => d.clear(s)));
+  await Promise.all(STORES.map((s) => d.clear(s)));
+}
+
+/* ---------- Pages saved before accounts ---------- */
+
+/** Whether the old shared database exists, without creating it when it doesn't. */
+async function unownedExists(): Promise<boolean> {
+  const list = (indexedDB as IDBFactory & { databases?: () => Promise<{ name?: string }[]> }).databases;
+  if (!list) return true; // older browsers can't list them; opening an empty one is harmless
+  try {
+    return (await list.call(indexedDB)).some((d) => d.name === UNOWNED_DB);
+  } catch {
+    return true;
+  }
+}
+
+/** How many pages (not in the trash) were saved on this device before accounts. 0 without accounts. */
+export async function unownedPageCount(): Promise<number> {
+  if (!account || !(await unownedExists())) return 0;
+  const d = await open(UNOWNED_DB);
+  try {
+    return (await d.getAll("pages")).filter((p) => !p.deletedAt).length;
+  } finally {
+    d.close();
+  }
+}
+
+/**
+ * Move the pages, files and backups saved before accounts into this account, then empty the old
+ * database so nobody else on this device can take them too. Where a page exists in both (the
+ * sample pages), the more recently edited copy is kept. Returns how many pages moved.
+ */
+export async function moveUnownedIntoAccount(): Promise<number> {
+  if (!account) return 0;
+  const from = await open(UNOWNED_DB);
+  try {
+    const [pages, files, backups] = await Promise.all([from.getAll("pages"), from.getAll("files"), from.getAll("backups")]);
+    const to = await db();
+    const tx = to.transaction(["pages", "files", "backups"], "readwrite");
+    const writes: Promise<unknown>[] = [];
+    for (const p of pages) {
+      writes.push(
+        tx.objectStore("pages").get(p.id).then((mine) => {
+          if (!mine || (p.updatedAt ?? 0) > (mine.updatedAt ?? 0)) return tx.objectStore("pages").put(p);
+        }),
+      );
+    }
+    for (const f of files) writes.push(tx.objectStore("files").put(f));
+    for (const b of backups) writes.push(tx.objectStore("backups").put(b));
+    await Promise.all([...writes, tx.done]);
+    await Promise.all(STORES.map((s) => from.clear(s)));
+    return pages.length;
+  } finally {
+    from.close();
+  }
+}
+
+/** Delete the pages saved before accounts, for good. */
+export async function deleteUnowned() {
+  if (!account) return;
+  const from = await open(UNOWNED_DB);
+  try {
+    await Promise.all(STORES.map((s) => from.clear(s)));
+  } finally {
+    from.close();
+  }
 }

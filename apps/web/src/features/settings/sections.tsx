@@ -5,7 +5,7 @@ import { Button, Field, Icon, Input, Kbd, Pill, RadioCard, RadioCards, Segmented
 import { refreshUsage, useAIUsage } from "@/lib/ai";
 import { auth, useAuth } from "@/lib/auth";
 import { backupFile, createBackup, listBackups, parseBackupFile, restoreBackup } from "@/lib/backups";
-import { clearDevice, type Backup } from "@/lib/db";
+import { clearDevice, deleteUnowned, moveUnownedIntoAccount, perAccountStorage, unownedPageCount, type Backup } from "@/lib/db";
 import { storageUsed } from "@/lib/files";
 import { settings, useSettings, type TextSize } from "@/lib/settings";
 import { store } from "@/lib/store";
@@ -144,12 +144,81 @@ export function Account() {
           </Button>
         </div>
       </Group>
+      <OlderPages />
       <Group title="Sync between devices">
         <p className="m-0 rounded-lg bg-well p-4 text-sm text-ink-2">
-          Your account is ready. Pages are still saved on each device for now; syncing them through your account is the next step.
+          Your pages are kept on this device, separate from anyone else who signs in here. Syncing them between your devices is the next step.
         </p>
       </Group>
     </div>
+  );
+}
+
+/** Pages saved on this device before accounts existed: they belong to nobody until someone takes them. */
+function OlderPages() {
+  const [count, setCount] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  useEffect(() => {
+    if (perAccountStorage()) void unownedPageCount().then(setCount, () => setCount(0));
+  }, []);
+  if (!count) return null;
+  const pages = `${count} ${count === 1 ? "page" : "pages"}`;
+  return (
+    <Group
+      title="Pages from before you had an account"
+      description={`This device has ${pages} saved before accounts were turned on. They aren't in any account, so nobody sees them yet.`}
+    >
+      {confirmDelete ? (
+        <div role="alertdialog" aria-label="Confirm delete" className="flex flex-wrap items-center gap-2 rounded-lg bg-danger-soft p-4">
+          <p className="m-0 flex-1 text-sm font-medium text-danger">Delete these {pages} for good?</p>
+          <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await deleteUnowned();
+                setCount(0);
+                toast("Deleted the older pages");
+              } catch (e) {
+                toast(errText(e), { tone: "danger" });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            Delete
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            icon="move"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await moveUnownedIntoAccount();
+                location.reload(); // open the workspace again with the moved pages in it
+              } catch (e) {
+                toast(errText(e), { tone: "danger" });
+                setBusy(false);
+              }
+            }}
+          >
+            {busy ? "Moving…" : "Move them into my account"}
+          </Button>
+          <Button variant="dangerGhost" disabled={busy} onClick={() => setConfirmDelete(true)}>
+            Delete them
+          </Button>
+        </div>
+      )}
+    </Group>
   );
 }
 
@@ -482,13 +551,16 @@ export function Privacy() {
         </ul>
       </Group>
       <Group title="Delete data">
-        <Row label="Delete everything on this device" hint={a.status === "signed-in" ? "Your account stays; only this device is cleared." : "Pages, files and backups here are removed for good."}>
+        <Row
+          label={a.status === "signed-in" ? "Delete my pages on this device" : "Delete everything on this device"}
+          hint={a.status === "signed-in" ? "Your pages, files and backups here. Your account stays, and other accounts on this device aren't touched." : "Pages, files and backups here are removed for good."}
+        >
           <Button variant="dangerGhost" onClick={() => setConfirm("device")}>
             Delete
           </Button>
         </Row>
         {a.status === "signed-in" && (
-          <Row label="Delete my account" hint="Removes your Dovli account for good. Pages on this device stay unless you delete them too.">
+          <Row label="Delete my account" hint="Removes your Dovli account and its pages on this device, for good.">
             <Button variant="dangerGhost" onClick={() => setConfirm("account")}>
               Delete account
             </Button>
@@ -497,7 +569,11 @@ export function Privacy() {
         {confirm && (
           <div role="alertdialog" aria-label="Confirm delete" className="flex flex-wrap items-center gap-2 rounded-lg bg-danger-soft p-4">
             <p className="m-0 flex-1 text-sm font-medium text-danger">
-              {confirm === "device" ? "Delete all pages, files and backups on this device?" : "Delete your Dovli account? This can't be undone."}
+              {confirm === "device"
+                ? a.status === "signed-in"
+                  ? "Delete your pages, files and backups on this device?"
+                  : "Delete all pages, files and backups on this device?"
+                : "Delete your Dovli account and its pages here? This can't be undone."}
             </p>
             <Button variant="ghost" onClick={() => setConfirm(null)}>
               Cancel

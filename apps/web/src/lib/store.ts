@@ -17,7 +17,7 @@ import {
   type Route,
   type SaveStatus,
 } from "@dovli/core";
-import { db, getMeta, loadAllPages, setMeta, writePages } from "./db";
+import { db, getMeta, loadAllPages, perAccountStorage, setMeta, writePages } from "./db";
 
 export interface State {
   ready: boolean;
@@ -156,7 +156,9 @@ export function initStore(): Promise<void> {
           await writePages(fixed, []);
         }
         if (!Object.keys(pages).length && !(await getMeta<boolean>("seeded"))) {
-          const legacy = await loadLegacy();
+          // Pages from the very first versions (kept in browser storage) belong to nobody, so with
+          // accounts on they are not handed to whoever signs in first: new accounts start fresh.
+          const legacy = perAccountStorage() ? null : await loadLegacy();
           pages = legacy ? Object.fromEntries(Object.values(legacy).map((p) => [p.id, pageWithBlockIds(p)])) : seedPages();
           await writePages(Object.values(pages), []);
           await setMeta("seeded", true);

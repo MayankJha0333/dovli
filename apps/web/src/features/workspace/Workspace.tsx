@@ -38,7 +38,7 @@ function Glows() {
   );
 }
 
-export default function Workspace() {
+export default function Workspace({ accountId }: { accountId?: string }) {
   const ready = useStore((s) => s.ready);
   const route = useStore((s) => s.route);
   const nav = useUI((s) => s.nav);
@@ -66,10 +66,14 @@ export default function Workspace() {
   useEffect(() => ui.set({ nav: false }), [route]);
 
   // Signed out in another tab, or this browser's sign-in was cleared: back to the sign-in page.
+  // Or someone else signed in here meanwhile: this tab still shows the first account's pages, so
+  // go through sign-in again and come back to the right account's workspace.
   const authStatus = useAuth((s) => s.status);
+  const signedInAs = useAuth((s) => s.account?.id);
   useEffect(() => {
-    if (authGateOn && authStatus === "signed-out") void auth.leaveForSignIn();
-  }, [authStatus]);
+    if (!authGateOn) return;
+    if (authStatus === "signed-out" || (authStatus === "signed-in" && accountId && signedInAs !== accountId)) void auth.leaveForSignIn();
+  }, [authStatus, signedInAs, accountId]);
 
   // The sidebar's two sides follow the route once the pages are loaded.
   useEffect(() => {
