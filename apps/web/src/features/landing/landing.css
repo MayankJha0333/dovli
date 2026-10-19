@@ -16,7 +16,7 @@
   --lp-lilac-ink: #4d42d1;
   --lp-mint: #d9f2e3;
   --lp-mint-ink: #12704a;
-  --lp-butter: #fff0c2;
+  --lp-butter: #fbf0d4;
   --lp-butter-ink: #7a5000;
   --lp-pink: #fce3f1;
   --lp-pink-ink: #a8226f;
@@ -131,6 +131,18 @@
 
 /* ---------- Feature story: only the picture for the current step shows ---------- */
 .lp-story-pic[data-active="false"] { opacity: 0; pointer-events: none; }
+/* The step you're on shows its colour; the others wait in grey. Text is never faded. */
+.lp-step-icon { background: var(--on-bg); color: var(--on-ink); transition: background-color 0.4s, color 0.4s; }
+@media (min-width: 768px) {
+  .lp-step[data-active="false"] .lp-step-icon { background: var(--d-well); color: var(--d-ink-3); }
+}
+
+/* Things that only make sense while things move (pause, replay) hide when motion is off. */
+.lp-motion-only { display: none; }
+[data-paused] .lp-marquee-track { animation-play-state: paused !important; }
+
+/* Anchor jumps and keyboard focus land below the floating header. */
+html:has(.lp-root) { scroll-padding-top: 6rem; }
 
 /* ---------- Things that happen when a section scrolls into view ---------- */
 .lp-hl {
@@ -142,12 +154,12 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  :root:not([data-reduce-motion]) {
+  :root:not([data-reduce-motion="true"]) {
     /* Hero: the headline rises word by word, then the picture settles in. */
     .lp-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
     .lp-word { display: inline-block; animation: lp-word 0.9s var(--lp-ease) both; animation-delay: calc(var(--i) * 70ms + 80ms); }
     .lp-fade { animation: lp-fade 0.9s var(--lp-ease) both; animation-delay: var(--d, 0.5s); }
-    .lp-caret { animation: lp-caret 1.1s steps(1) infinite; }
+    .lp-caret { animation: lp-caret 1.1s steps(1) 4; }
 
     /* Slash menu highlight glides between rows. */
     .lp-slash-row { transition: background-color 0.25s var(--lp-ease), color 0.25s var(--lp-ease); }
@@ -155,11 +167,8 @@
     /* Feature story: the picture for the step you're reading. */
     .lp-story-pic { transition: opacity 0.6s var(--lp-ease), transform 0.8s var(--lp-ease), filter 0.6s var(--lp-ease); }
     .lp-story-pic[data-active="false"] { transform: translateY(18px) scale(0.97); filter: blur(4px); }
-    .lp-step { transition: opacity 0.5s var(--lp-ease); }
     .lp-story-panel { transition: background-color 0.7s var(--lp-ease); }
-    @media (min-width: 768px) {
-      .lp-step[data-active="false"] { opacity: 0.35; }
-    }
+    .lp-motion-only { display: inline-flex; }
 
     .lp-marquee { overflow: hidden; }
     .lp-marquee-track { padding-inline: 0; animation: lp-marquee var(--dur, 60s) linear infinite; }
@@ -169,8 +178,8 @@
     .lp-marquee:focus-within .lp-marquee-track { animation-play-state: paused; }
 
     /* AI section: data flows along the lines, the chat plays in. */
-    .lp-flow { stroke-dasharray: 3 9; animation: lp-flow 1.6s linear infinite; }
-    .lp-pulse { animation: lp-pulse 2.8s var(--lp-ease) infinite; transform-origin: center; transform-box: fill-box; }
+    .lp-flow { stroke-dasharray: 3 9; animation: lp-flow 1.6s linear 3; }
+    .lp-pulse { animation: lp-pulse 2.4s var(--lp-ease) 2; transform-origin: center; transform-box: fill-box; }
     [data-inview="false"] .lp-seq { opacity: 0; transform: translateY(12px); }
     .lp-seq { transition: opacity 0.6s var(--lp-ease), transform 0.6s var(--lp-ease); transition-delay: var(--d, 0s); }
 
@@ -188,7 +197,7 @@
 
   /* Scroll-driven parts, where the browser can tie animation to scrolling. */
   @supports (animation-timeline: view()) {
-    :root:not([data-reduce-motion]) {
+    :root:not([data-reduce-motion="true"]) {
       .lp-tilt {
         animation: lp-tilt linear both;
         animation-timeline: view();
@@ -223,8 +232,8 @@
 @keyframes lp-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.2; } }
 @keyframes lp-press { 50% { transform: scale(0.94); } }
 @keyframes lp-tilt {
-  from { transform: perspective(1800px) rotateX(18deg) scale(0.92); opacity: 0.6; }
-  to { transform: none; opacity: 1; }
+  from { transform: perspective(1800px) rotateX(18deg) scale(0.92); }
+  to { transform: none; }
 }
 @keyframes lp-phone {
   from { transform: translateY(80px) rotate(-6deg); }

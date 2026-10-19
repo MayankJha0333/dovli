@@ -50,15 +50,21 @@ export function HeroPicture() {
   const [hover, setHover] = useState(false);
 
   // The menu's highlight walks down the list, like someone choosing a block. It stops while pointed at.
+  // It makes one pass and then rests on the first row, so nothing keeps moving for long.
   useEffect(() => {
     if (hover || prefersLessMotion()) return;
-    const id = setInterval(() => setHi((i) => (i + 1) % slashItems.length), 1600);
+    let n = 0;
+    const id = setInterval(() => {
+      n += 1;
+      setHi(n % slashItems.length);
+      if (n >= slashItems.length) clearInterval(id);
+    }, 1100);
     return () => clearInterval(id);
   }, [hover]);
 
   return (
     <Sheet fold={56} sheetClassName="rounded-[22px] bg-panel">
-      <div className="flex h-[520px] text-left sm:h-[580px]">
+      <div className="flex h-[520px] text-left sm:h-[600px]">
         {/* Sidebar */}
         <div aria-hidden="true" className="hidden w-[232px] flex-none flex-col gap-0.5 border-r border-line bg-well/60 p-3 md:flex">
           <div className="mb-2 flex h-8 items-center gap-2 rounded-md bg-panel px-2.5 text-sm text-ink-4 shadow-sm">
@@ -171,19 +177,19 @@ export function BlocksPicture() {
           Ship the smallest version people would miss if it went away.
         </div>
         <div className="mt-4 overflow-hidden rounded-lg shadow-sm">
-          <div className="grid grid-cols-[1.6fr_1fr_1fr] bg-well text-xs font-semibold text-ink-3">
+          <div className="grid grid-cols-[1.6fr_1fr] bg-well text-xs font-semibold text-ink-3 min-[480px]:grid-cols-[1.6fr_1fr_1fr]">
             {["Feature", "Owner", "Status"].map((h) => (
-              <span key={h} className="px-3 py-2">
+              <span key={h} className={cn("px-3 py-2", h === "Owner" && "hidden min-[480px]:block")}>
                 {h}
               </span>
             ))}
           </div>
           {specRows.map((r) => (
-            <div key={r[0]} className="grid grid-cols-[1.6fr_1fr_1fr] items-center border-t border-line text-sm text-ink">
+            <div key={r[0]} className="grid grid-cols-[1.6fr_1fr] items-center border-t border-line text-sm text-ink min-[480px]:grid-cols-[1.6fr_1fr_1fr]">
               <span className="truncate px-3 py-2.5">{r[0]}</span>
-              <span className="truncate px-3 py-2.5 text-ink-2">{r[1]}</span>
+              <span className="hidden truncate px-3 py-2.5 text-ink-2 min-[480px]:block">{r[1]}</span>
               <span className="px-3 py-2">
-                <span className={cn("inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium", r[2] === "Done" ? "bg-well text-ok" : "bg-accent-soft text-accent")}>
+                <span className={cn("inline-flex h-6 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium", r[2] === "Done" ? "bg-[var(--lp-mint)] text-[var(--lp-mint-ink)]" : "bg-accent-soft text-accent")}>
                   {r[2]}
                 </span>
               </span>
@@ -331,7 +337,7 @@ export function BoardPicture() {
 function LookCard({ name, className, title, body, titleClass, style }: { name: string; className: string; title: string; body: string; titleClass?: string; style?: React.CSSProperties }) {
   return (
     <figure className="m-0 flex flex-col gap-2">
-      <div className={cn("flex aspect-[3/4] flex-col gap-2 rounded-lg p-4 shadow-card", className)} style={style}>
+      <div className={cn("flex aspect-[3/4] flex-col gap-2 overflow-hidden rounded-lg p-4 shadow-card", className)} style={style}>
         <span className={cn("text-[15px] font-bold leading-tight", titleClass)}>{title}</span>
         <span className="text-[11px] leading-relaxed opacity-80">{body}</span>
       </div>
