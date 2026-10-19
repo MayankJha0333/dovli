@@ -1,16 +1,18 @@
 "use dom";
 
-// The full Dovli editor on the phone. Expo renders this file as a small web page inside the native
+// The full Dovli page on the phone. Expo renders this file as a small web page inside the native
 // app (a "DOM component"), so the phone gets exactly the same editor, blocks and themes as the web.
-// Props cross from native to web as JSON; the callback props become async calls back to native.
+// The cover, icon and title are drawn here too, so they scroll away with the page as on the web;
+// a styled page gets its backdrop and paper sheet. Props cross from native to web as JSON; the
+// callback props become async calls back to native.
 
 import "./editor.css";
-import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useDOMImperativeHandle, type DOMImperativeFactory, type DOMProps } from "expo/dom";
 import { connectEditor, type DovliEditor } from "@dovli/editor";
 import PageEditor from "@dovli/editor/page-editor";
 import type { Page } from "@dovli/core";
-import { FONT_STYLESHEET, getTheme, resolveLook, themeStylesheet, type ThemeId } from "@dovli/theme";
+import { FONT_STYLESHEET, coverPreset, getTheme, resolveLook, themeStylesheet, type ThemeId } from "@dovli/theme";
 
 // BlockNote wants the page to shrink above the phone keyboard (as the web app's viewport does).
 // Expo writes this page's viewport tag, so add it here, before the editor mounts and checks.
@@ -24,8 +26,60 @@ const subs = new Set<() => void>();
 
 /** What the phone screen can ask the editor to do. */
 export interface PageEditorHandle extends DOMImperativeFactory {
-  /** Put the cursor at the start of the page (return in the title, as on the web). */
-  focusStart: () => void;
+  /** Back to the top of the page (a tap on the small title in the top bar). */
+  scrollToTop: () => void;
+}
+
+/** A page's cover: a built-in gradient, or a picture from the web. Uploaded pictures stay on the
+ *  device they were added on (they aren't synced yet), so they don't show here. */
+function Cover({ cover, sheet }: { cover: string; sheet: boolean }) {
+  const preset = coverPreset(cover);
+  const src = /^https?:\/\//i.test(cover) ? cover : null;
+  if (!preset && !src) return null;
+  return (
+    <div
+      aria-hidden
+      className="w-full overflow-hidden bg-well"
+      style={{ height: sheet ? 150 : 190, background: preset?.css, borderTopLeftRadius: sheet ? 24 : 0, borderTopRightRadius: sheet ? 24 : 0 }}
+    >
+      {src && <img src={src} alt="" className="size-full object-cover" />}
+    </div>
+  );
+}
+
+/** The title: grows with its text. Return carries on into the page, as on the web. */
+function TitleField({ value, onChange, onEnter, readOnly, board, inputRef }: { value: string; onChange: (v: string) => void; onEnter: () => void; readOnly?: boolean; board: boolean; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, inputRef]);
+  return (
+    <textarea
+      ref={inputRef}
+      rows={1}
+      readOnly={readOnly}
+      value={value}
+      placeholder={board ? "Untitled board" : "Untitled"}
+      aria-label="Page title"
+      onChange={(e) => onChange(e.target.value.replace(/\n/g, ""))}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+        e.preventDefault();
+        onEnter();
+      }}
+      className="block w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-ink outline-none placeholder:text-ink-4"
+      style={{
+        fontFamily: "var(--title-font, var(--d-font-display))",
+        fontStyle: "var(--title-style, normal)" as any,
+        fontWeight: "var(--title-weight, var(--d-display-weight))" as any,
+        letterSpacing: "var(--d-display-tracking)",
+        fontSize: 30,
+        lineHeight: 1.15,
+      }}
+    />
+  );
 }
 const setPages = (next: Record<string, Page>) => {
   pages = next;
@@ -37,10 +91,18 @@ export default function PageEditorDom({
   others,
   themeId,
   background,
+  mark,
+  cover,
+  path,
+  meta,
+  topInset,
+  bottomInset,
+  onTitleChange,
+  onOpenInfo,
+  onTitleHidden,
   onSave,
   onOpenPage,
   onCreatePage,
-  onExitTop,
   readOnly,
   ref,
 }: {
@@ -50,12 +112,24 @@ export default function PageEditorDom({
   themeId: ThemeId;
   /** Solid colour behind the editor, matching the native screen around it. */
   background: string;
+  /** The page's current icon and cover (they can change from the actions sheet while it's open). */
+  mark: string;
+  cover?: string | null;
+  /** The pages this one sits inside, outermost first: tap one to go there. */
+  path: { id: string; label: string }[];
+  /** "Edited 2 min ago · 120 words": opens Page info. */
+  meta: string;
+  /** Room at the top for the phone's floating buttons, and at the bottom for the home indicator. */
+  topInset: number;
+  bottomInset: number;
+  onTitleChange: (title: string) => Promise<void>;
+  onOpenInfo: () => Promise<void>;
+  /** The title scrolled under the top bar (or came back): the bar shows a small title meanwhile. */
+  onTitleHidden: (hidden: boolean) => Promise<void>;
   onSave: (blocks: any[]) => Promise<void>;
   onOpenPage: (id: string) => Promise<void>;
   /** Make a page with this id on the phone (the editor needs the id straight away). */
   onCreatePage: (id: string, kind: "doc" | "board", title: string) => Promise<void>;
-  /** Backspace, ← or ↑ at the very top of the page: the native title field takes the cursor. */
-  onExitTop: () => Promise<void>;
   /** A page in the trash: read it, don't change it. */
   readOnly?: boolean;
   dom?: DOMProps;
@@ -65,23 +139,58 @@ export default function PageEditorDom({
   const onReady = useCallback((e: DovliEditor | null) => {
     editorRef.current = e;
   }, []);
+  /** Put the cursor at the start of the page (Return in the title, as on the web). */
+  const focusStart = useCallback(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+    const first = editor.document[0];
+    try {
+      if (first) editor.setTextCursorPosition(first, "start");
+    } catch {
+      /* the first block has no text (a picture, say): leave the cursor where the editor put it */
+    }
+  }, []);
   useDOMImperativeHandle(
     ref as React.Ref<PageEditorHandle>,
     () => ({
-      focusStart: () => {
-        const editor = editorRef.current;
-        if (!editor) return;
-        editor.focus();
-        const first = editor.document[0];
-        try {
-          if (first) editor.setTextCursorPosition(first, "start");
-        } catch {
-          /* the first block has no text (a picture, say): leave the cursor where the editor put it */
-        }
-      },
+      scrollToTop: () => (boxRef.current ?? window).scrollTo({ top: 0, behavior: "smooth" }),
     }),
     [],
   );
+
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+  // A styled page scrolls inside its paper sheet; a plain page scrolls as a whole.
+  const boxRef = useRef<HTMLElement>(null);
+  const [title, setTitle] = useState(page.title);
+  const styled = !!resolveLook(page.style, page.look).style;
+
+  // Tell the phone when the title has scrolled out of sight (up out of the sheet, or under the
+  // floating buttons), so its top bar can show a small title meanwhile.
+  useEffect(() => {
+    const box = boxRef.current;
+    const target: HTMLElement | Window = box ?? window;
+    let hidden = false;
+    let frame = 0;
+    const check = () => {
+      frame = 0;
+      const el = titleRef.current;
+      const edge = box ? box.getBoundingClientRect().top + 4 : topInset;
+      const now = !!el && el.getBoundingClientRect().bottom < edge;
+      if (now !== hidden) {
+        hidden = now;
+        void onTitleHidden(now).catch(() => {});
+      }
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(check);
+    };
+    target.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      target.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [topInset, onTitleHidden, styled]);
 
   // Theme: the same CSS variables as the web app, switched by data-theme.
   useEffect(() => {
@@ -150,11 +259,90 @@ export default function PageEditorDom({
     [onSave, onOpenPage, onCreatePage, page.id],
   );
 
-  // A page with its own style (paper, ink, accent) gets the same look as on the web.
+  // A page with its own style (paper, ink, accent) gets the same look as on the web: its backdrop
+  // behind, and the page on a paper sheet. A plain page fills the screen.
   const look = resolveLook(page.style, page.look);
+  const hasCover = !!cover && (!!coverPreset(cover) || /^https?:\/\//i.test(cover));
+  const head = (
+    <header className={styled ? "px-4" : "px-5"} style={{ paddingTop: hasCover ? 0 : styled ? 24 : topInset }}>
+      {path.length > 0 && !hasCover && (
+        <nav aria-label="Where this page is" className="mb-3 flex flex-wrap items-center gap-1 text-[13px] font-medium text-ink-3">
+          {path.map((a) => (
+            <span key={a.id} className="flex items-center gap-1">
+              <button type="button" className="max-w-[160px] truncate border-0 bg-transparent p-0 text-ink-3" onClick={() => void onOpenPage(a.id)}>
+                {a.label}
+              </button>
+              <span aria-hidden className="text-ink-4">›</span>
+            </span>
+          ))}
+        </nav>
+      )}
+      <div
+        aria-hidden
+        className="flex items-center justify-center rounded-[18px]"
+        style={{ width: 56, height: 56, fontSize: 26, color: "var(--d-accent)", background: "var(--d-accent-soft)", marginTop: hasCover ? -28 : 0, position: "relative", boxShadow: hasCover ? "0 0 0 3px var(--d-panel)" : undefined }}
+      >
+        {mark}
+      </div>
+      <div className="mt-4">
+        <TitleField
+          inputRef={titleRef}
+          value={title}
+          readOnly={readOnly}
+          board={page.kind === "board"}
+          onChange={(v) => {
+            setTitle(v);
+            void onTitleChange(v).catch(() => {});
+          }}
+          onEnter={focusStart}
+        />
+      </div>
+      <button type="button" onClick={() => void onOpenInfo()} className="mb-3 mt-1.5 flex items-center gap-1 border-0 bg-transparent p-0 text-[13px] text-ink-3">
+        {meta}
+        <span aria-hidden className="text-ink-4">ⓘ</span>
+      </button>
+    </header>
+  );
+  const editor = (
+    <div className="px-4">
+      <PageEditor page={page} onReady={onReady} onExitTop={() => titleRef.current?.focus()} readOnly={!!readOnly} touch />
+    </div>
+  );
+
+  if (!styled)
+    return (
+      <div className="min-h-dvh w-full min-w-0 pb-24 text-ink" data-divider={look.divider} style={look.vars as any}>
+        {hasCover && <Cover cover={cover!} sheet={false} />}
+        {head}
+        {editor}
+      </div>
+    );
   return (
-    <div className={look.style ? "page-styled min-h-dvh w-full min-w-0 px-1 pb-24 text-ink" : "min-h-dvh w-full min-w-0 px-1 pb-24 text-ink"} style={look.vars as any} data-divider={look.divider}>
-      <PageEditor page={page} onReady={onReady} onExitTop={() => void onExitTop()} readOnly={!!readOnly} touch />
+    <div className="page-styled min-h-dvh w-full min-w-0 text-ink" style={look.vars as any} data-divider={look.divider}>
+      <div aria-hidden className="fixed inset-0" style={{ background: "var(--s-backdrop)", zIndex: 0 }} />
+      {/* The sheet stays where it is, over the style's art; the page scrolls inside it. */}
+      <article
+        ref={boxRef}
+        className="fixed overflow-y-auto overflow-x-hidden"
+        style={{
+          zIndex: 1,
+          top: topInset,
+          left: 10,
+          right: 10,
+          bottom: bottomInset,
+          background: "var(--s-paper)",
+          borderRadius: 24,
+          boxShadow: "var(--d-shadow-sheet)",
+          overscrollBehavior: "contain",
+          WebkitOverflowScrolling: "touch",
+        }}
+      >
+        <div className="pb-16">
+          {hasCover && <Cover cover={cover!} sheet />}
+          {head}
+          {editor}
+        </div>
+      </article>
     </div>
   );
 }
