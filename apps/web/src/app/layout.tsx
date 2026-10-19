@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { APP_THEMES, DEFAULT_THEME, FONT_STYLESHEET, getTheme, themeStylesheet } from "@dovli/theme";
+import { VercelAnalytics } from "@/components/VercelAnalytics";
 import { themeBootScript } from "@/lib/themeBoot";
 import "@/styles/globals.css";
 
@@ -43,6 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         {children}
+        <VercelAnalytics />
       </body>
     </html>
   );

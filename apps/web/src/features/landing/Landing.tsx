@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, 
 import { DEFAULT_THEME, type ThemePreference } from "@dovli/theme";
 import { DovliLogo, DovliMark, Icon, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
+import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
 import { prefersLessMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
@@ -18,6 +19,10 @@ import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
 
 type Start = { href: string; label: string };
+
+/** Counts clicks on the main button, by where it sits on the page (see lib/analytics.ts). */
+const startClick = (start: Start, place: string) => () =>
+  trackEvent(start.href === SIGNUP_PATH ? "Sign-up click" : "Open app click", { place });
 
 
 /**
@@ -58,13 +63,13 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
 // Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
-const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; soon?: boolean }[] = [
+const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; soon?: "extension" | "android" }[] = [
   { href: "#features", icon: "pencil", t: "blue", title: "Pages and blocks", text: "Type / for to-dos, tables, callouts and more" },
   { href: "#features", icon: "board", t: "mint", title: "Whiteboards", text: "Sketch and flowchart beside your notes" },
   { href: "#templates", icon: "templates", t: "butter", title: "Templates", text: "Meeting notes, briefs, reviews and boards" },
   { href: "#mcp", icon: "plug", t: "lilac", title: "AI apps", text: "Claude, Codex and more, through MCP" },
-  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", soon: true },
-  { href: "#coming", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", soon: true },
+  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", soon: "extension" },
+  { href: "#coming", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", soon: "android" },
 ];
 
 // The links in the bar, and which sections light each one up.
@@ -78,7 +83,13 @@ const watched = ["features", "templates", "mcp", "coming"];
 function ProductItem({ item, onPick, large }: { item: (typeof productItems)[number]; onPick: () => void; large?: boolean }) {
   const c = tone(item.t);
   return (
-    <a href={item.href} onClick={onPick} className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
+    <a
+      href={item.href}
+      onClick={() => {
+        if (item.soon) trackEvent("Coming soon click", { app: item.soon });
+        onPick();
+      }}
+      className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
       <span
         className={cn("grid flex-none place-items-center rounded-[10px] transition-transform duration-300 group-hover:-rotate-6", large ? "size-11" : "size-10")}
         style={{ background: c.bg, color: c.ink }}
@@ -255,7 +266,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 Sign in
               </Link>
             )}
-            <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "md" }), "rounded-full px-4")}>
+            <Link href={start.href} onClick={startClick(start, "header")} className={cn(buttonStyles({ variant: "primary", size: "md" }), "rounded-full px-4")}>
               {start.label}
             </Link>
             <button
@@ -293,7 +304,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                   Sign in
                 </Link>
               )}
-              <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "flex-1 rounded-full")}>
+              <Link href={start.href} onClick={startClick(start, "menu")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "flex-1 rounded-full")}>
                 {start.label}
               </Link>
             </div>
@@ -358,7 +369,7 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
           Your notes, docs and whiteboards, together in one place. Free on the web, and your AI apps can help out too.
         </p>
         <div className="lp-fade mt-8 flex flex-wrap items-center justify-center gap-3" style={{ "--d": "0.7s" } as CSSProperties}>
-          <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
+          <Link href={start.href} onClick={startClick(start, "hero")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
             {start.label}
           </Link>
           <a href="#templates" className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "h-12 rounded-full bg-panel/80 px-6 text-md")}>
@@ -386,11 +397,11 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
 
 /* ---------- Where you can use Dovli ---------- */
 
-const places: { href: string; icon: IconName; name: string; text: string; t: Tone; soon?: boolean }[] = [
+const places: { href: string; icon: IconName; name: string; text: string; t: Tone; soon?: "extension" | "android" }[] = [
   { href: "#features", icon: "monitor", name: "Web app", text: "Every feature, in any modern browser.", t: "blue" },
   { href: "#mcp", icon: "plug", name: "AI apps", text: "Claude, Codex and more, through MCP.", t: "lilac" },
-  { href: "#coming", icon: "paperclip", name: "Browser extension", text: "Clip anything you read online.", t: "sky", soon: true },
-  { href: "#coming", icon: "device", name: "Android app", text: "Your pages on your phone, offline too.", t: "mint", soon: true },
+  { href: "#coming", icon: "paperclip", name: "Browser extension", text: "Clip anything you read online.", t: "sky", soon: "extension" },
+  { href: "#coming", icon: "device", name: "Android app", text: "Your pages on your phone, offline too.", t: "mint", soon: "android" },
 ];
 
 function Ecosystem() {
@@ -402,7 +413,7 @@ function Ecosystem() {
       <ul className="m-0 mt-5 grid list-none gap-px overflow-hidden rounded-xl bg-line p-0 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
         {places.map((p) => (
           <li key={p.name} className="bg-panel">
-            <a href={p.href} className="group flex h-full flex-col gap-4 p-6 transition-colors duration-200 hover:bg-hover focus-visible:outline-offset-[-3px]">
+            <a href={p.href} onClick={() => p.soon && trackEvent("Coming soon click", { app: p.soon })} className="group flex h-full flex-col gap-4 p-6 transition-colors duration-200 hover:bg-hover focus-visible:outline-offset-[-3px]">
               <span
                 className="grid size-11 place-items-center rounded-lg transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
                 style={{ background: tone(p.t).bg, color: tone(p.t).ink }}
@@ -491,7 +502,7 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                 <p className={cn(leadClass, "max-w-[460px]")}>
                   {free ? "Free to use. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them."}
                 </p>
-                <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 flex-none rounded-full px-6 text-md")}>
+                <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 flex-none rounded-full px-6 text-md")}>
                   {start.label}
                 </Link>
               </div>
@@ -534,7 +545,7 @@ function FooterColumn({ title, children }: { title: string; children: ReactNode 
   );
 }
 
-function FooterLink({ href, children, soon }: { href: string; children: ReactNode; soon?: boolean }) {
+function FooterLink({ href, children, soon, onClick }: { href: string; children: ReactNode; soon?: boolean; onClick?: () => void }) {
   const cls = "group inline-flex items-center gap-2 rounded-sm py-1.5 text-base text-ink-2 transition-colors hover:text-ink";
   const body = (
     <>
@@ -542,7 +553,19 @@ function FooterLink({ href, children, soon }: { href: string; children: ReactNod
       {soon && <span className="rounded-full bg-well px-2 py-0.5 text-2xs font-semibold text-ink-2">Soon</span>}
     </>
   );
-  return <li>{href.startsWith("#") ? <a href={href} className={cls}>{body}</a> : <Link href={href} className={cls}>{body}</Link>}</li>;
+  return (
+    <li>
+      {href.startsWith("#") ? (
+        <a href={href} onClick={onClick} className={cls}>
+          {body}
+        </a>
+      ) : (
+        <Link href={href} onClick={onClick} className={cls}>
+          {body}
+        </Link>
+      )}
+    </li>
+  );
 }
 
 function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
@@ -561,7 +584,7 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <DovliLogo size={34} />
               </Link>
               <p className="m-0 max-w-[340px] text-md leading-relaxed text-ink-2">A calm place to write, plan and sketch. Free on the web, with more apps on the way.</p>
-              <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "md" }), "mt-1 rounded-full px-4")}>
+              <Link href={start.href} onClick={startClick(start, "footer")} className={cn(buttonStyles({ variant: "primary", size: "md" }), "mt-1 rounded-full px-4")}>
                 {start.label}
               </Link>
             </div>
@@ -573,16 +596,18 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
               </FooterColumn>
               <FooterColumn title="Get Dovli">
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
-                <FooterLink href="#coming" soon>
+                <FooterLink href="#coming" soon onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
                   Browser extension
                 </FooterLink>
-                <FooterLink href="#coming" soon>
+                <FooterLink href="#coming" soon onClick={() => trackEvent("Coming soon click", { app: "android" })}>
                   Android app
                 </FooterLink>
               </FooterColumn>
               <FooterColumn title="Account">
                 {showSignIn && <FooterLink href={LOGIN_PATH}>Sign in</FooterLink>}
-                <FooterLink href={start.href}>{start.label}</FooterLink>
+                <FooterLink href={start.href} onClick={startClick(start, "footer-account")}>
+                  {start.label}
+                </FooterLink>
               </FooterColumn>
             </div>
           </div>

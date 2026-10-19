@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, Field, Icon, Input, toast } from "@dovli/ui";
+import { trackEvent } from "@/lib/analytics";
 import { AuthError, auth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
 import { ui, useUI } from "@/lib/ui";
@@ -95,6 +96,7 @@ export function SignInPanel({ onDone, mode }: { onDone?: () => void | Promise<vo
     setBusy("verify");
     try {
       await auth.verifyEmailCode(email.trim(), value, signup ? name : undefined);
+      trackEvent("Signed in", { method: "email", flow: mode ?? "dialog" });
       await signedIn();
     } catch (e) {
       setError(errorText(e));
@@ -124,7 +126,10 @@ export function SignInPanel({ onDone, mode }: { onDone?: () => void | Promise<vo
     setNotice("");
     setBusy("google");
     try {
-      if (await auth.signInWithGoogle()) await signedIn();
+      if (await auth.signInWithGoogle()) {
+        trackEvent("Signed in", { method: "google", flow: mode ?? "dialog" });
+        await signedIn();
+      }
     } catch (e) {
       await handleGoogleError(e);
     } finally {

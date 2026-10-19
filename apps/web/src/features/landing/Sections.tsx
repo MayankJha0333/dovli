@@ -8,6 +8,8 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
 import { templates } from "@dovli/core";
 import { DovliMark, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { BlocksPicture, BoardPicture, FindPicture, LooksPicture, NestedPicture } from "./Pictures";
+import { SIGNUP_PATH } from "@/lib/authGate";
+import { trackEvent } from "@/lib/analytics";
 import { useInView } from "./motion";
 import { tone, type Tone } from "./tones";
 
@@ -257,7 +259,11 @@ export function Templates({ start }: { start: { href: string; label: string } })
             )}
             {paused ? "Play" : "Pause"}
           </button>
-          <Link href={start.href} className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "rounded-full px-5")}>
+          <Link
+            href={start.href}
+            onClick={() => trackEvent(start.href === SIGNUP_PATH ? "Sign-up click" : "Open app click", { place: "templates" })}
+            className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "rounded-full px-5")}
+          >
             {start.label}
           </Link>
         </div>
