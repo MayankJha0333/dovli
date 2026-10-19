@@ -1,24 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { Icon, DovliLogo } from "@dovli/ui";
-import { Sheet } from "@/features/landing/Sheet";
+import "@/features/landing/landing.css";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH, loginUrl } from "@/lib/authGate";
 import { auth, initAuth, useAuth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
+import { AuthShowcase } from "./AuthShowcase";
 import { SignInPanel } from "./SignInDialog";
+
+const delay = (d: number) => ({ "--d": `${d}s` }) as CSSProperties;
 
 const copy = {
   login: {
+    badge: "No password needed",
     title: "Welcome back",
-    lead: "Sign in to get to your pages.",
+    lead: "Sign in with Google, or we'll email you a 6-digit code.",
     pitch: "Pick up where you left off.",
     pitchLead: "Your pages, boards and plans are waiting, on every device you sign in on.",
     switchText: "New to Dovli?",
     switchLink: "Create an account",
   },
   signup: {
+    badge: "Free to start",
     title: "Create your Dovli account",
     lead: "Free, and no password to remember. Use Google, or a code we email you.",
     pitch: "A calm place to write, plan and sketch.",
@@ -29,9 +34,9 @@ const copy = {
 };
 
 const points = [
-  { icon: "pencil", text: "Write, plan and sketch in one calm place" },
-  { icon: "lock", text: "Only you can open your workspace" },
-  { icon: "cloudOff", text: "Pages keep working offline" },
+  { icon: "pencil", title: "Write, plan and sketch", text: "Docs, to-dos, flowcharts and whiteboards in one place." },
+  { icon: "cloudOff", title: "Works offline", text: "Keep writing without internet. It syncs when you're back." },
+  { icon: "sparkles", title: "Use the AI you like", text: "Built-in assistant, or connect your own key or AI app." },
 ] as const;
 
 /** The sign-in and sign-up pages. After signing in, the session cookie is set and we go to `next`. */
@@ -68,62 +73,83 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
   const switchHref = loginUrl(next, mode === "login" ? SIGNUP_PATH : LOGIN_PATH);
 
   return (
-    <div className="relative isolate flex min-h-dvh flex-col bg-bg text-ink">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-[200px] -top-[240px] h-[600px] w-[720px] rounded-full bg-[var(--d-glow-1)] opacity-[var(--d-glow-1-o)] blur-[120px]" />
-        <div className="absolute -right-[180px] bottom-[8%] h-[520px] w-[600px] rounded-full bg-[var(--d-glow-2)] opacity-[var(--d-glow-2-o)] blur-[130px]" />
-      </div>
+    <div className="grid min-h-dvh bg-bg text-ink xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] xl:gap-3 xl:p-3">
+      {/* Left: the form, with nothing else competing for attention. */}
+      <div className="relative isolate flex min-h-dvh flex-col xl:min-h-0">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden xl:hidden">
+          <div className="lp-wash absolute -left-24 -right-24 -top-40 h-[340px] opacity-50" />
+        </div>
 
-      {/* The same header as the landing page, so moving between them feels like one site. */}
-      <header className="mx-auto flex h-16 w-full max-w-[1160px] items-center gap-4 px-4 sm:px-8">
-        <Link href="/" aria-label="Dovli home" className="rounded-md">
-          <DovliLogo size={30} />
-        </Link>
-      </header>
+        <header className="flex h-16 items-center justify-between gap-4 px-5 sm:px-10">
+          <Link href="/" aria-label="Dovli home" className="rounded-md">
+            <DovliLogo size={28} />
+          </Link>
+          <Link href="/" className="flex items-center gap-1.5 rounded-md px-2 py-1 text-sm text-ink-2 hover:bg-hover hover:text-ink">
+            <Icon name="chevronLeft" size={14} />
+            Home
+          </Link>
+        </header>
 
-      <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 pt-6 sm:items-center sm:px-8 sm:pt-0">
-        <div className="grid w-full max-w-[1096px] items-center gap-16 md:grid-cols-[minmax(0,1fr)_440px]">
-          <section className="hidden flex-col md:flex" aria-label="About Dovli">
-            <p className="m-0 max-w-[520px] text-balance font-serif text-[52px] font-semibold leading-[1.04] tracking-[-0.03em] text-ink">{t.pitch}</p>
-            <p className="m-0 mt-5 max-w-[440px] text-lg leading-relaxed text-ink-2">{t.pitchLead}</p>
-            <ul className="m-0 mt-10 flex list-none flex-col gap-3.5 p-0">
-              {points.map((p) => (
-                <li key={p.text} className="flex items-center gap-3 text-md text-ink-2">
-                  <span className="grid size-8 flex-none place-items-center rounded-md bg-accent-soft text-accent" aria-hidden="true">
-                    <Icon name={p.icon} size={16} />
-                  </span>
-                  {p.text}
-                </li>
-              ))}
-            </ul>
-          </section>
+        <main id="main" className="flex flex-1 flex-col justify-center px-5 py-8 sm:px-10">
+          <div className="mx-auto w-full max-w-[400px]">
+            <span className="lp-fade inline-flex h-7 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 text-xs font-semibold text-accent" style={delay(0)}>
+              <Icon name={mode === "login" ? "lock" : "sparkles"} size={12} />
+              {t.badge}
+            </span>
+            <h1 className="lp-fade m-0 mt-4 font-serif text-[36px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink sm:text-[40px]" style={delay(0.05)}>
+              {t.title}
+            </h1>
+            <p className="lp-fade m-0 mb-8 mt-2.5 text-md leading-relaxed text-ink-2" style={delay(0.1)}>
+              {t.lead}
+            </p>
 
-          <div className="mx-auto flex w-full max-w-[440px] flex-col gap-5">
-            <Sheet fold={48} sheetClassName="rounded-[24px] bg-panel">
-              <div className="px-6 pb-7 pt-9 sm:px-9 sm:pb-9 sm:pt-11">
-                <h1 className="m-0 font-serif text-[30px] font-semibold leading-tight tracking-[-0.02em] text-ink">{t.title}</h1>
-                <p className="mb-7 mt-2 text-md text-ink-2">{t.lead}</p>
-                <SignInPanel mode={mode} onDone={finish} />
-              </div>
-            </Sheet>
+            <div className="lp-fade" style={delay(0.15)}>
+              <SignInPanel mode={mode} onDone={finish} />
+            </div>
 
-            {firebaseConfigured ? (
-              <p className="m-0 text-center text-sm text-ink-2">
-                {t.switchText}{" "}
-                <Link href={switchHref} replace className="rounded-sm font-semibold text-accent underline-offset-2 hover:underline">
-                  {t.switchLink}
-                </Link>
-              </p>
-            ) : (
-              <p className="m-0 text-center text-sm text-ink-2">
+            <p className="lp-fade m-0 mt-6 text-sm text-ink-2" style={delay(0.2)}>
+              {firebaseConfigured ? (
+                <>
+                  {t.switchText}{" "}
+                  <Link href={switchHref} replace className="rounded-sm font-semibold text-accent underline-offset-2 hover:underline">
+                    {t.switchLink}
+                  </Link>
+                </>
+              ) : (
                 <Link href={APP_PATH} className="rounded-sm font-semibold text-accent underline-offset-2 hover:underline">
                   Open Dovli on this device
                 </Link>
-              </p>
-            )}
+              )}
+            </p>
+
+            {/* Why Dovli, in three lines. On phones this is the only picture of the product, so it stays. */}
+            <ul className="lp-fade m-0 mt-9 grid list-none gap-3 border-t border-line p-0 pt-6" style={delay(0.3)}>
+              {points.map((p) => (
+                <li key={p.text} className="flex items-start gap-3">
+                  <span className="grid size-8 flex-none place-items-center rounded-lg bg-well text-accent" aria-hidden="true">
+                    <Icon name={p.icon} size={15} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-ink">{p.title}</span>
+                    <span className="block text-sm text-ink-3">{p.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      </main>
+        </main>
+
+        <footer className="flex flex-wrap items-center justify-between gap-2 px-5 pb-6 text-xs text-ink-3 sm:px-10">
+          <span>© {new Date().getFullYear()} Dovli</span>
+          <span className="flex items-center gap-1.5">
+            <Icon name="shield" size={12} />
+            Your pages are private to your account
+          </span>
+        </footer>
+      </div>
+
+      {/* Right: what Dovli looks like (wide screens only; narrower screens get the form on its own). */}
+      <AuthShowcase title={t.pitch} lead={t.pitchLead} />
     </div>
   );
 }
