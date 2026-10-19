@@ -47,6 +47,65 @@ function Cover({ cover, sheet }: { cover: string; sheet: boolean }) {
   );
 }
 
+/** Styles for the PDF copy of a page: the page's paper fills the sheet, and editing controls go. */
+const PRINT_CSS = `
+@page { margin: 14mm 12mm; }
+html, body { margin: 0; padding: 0; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.dovli-print { min-height: 0 !important; padding-bottom: 28px; border-radius: 18px; overflow: hidden; }
+[data-print="hide"], .bn-side-menu, .bn-toolbar, .bn-formatting-toolbar, .bn-suggestion-menu { display: none !important; }
+.dovli-print img, .dovli-print svg, .dovli-print table, .dovli-print pre, .dovli-print figure { break-inside: avoid; }
+.dovli-print h1, .dovli-print h2, .dovli-print h3 { break-after: avoid; }
+`;
+
+const escapeHtml = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/** Every stylesheet the page uses, as text (or a link, for ones from other sites like Google Fonts). */
+async function pageCss(): Promise<{ css: string; links: string }> {
+  let css = "";
+  let links = "";
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      css += Array.from(sheet.cssRules).map((r) => r.cssText).join("\n") + "\n";
+    } catch {
+      if (sheet.href) links += `<link rel="stylesheet" href="${escapeHtml(sheet.href)}">`;
+    }
+  }
+  return { css, links };
+}
+
+/** A standalone HTML copy of what's on screen inside `root`: the same markup and styles, with
+ *  form fields turned into text and drawings turned into pictures, ready to print as a PDF. */
+async function snapshot(root: HTMLElement, title: string): Promise<string> {
+  const clone = root.cloneNode(true) as HTMLElement;
+  // A textarea's text isn't part of its markup: write the title out as a heading instead.
+  const live = root.querySelectorAll("textarea");
+  clone.querySelectorAll("textarea").forEach((el, i) => {
+    const h = document.createElement("h1");
+    h.textContent = live[i]?.value || "Untitled";
+    h.setAttribute("style", el.getAttribute("style") ?? "");
+    h.className = el.className;
+    h.style.height = "auto";
+    h.style.margin = "0";
+    el.replaceWith(h);
+  });
+  const canvases = root.querySelectorAll("canvas");
+  clone.querySelectorAll("canvas").forEach((el, i) => {
+    try {
+      const img = document.createElement("img");
+      img.src = canvases[i].toDataURL("image/png");
+      img.style.width = `${canvases[i].clientWidth}px`;
+      el.replaceWith(img);
+    } catch {
+      el.remove();
+    }
+  });
+  clone.querySelectorAll("[contenteditable]").forEach((el) => el.removeAttribute("contenteditable"));
+  clone.querySelectorAll('[data-print="hide"]').forEach((el) => el.remove());
+  const { css, links } = await pageCss();
+  const html = document.documentElement;
+  return `<!doctype html><html lang="en" data-theme="${html.dataset.theme ?? ""}" data-scheme="${html.dataset.scheme ?? ""}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title>${links}<style>${css}</style><style>${PRINT_CSS}</style></head><body>${clone.outerHTML}</body></html>`;
+}
+
 /** The title: grows with its text. Return carries on into the page, as on the web. */
 function TitleField({ value, onChange, onEnter, readOnly, board, inputRef }: { value: string; onChange: (v: string) => void; onEnter: () => void; readOnly?: boolean; board: boolean; inputRef: React.RefObject<HTMLTextAreaElement | null> }) {
   useLayoutEffect(() => {
@@ -104,6 +163,7 @@ export default function PageEditorDom({
   onOpenPage,
   onCreatePage,
   readOnly,
+  onPrint,
   ref,
 }: {
   page: Page;
@@ -132,12 +192,16 @@ export default function PageEditorDom({
   onCreatePage: (id: string, kind: "doc" | "board", title: string) => Promise<void>;
   /** A page in the trash: read it, don't change it. */
   readOnly?: boolean;
+  /** Print mode: draw the page once, read-only, then hand back a standalone HTML copy for a PDF. */
+  onPrint?: (html: string) => Promise<void>;
   dom?: DOMProps;
   ref?: React.Ref<PageEditorHandle>;
 }) {
   const editorRef = useRef<DovliEditor | null>(null);
+  const [ready, setReady] = useState(false);
   const onReady = useCallback((e: DovliEditor | null) => {
     editorRef.current = e;
+    setReady(!!e);
   }, []);
   /** Put the cursor at the start of the page (Return in the title, as on the web). */
   const focusStart = useCallback(() => {
@@ -266,7 +330,7 @@ export default function PageEditorDom({
   const head = (
     <header className={styled ? "px-4" : "px-5"} style={{ paddingTop: hasCover ? 0 : styled ? 24 : topInset }}>
       {path.length > 0 && !hasCover && (
-        <nav aria-label="Where this page is" className="mb-3 flex flex-wrap items-center gap-1 text-[13px] font-medium text-ink-3">
+        <nav aria-label="Where this page is" data-print="hide" className="mb-3 flex flex-wrap items-center gap-1 text-[13px] font-medium text-ink-3">
           {path.map((a) => (
             <span key={a.id} className="flex items-center gap-1">
               <button type="button" className="max-w-[160px] truncate border-0 bg-transparent p-0 text-ink-3" onClick={() => void onOpenPage(a.id)}>
@@ -297,7 +361,7 @@ export default function PageEditorDom({
           onEnter={focusStart}
         />
       </div>
-      <button type="button" onClick={() => void onOpenInfo()} className="mb-3 mt-1.5 flex items-center gap-1 border-0 bg-transparent p-0 text-[13px] text-ink-3">
+      <button type="button" data-print="hide" onClick={() => void onOpenInfo()} className="mb-3 mt-1.5 flex items-center gap-1 border-0 bg-transparent p-0 text-[13px] text-ink-3">
         {meta}
         <span aria-hidden className="text-ink-4">ⓘ</span>
       </button>
@@ -308,6 +372,37 @@ export default function PageEditorDom({
       <PageEditor page={page} onReady={onReady} onExitTop={() => titleRef.current?.focus()} readOnly={!!readOnly} touch />
     </div>
   );
+
+  // Print mode: once the editor, fonts and drawings are in, send back the page as HTML.
+  const printRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!onPrint || !ready) return;
+    let cancelled = false;
+    void (async () => {
+      await document.fonts?.ready.catch(() => {});
+      // Flowcharts, link previews and pictures draw a moment after the text.
+      await new Promise((r) => setTimeout(r, 900));
+      if (cancelled || !printRef.current) return;
+      await onPrint(await snapshot(printRef.current, title || "Untitled")).catch(() => {});
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
+  if (onPrint)
+    return (
+      <div
+        ref={printRef}
+        className={styled ? "dovli-print page-styled w-full min-w-0 text-ink" : "dovli-print w-full min-w-0 text-ink"}
+        data-divider={look.divider}
+        style={{ ...(look.vars as any), background: styled ? "var(--s-paper)" : "var(--d-panel)", paddingTop: hasCover ? 0 : 8 }}
+      >
+        {hasCover && <Cover cover={cover!} sheet={styled} />}
+        {head}
+        {editor}
+      </div>
+    );
 
   if (!styled)
     return (

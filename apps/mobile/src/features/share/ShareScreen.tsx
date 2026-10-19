@@ -1,17 +1,19 @@
 // Share a page, as a sheet from the page's ⋯ menu: a link anyone can open (to read, or to edit with
-// a Dovli account), the same link the web app's Share window makes, or a copy sent as text.
+// a Dovli account), the same link the web app's Share window makes, or a PDF of the page.
 
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View } from "react-native";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { displayTitle } from "@dovli/core";
+import { displayTitle, type Page } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { Button, Icon, IconButton, Row, Section, T, lift, tap, usePalette } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
-import { sharePageText } from "@/lib/export";
+import BoardPrintDom from "@/dom/BoardPrintDom";
+import PageEditorDom from "@/dom/PageEditorDom";
+import { sharePdf } from "@/lib/pdf";
 import { apiUrl } from "@/lib/firebase";
-import { usePages } from "@/lib/store";
+import { store, usePages } from "@/lib/store";
 import { syncNow } from "@/lib/sync";
 
 type Role = "viewer" | "editor";
@@ -39,6 +41,54 @@ async function share<T>(pageId: string, body: Record<string, unknown>): Promise<
 
 const linkUrl = (id: string) => `${apiUrl}/s/${id}`;
 
+const PageForPrint = memo(PageEditorDom);
+const BoardForPrint = memo(BoardPrintDom);
+const noop = async () => {};
+// The print copy draws out of sight; it's read, never shown.
+const PRINT_DOM = { style: { flex: 1, backgroundColor: "transparent" }, scrollEnabled: false } as any;
+
+/** Draws the page out of sight, once, and hands back its HTML for the PDF. */
+function PrintCopy({ page, onHtml }: { page: Page; onHtml: (html: string) => Promise<void> }) {
+  const p = usePalette();
+  const { width } = useWindowDimensions();
+  const others = useMemo(
+    () =>
+      Object.values(store.getPages())
+        .filter((o) => o.id !== page.id)
+        .map(({ id, title, mark, kind, parentId, deletedAt, createdAt, order }) => ({ id, title, mark, kind, parentId, deletedAt, createdAt, order, updatedAt: createdAt })),
+    [page.id],
+  );
+  return (
+    <View pointerEvents="none" style={[styles.printCopy, { width }]}>
+      {page.kind === "board" ? (
+        <BoardForPrint board={page.board ?? {}} title={displayTitle(page)} mark={page.mark} onPrint={onHtml} dom={PRINT_DOM} />
+      ) : (
+        <PageForPrint
+          page={page}
+          others={others}
+          themeId={p.t.id}
+          background="#ffffff"
+          mark={page.mark}
+          cover={page.cover ?? null}
+          path={[]}
+          meta=""
+          topInset={0}
+          bottomInset={0}
+          readOnly
+          onTitleChange={noop}
+          onOpenInfo={noop}
+          onTitleHidden={noop}
+          onSave={noop}
+          onOpenPage={noop}
+          onCreatePage={noop}
+          onPrint={onHtml}
+          dom={PRINT_DOM}
+        />
+      )}
+    </View>
+  );
+}
+
 const ROLES: { role: Role; label: string; icon: React.ComponentProps<typeof Icon>["name"]; text: string }[] = [
   { role: "viewer", label: "Can view", icon: "eye-outline", text: "Anyone with the link can read it. No account needed." },
   { role: "editor", label: "Can edit", icon: "create-outline", text: "Anyone with the link can edit it. Editing needs a Dovli account." },
@@ -54,6 +104,32 @@ export function ShareScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The page as it is when "Send as PDF" is tapped, drawn out of sight until its PDF is ready.
+  const [printing, setPrinting] = useState<Page | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  const onHtml = useCallback(
+    async (html: string) => {
+      try {
+        await sharePdf(html, displayTitle(store.getPages()[id] ?? { title: "", kind: "doc" }));
+      } catch (e) {
+        setPdfError((e as Error).message || "Couldn't make the PDF. Please try again.");
+        tap("error");
+      } finally {
+        setPrinting(null);
+      }
+    },
+    [id],
+  );
+  // If the page never finishes drawing, don't spin for ever.
+  useEffect(() => {
+    if (!printing) return;
+    const t = setTimeout(() => {
+      setPrinting(null);
+      setPdfError("Making the PDF took too long. Please try again.");
+    }, 25_000);
+    return () => clearTimeout(t);
+  }, [printing]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -186,8 +262,28 @@ export function ShareScreen() {
       </View>
 
       <Section title="Or send a copy" style={{ marginTop: space.lg }}>
-        <Row icon="document-text-outline" title="Send as text" detail="The page's words, to any app" onPress={() => void sharePageText(page)} />
+        <Row
+          icon="document-outline"
+          title={printing ? "Making the PDF…" : "Send as PDF"}
+          detail="The page as it looks, with its pictures and drawings"
+          right={printing ? <ActivityIndicator color={p.accent} /> : undefined}
+          onPress={
+            printing
+              ? undefined
+              : () => {
+                  setPdfError(null);
+                  setPrinting(store.getPages()[id] ?? null);
+                }
+          }
+        />
       </Section>
+      {pdfError ? (
+        <View accessibilityLiveRegion="polite" style={[styles.error, { marginTop: space.sm, paddingHorizontal: space.xs }]}>
+          <Icon name="alert-circle" size={16} color={p.danger} />
+          <Text style={{ flex: 1, color: p.danger, fontSize: 13.5, lineHeight: 19 }}>{pdfError}</Text>
+        </View>
+      ) : null}
+      {printing && <PrintCopy page={printing} onHtml={onHtml} />}
     </ScrollView>
   );
 }
@@ -201,4 +297,5 @@ const styles = StyleSheet.create({
   role: { flex: 1, height: 40, borderRadius: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   url: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: space.md, minHeight: 46, borderRadius: 12, borderWidth: StyleSheet.hairlineWidth },
   error: { flexDirection: "row", alignItems: "center", gap: 6 },
+  printCopy: { position: "absolute", left: 0, top: 0, height: 700, opacity: 0 },
 });
