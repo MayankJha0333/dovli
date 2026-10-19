@@ -143,7 +143,10 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
           <span>© {new Date().getFullYear()} Dovli</span>
           <span className="flex items-center gap-1.5">
             <Icon name="shield" size={12} />
-            Your pages are private to your account
+            {mode === "signup" ? "By creating an account, you agree to our" : "Your pages are private to your account."}
+            <Link href="/privacy" className="font-medium text-ink-2 underline-offset-2 hover:underline">
+              Privacy Policy
+            </Link>
           </span>
         </footer>
       </div>

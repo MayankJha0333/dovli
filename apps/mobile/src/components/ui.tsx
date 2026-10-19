@@ -448,9 +448,9 @@ export function CodeInput({ value, onChange, disabled, error }: { value: string;
                 borderRadius: 14,
                 alignItems: "center",
                 justifyContent: "center",
-                backgroundColor: p.panel,
-                borderWidth: current || error ? 1.5 : StyleSheet.hairlineWidth * 2,
-                borderColor: error ? p.danger : current ? p.accent : p.line,
+                backgroundColor: current ? p.raised : p.well,
+                borderWidth: 1.5,
+                borderColor: error ? p.danger : current ? p.accent : value[i] ? p.lineStrong : p.dark ? p.line : "transparent",
               }}
             >
               <Text style={{ color: p.ink, fontSize: 24, fontWeight: "700", fontVariant: ["tabular-nums"] }}>{value[i] ?? ""}</Text>

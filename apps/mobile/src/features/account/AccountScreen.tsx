@@ -11,7 +11,7 @@ import { Avatar, Button, Card, Header, Icon, Row, Section, T, TextField, tap, us
 import { phoneAuth, usePhoneAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { store } from "@/lib/store";
-import { syncNow } from "@/lib/sync";
+import { forgetAccountOnThisPhone, syncNow } from "@/lib/sync";
 import { useSyncLine } from "@/features/settings/SettingsScreen";
 
 /** A card that opens under a button to confirm it: a line of text and two buttons. */
@@ -86,6 +86,7 @@ export function AccountScreen() {
       await api("/api/account/delete", { method: "POST", timeoutMs: 60_000 });
       // The account and its pages are gone from the cloud: clear this phone's copy too.
       store.resetForAccount();
+      forgetAccountOnThisPhone();
       tap("success");
       await phoneAuth.signOut();
     } catch (e) {

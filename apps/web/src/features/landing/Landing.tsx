@@ -613,7 +613,15 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
           </div>
 
           <div className="mt-14 flex flex-col-reverse gap-5 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-ink-3">© {new Date().getFullYear()} Dovli</span>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink-3">
+              <span>© {new Date().getFullYear()} Dovli</span>
+              <Link href="/privacy" className="hover:text-ink">
+                Privacy
+              </Link>
+              <Link href="/delete-account" className="hover:text-ink">
+                Delete your account
+              </Link>
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <ThemeSwitch />
               <button type="button" onClick={toTop} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "rounded-full")}>

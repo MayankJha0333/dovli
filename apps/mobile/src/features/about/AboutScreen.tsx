@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { space } from "@dovli/theme";
 import { Background } from "@/components/Background";
 import { Card, Header, Icon, Row, Section, T, lift, usePalette, type IconName } from "@/components/ui";
+import { links, openLink } from "@/lib/links";
 
 const features: { icon: IconName; title: string; text: string; tint: string }[] = [
   { icon: "document-text-outline", title: "Pages inside pages", text: "Write notes, plans and docs, and nest them as deep as you like.", tint: "#5146D9" },
@@ -84,6 +85,11 @@ export function AboutScreen() {
           <Row icon="create-outline" title="BlockNote" detail="The block editor" />
           <Row icon="brush-outline" title="Excalidraw" detail="Whiteboards and flowcharts" />
           <Row icon="flame-outline" title="Firebase" detail="Accounts and sync" />
+        </Section>
+
+        <Section title="Privacy">
+          <Row icon="shield-checkmark-outline" title="Privacy Policy" detail="What we keep, and why" onPress={() => openLink(links.privacy)} chevron />
+          <Row icon="trash-bin-outline" title="Deleting your account" detail="How to remove your account and pages" onPress={() => openLink(links.deleteAccount)} chevron />
         </Section>
 
         <View style={{ alignItems: "center", marginTop: space.xl, gap: 4 }}>

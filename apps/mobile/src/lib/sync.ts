@@ -112,3 +112,11 @@ export function useSyncStatus(): SyncStatus {
 }
 
 export const syncNow = () => engine?.syncSoon(0);
+
+/** After the account is deleted: drop this phone's synced copies and its note of whose they were. */
+export function forgetAccountOnThisPhone() {
+  synced = {};
+  saveSynced();
+  kv.set(CURSOR, 0);
+  kv.set(OWNER, null);
+}

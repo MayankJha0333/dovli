@@ -1,13 +1,47 @@
 // Deletes a signed-in person's account: their record, pages and devices in Firestore, their AI
-// usage records, their AI app connections, any sign-in codes kept for their email, and their Firebase sign-in.
+// usage records and AI settings (with any key they connected), their AI app connections, links to
+// their pages and invites they sent that are still waiting, any sign-in codes kept for their
+// email, and their Firebase sign-in.
 
 import { NextResponse } from "next/server";
+import type { Firestore } from "firebase-admin/firestore";
+import { clearChoice } from "@/lib/server/aiKeys";
 import { cloudStore } from "@/lib/server/cloud";
+import { personalWorkspaceId } from "@/lib/server/cloudCore";
 import { forgetEmail } from "@/lib/server/emailCode";
 import { mcpServer } from "@/lib/server/mcp";
 import { adminAuth, adminDb, userFromRequest } from "@/lib/server/firebaseAdmin";
 
 export const runtime = "nodejs";
+
+/**
+ * Sharing kept outside the workspace, which would otherwise outlive it: the pages' public links,
+ * and invites still waiting for someone to sign up (they hold that person's email and the page title).
+ */
+async function forgetSharing(db: Firestore, uid: string) {
+  const ws = personalWorkspaceId(uid);
+  const [links, pages] = await Promise.all([
+    db.collection("shareLinks").where("workspaceId", "==", ws).get(),
+    db.collection(`workspaces/${ws}/pages`).select("invited").get(),
+  ]);
+  const writer = db.bulkWriter();
+  links.docs.forEach((d) => void writer.delete(d.ref));
+  await writer.close();
+
+  const invitedKeys = new Set(pages.docs.flatMap((d) => Object.keys((d.get("invited") as Record<string, unknown> | undefined) ?? {})));
+  for (const ek of invitedKeys) {
+    const ref = db.collection("pendingInvites").doc(ek);
+    // One waiting invite can list pages from several people: keep theirs.
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const items = { ...((snap.get("items") as Record<string, { workspaceId?: string }> | undefined) ?? {}) };
+      for (const key of Object.keys(items)) if (items[key]?.workspaceId === ws) delete items[key];
+      if (Object.keys(items).length) tx.update(ref, { items });
+      else tx.delete(ref);
+    });
+  }
+}
 
 export async function POST(req: Request) {
   const auth = adminAuth();
@@ -25,6 +59,18 @@ export async function POST(req: Request) {
       await batch.commit();
     } catch (e) {
       console.error("[dovli] Couldn't remove AI usage records while deleting an account:", e);
+    }
+  }
+  if (db) {
+    try {
+      await clearChoice(user.id);
+    } catch (e) {
+      console.error("[dovli] Couldn't remove AI settings while deleting an account:", e);
+    }
+    try {
+      await forgetSharing(db, user.id);
+    } catch (e) {
+      console.error("[dovli] Couldn't remove share links and invites while deleting an account:", e);
     }
   }
   if (user.email) await forgetEmail(user.email);
