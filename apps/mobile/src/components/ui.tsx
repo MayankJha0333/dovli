@@ -484,7 +484,7 @@ export function Avatar({ name, email, size = 40 }: { name?: string | null; email
   const parts = source.split(/[\s@._-]+/).filter(Boolean);
   const initials = parts.length >= 2 && name ? parts[0][0] + parts[1][0] : (parts[0]?.slice(0, 2) ?? "");
   return (
-    <LinearGradient colors={MARK_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size, borderRadius: size / 2, alignItems: "center", justifyContent: "center" }}>
+    <LinearGradient colors={MARK_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size, borderRadius: size / 2, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
       {initials ? (
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: size * 0.38, letterSpacing: 0.3 }}>{initials.toUpperCase()}</Text>
       ) : (

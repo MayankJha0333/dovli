@@ -2,13 +2,14 @@
 //
 // When the page editor (or a whiteboard) opens, Expo sends it its settings straight away, a moment
 // before its web view is ready. That first send fails with "Unable to find the 'DomWebView' view
-// with tag …", and Expo sends the settings again once the web view has loaded, so nothing is lost.
+// with tag …" (on Android: "… the class expo.modules.webview.DomWebView view with tag …"), and Expo
+// sends the settings again once the web view has loaded, so nothing is lost.
 // The failed send is a promise nobody waits on, so React Native reports it as an uncaught error.
 //
 // Every other unhandled promise error is reported exactly as React Native does it; only this one
 // message is skipped.
 
-const NOISE = /Unable to find the 'DomWebView' view with tag/;
+const NOISE = /Unable to find the (?:'DomWebView'|class [\w.]*DomWebView) view with tag/;
 
 type Options = { allRejections?: boolean; onUnhandled: (id: number, rejection?: unknown) => void; onHandled: (id: number) => void };
 type Reporter = { reportError?: (error: Error) => void };
@@ -29,7 +30,8 @@ export function quietDomWebViewRejections() {
   hermes.enablePromiseRejectionTracker({
     allRejections: true,
     onUnhandled(id, rejection) {
-      const message = rejection instanceof Error ? rejection.message : String(rejection ?? "");
+      // The Android wording sits in the error's "Caused by" chain, which String() includes.
+      const message = rejection instanceof Error ? `${rejection.message}\n${String(rejection)}` : String(rejection ?? "");
       if (NOISE.test(message)) {
         skipped.add(id);
         return;

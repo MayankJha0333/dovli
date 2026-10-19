@@ -12,6 +12,13 @@ import PageEditor from "@dovli/editor/page-editor";
 import type { Page } from "@dovli/core";
 import { FONT_STYLESHEET, getTheme, resolveLook, themeStylesheet, type ThemeId } from "@dovli/theme";
 
+// BlockNote wants the page to shrink above the phone keyboard (as the web app's viewport does).
+// Expo writes this page's viewport tag, so add it here, before the editor mounts and checks.
+if (typeof document !== "undefined") {
+  const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+  if (viewport && !viewport.content.includes("interactive-widget")) viewport.content += ", interactive-widget=resizes-content";
+}
+
 let pages: Record<string, Page> = {};
 const subs = new Set<() => void>();
 
