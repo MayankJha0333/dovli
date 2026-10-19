@@ -47,7 +47,15 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ animation: "fade" }} />
         <Stack.Protected guard={inApp}>
           <Stack.Screen name="page/[id]" />
-          <Stack.Screen name="settings" options={{ presentation: "modal" }} />
+          <Stack.Screen name="settings" />
+          <Stack.Screen name="account" />
+          <Stack.Screen name="ai" />
+          <Stack.Screen name="data" />
+          <Stack.Screen name="assist/[id]" />
+          <Stack.Screen
+            name="actions/[id]"
+            options={{ presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, sheetCornerRadius: 28 }}
+          />
           <Stack.Screen name="templates" options={{ presentation: "modal" }} />
           <Stack.Screen name="info/[id]" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
           <Stack.Screen name="trash" />

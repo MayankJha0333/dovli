@@ -10,7 +10,7 @@ import { childrenOf, favoritePages, pagesWithTag, recentPages, searchPages, tagI
 import { space } from "@dovli/theme";
 import { Background } from "@/components/Background";
 import { Glass } from "@/components/Glass";
-import { PageCard, PageRow } from "@/components/Pages";
+import { PageCard, PageRow, openPageActions } from "@/components/Pages";
 import { Avatar, BrandMark, Card, Icon, IconButton, SectionHeader, T, lift, tap, usePalette, type IconName } from "@/components/ui";
 import { firstName, usePhoneAuth } from "@/lib/auth";
 import { store, usePages } from "@/lib/store";
@@ -59,7 +59,7 @@ function QuickAction({ icon, label, hint, onPress, tint, ink = "#fff" }: { icon:
 }
 
 /** Every page as a tree: top-level pages, with their pages inside when opened. */
-function PageTree({ pages, open }: { pages: Record<string, Page>; open: (p: Page) => void }) {
+function PageTree({ pages, open, actions }: { pages: Record<string, Page>; open: (p: Page) => void; actions: (p: Page) => void }) {
   const rows: { page: Page; depth: number; count: number }[] = [];
   const walk = (parentId: string | null, depth: number) => {
     for (const page of childrenOf(pages, parentId)) {
@@ -81,6 +81,7 @@ function PageTree({ pages, open }: { pages: Record<string, Page>; open: (p: Page
           expanded={!!page.expanded}
           onToggle={() => store.toggleExpanded(page.id)}
           onPress={() => open(page)}
+          onLongPress={() => actions(page)}
           meta={count ? `${count} ${count === 1 ? "page" : "pages"} inside` : page.kind === "board" ? "Whiteboard" : ""}
         />
       ))}
@@ -100,6 +101,7 @@ export function HomeScreen() {
   const [allRecent, setAllRecent] = useState(false);
   const [searching, setSearching] = useState(false);
   const open = (page: Page) => router.push({ pathname: "/page/[id]", params: { id: page.id } });
+  const actions = (page: Page) => openPageActions(router, page);
 
   const favorites = favoritePages(pages);
   const recent = recentPages(pages, allRecent ? 20 : 5);
@@ -164,8 +166,8 @@ export function HomeScreen() {
           </T>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${status.text}. Open sync settings`}
-            onPress={() => router.push("/settings")}
+            accessibilityLabel={`${status.text}. Open your account`}
+            onPress={() => router.push(auth.status === "signed-in" ? "/account" : "/settings")}
             style={[styles.statusPill, { backgroundColor: p.panel }, lift(p)]}
           >
             <Icon name={status.icon} size={13} color={status.color} />
@@ -204,7 +206,7 @@ export function HomeScreen() {
             {hits.length ? (
               <Card>
                 {hits.map((h, i) => (
-                  <PageRow key={h.page.id} page={h.page} first={i === 0} meta={h.snippet?.text} onPress={() => open(h.page)} />
+                  <PageRow key={h.page.id} page={h.page} first={i === 0} meta={h.snippet?.text} onPress={() => open(h.page)} onLongPress={() => actions(h.page)} />
                 ))}
               </Card>
             ) : (
@@ -248,7 +250,7 @@ export function HomeScreen() {
                 <SectionHeader title="Favourites" />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.lg }} contentContainerStyle={{ paddingHorizontal: space.lg, paddingVertical: 6, gap: space.md }}>
                   {favorites.map((f) => (
-                    <PageCard key={f.id} page={f} onPress={() => open(f)} />
+                    <PageCard key={f.id} page={f} onPress={() => open(f)} onLongPress={() => actions(f)} />
                   ))}
                 </ScrollView>
               </>
@@ -258,7 +260,7 @@ export function HomeScreen() {
             {recent.length ? (
               <Card>
                 {recent.map((pg, i) => (
-                  <PageRow key={pg.id} page={pg} first={i === 0} onPress={() => open(pg)} />
+                  <PageRow key={pg.id} page={pg} first={i === 0} onPress={() => open(pg)} onLongPress={() => actions(pg)} />
                 ))}
               </Card>
             ) : (
@@ -295,7 +297,7 @@ export function HomeScreen() {
                 {tag && (
                   <Card style={{ marginTop: space.md }}>
                     {tagged.map((pg, i) => (
-                      <PageRow key={pg.id} page={pg} first={i === 0} onPress={() => open(pg)} />
+                      <PageRow key={pg.id} page={pg} first={i === 0} onPress={() => open(pg)} onLongPress={() => actions(pg)} />
                     ))}
                   </Card>
                 )}
@@ -303,7 +305,7 @@ export function HomeScreen() {
             )}
 
             <SectionHeader title="All pages" />
-            <PageTree pages={pages} open={open} />
+            <PageTree pages={pages} open={open} actions={actions} />
 
             <Pressable
               accessibilityRole="button"

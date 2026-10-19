@@ -1,8 +1,8 @@
 // The first screen for someone who isn't signed in: what Dovli is, in one picture and one line,
 // then Create account, Sign in, or try it without an account (pages stay on this phone).
 
-import { useEffect, useRef } from "react";
-import { AccessibilityInfo, Alert, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { AccessibilityInfo, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { space } from "@dovli/theme";
@@ -106,6 +106,7 @@ export function WelcomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const p = usePalette();
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const rise = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -157,9 +158,15 @@ export function WelcomeScreen() {
                 onError={(e) => {
                   // This email already signs in with a code: confirm it on the sign-in screen, then Google is added.
                   if (e.code === "link-needed" && e.extra.email) router.push({ pathname: "/sign-in", params: { email: e.extra.email, notice: e.message } });
-                  else Alert.alert("Couldn't sign in with Google", e.message);
+                  else setGoogleError(e.message);
                 }}
               />
+              {googleError ? (
+                <View accessibilityLiveRegion="polite" style={{ flexDirection: "row", gap: 6, alignItems: "flex-start", paddingHorizontal: space.xs }}>
+                  <Icon name="alert-circle" size={16} color={p.danger} />
+                  <Text style={{ flex: 1, color: p.danger, fontSize: 13.5, lineHeight: 19 }}>{googleError}</Text>
+                </View>
+              ) : null}
               <View style={{ flexDirection: "row", justifyContent: "center", gap: 4, paddingVertical: 6 }}>
                 <Text style={{ color: p.ink2, fontSize: 14.5 }}>Already have an account?</Text>
                 <Pressable accessibilityRole="link" hitSlop={8} onPress={() => router.push("/sign-in")}>

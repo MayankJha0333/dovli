@@ -34,6 +34,7 @@ export default function PageEditorDom({
   onOpenPage,
   onCreatePage,
   onExitTop,
+  readOnly,
   ref,
 }: {
   page: Page;
@@ -48,6 +49,8 @@ export default function PageEditorDom({
   onCreatePage: (id: string, kind: "doc" | "board", title: string) => Promise<void>;
   /** Backspace, ← or ↑ at the very top of the page: the native title field takes the cursor. */
   onExitTop: () => Promise<void>;
+  /** A page in the trash: read it, don't change it. */
+  readOnly?: boolean;
   dom?: DOMProps;
   ref?: React.Ref<PageEditorHandle>;
 }) {
@@ -144,7 +147,7 @@ export default function PageEditorDom({
   const look = resolveLook(page.style, page.look);
   return (
     <div className={look.style ? "page-styled min-h-dvh w-full min-w-0 px-1 pb-24 text-ink" : "min-h-dvh w-full min-w-0 px-1 pb-24 text-ink"} style={look.vars as any} data-divider={look.divider}>
-      <PageEditor page={page} onReady={onReady} onExitTop={() => void onExitTop()} touch />
+      <PageEditor page={page} onReady={onReady} onExitTop={() => void onExitTop()} readOnly={!!readOnly} touch />
     </div>
   );
 }

@@ -1,14 +1,13 @@
 // How a page shows up in lists: a row (Recent, the page tree, search, trash) and a card
 // (Favourites). Plus the page actions menu, the same choices as the web app's page menu.
 
-import { ActionSheetIOS, Alert, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { useRouter } from "expo-router";
 
 type Router = ReturnType<typeof useRouter>;
-import { childrenOf, displayTitle, previewLines, timeAgo, type Page } from "@dovli/core";
+import { displayTitle, previewLines, timeAgo, type Page } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { Icon, T, lift, tap, usePalette } from "./ui";
-import { store } from "@/lib/store";
 
 /** The page's mark in a soft tile. Whiteboards get a quieter tile. */
 export function MarkTile({ page, size = 36 }: { page: Pick<Page, "mark" | "kind">; size?: number }) {
@@ -34,6 +33,7 @@ export function MarkTile({ page, size = 36 }: { page: Pick<Page, "mark" | "kind"
 export function PageRow({
   page,
   onPress,
+  onLongPress,
   meta,
   depth = 0,
   childCount = 0,
@@ -44,6 +44,8 @@ export function PageRow({
 }: {
   page: Page;
   onPress: () => void;
+  /** A long press: usually the page's actions sheet. */
+  onLongPress?: () => void;
   /** The grey line under the title. Defaults to when it was edited. */
   meta?: string;
   /** Indent level in the page tree. */
@@ -65,7 +67,11 @@ export function PageRow({
         tap("select");
         onPress();
       }}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       accessibilityRole="button"
+      accessibilityActions={onLongPress ? [{ name: "longpress", label: "Page actions" }] : undefined}
+      onAccessibilityAction={(e) => e.nativeEvent.actionName === "longpress" && onLongPress?.()}
       accessibilityLabel={`${displayTitle(page)}${childCount ? `, ${childCount} ${childCount === 1 ? "page" : "pages"} inside` : ""}`}
       style={({ pressed }) => [
         styles.row,
@@ -116,7 +122,7 @@ export function PageRow({
 }
 
 /** A favourite as a small card with the start of the page, for the Favourites shelf. */
-export function PageCard({ page, onPress }: { page: Page; onPress: () => void }) {
+export function PageCard({ page, onPress, onLongPress }: { page: Page; onPress: () => void; onLongPress?: () => void }) {
   const p = usePalette();
   const lines = page.kind === "doc" ? previewLines(page.blocks ?? [], 3).filter((l) => l.text) : [];
   return (
@@ -127,6 +133,8 @@ export function PageCard({ page, onPress }: { page: Page; onPress: () => void })
         tap("select");
         onPress();
       }}
+      onLongPress={onLongPress}
+      delayLongPress={350}
       style={({ pressed }) => [styles.card, { backgroundColor: p.panel, borderRadius: p.radius.lg + 2, transform: [{ scale: pressed ? 0.97 : 1 }] }, lift(p)]}
     >
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -156,59 +164,11 @@ export function PageCard({ page, onPress }: { page: Page; onPress: () => void })
   );
 }
 
-/** The page menu: favourite, a page inside, duplicate, info, trash. The same choices as the web. */
-export function showPageActions(page: Page, router: Router, opts: { onTrashed?: () => void } = {}) {
+/** The page's actions sheet (favourite, duplicate, share, AI, a page inside, info, trash). `from`
+ *  says it was opened on the page itself, so moving it to the trash leaves the page too. */
+export function openPageActions(router: Router, page: Pick<Page, "id">, from?: "page") {
   tap();
-  const choices: { label: string; destructive?: boolean; run: () => void }[] = [
-    { label: page.favorite ? "Remove from favourites" : "Add to favourites", run: () => store.toggleFavorite(page.id) },
-    ...(page.kind === "doc"
-      ? [
-          {
-            label: "New page inside",
-            run: () => {
-              const child = store.createPage({ parentId: page.id });
-              router.push({ pathname: "/page/[id]", params: { id: child.id } });
-            },
-          },
-        ]
-      : []),
-    {
-      label: "Duplicate",
-      run: () => {
-        const copy = store.duplicatePage(page.id);
-        if (copy) router.push({ pathname: "/page/[id]", params: { id: copy.id } });
-      },
-    },
-    { label: "Page info", run: () => router.push({ pathname: "/info/[id]", params: { id: page.id } }) },
-    {
-      label: "Move to trash",
-      destructive: true,
-      run: () => {
-        const inside = childrenOf(store.getPages(), page.id).length;
-        const go = () => {
-          store.trashPage(page.id);
-          tap("success");
-          opts.onTrashed?.();
-        };
-        if (inside) Alert.alert("Move to trash?", `The ${inside} ${inside === 1 ? "page" : "pages"} inside go too. You can restore them from Trash for 30 days.`, [{ text: "Cancel", style: "cancel" }, { text: "Move to trash", style: "destructive", onPress: () => setTimeout(go, 0) }]);
-        else go();
-      },
-    },
-  ];
-  if (Platform.OS === "ios") {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        title: displayTitle(page),
-        options: [...choices.map((c) => c.label), "Cancel"],
-        cancelButtonIndex: choices.length,
-        destructiveButtonIndex: choices.findIndex((c) => c.destructive),
-      },
-      // Run after the sheet closes: a change made inside its callback isn't always drawn until the next touch.
-      (i) => setTimeout(() => choices[i]?.run(), 0),
-    );
-  } else {
-    Alert.alert(displayTitle(page), undefined, [...choices.map((c) => ({ text: c.label, style: c.destructive ? ("destructive" as const) : undefined, onPress: () => setTimeout(c.run, 0) })), { text: "Cancel", style: "cancel" }]);
-  }
+  router.push({ pathname: "/actions/[id]", params: from ? { id: page.id, from } : { id: page.id } });
 }
 
 const styles = StyleSheet.create({

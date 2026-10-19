@@ -1,126 +1,89 @@
-// Settings on the phone, in the same sections as the web app: your profile and account, how Dovli
-// looks, sync and backups, AI, privacy and data, and about. Things only the web app can do yet open
-// it in the browser.
+// Settings on the phone: your profile (opens Account), how Dovli looks, and a short list of rows
+// that each open their own page: AI, Your data, Templates, Trash and About. Everything happens in
+// the app; nothing sends you to the web.
 
-import { useState } from "react";
-import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { timeAgo, trashRoots } from "@dovli/core";
 import { APP_THEMES, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, space, type AppTheme, type ThemePreference } from "@dovli/theme";
-import { Avatar, Badge, Button, Header, Icon, Label, Row, Section, TextField, tap, usePalette, type IconName } from "@/components/ui";
-import { phoneAuth, usePhoneAuth } from "@/lib/auth";
-import { apiUrl } from "@/lib/firebase";
+import { Avatar, Button, Header, Icon, Label, Row, Section, lift, tap, usePalette } from "@/components/ui";
+import { usePhoneAuth } from "@/lib/auth";
 import { themeStore, useThemePreference } from "@/lib/theme";
-import { syncNow, useSyncStatus } from "@/lib/sync";
+import { useSyncStatus } from "@/lib/sync";
 import { usePages } from "@/lib/store";
+import { aiLabel, refreshAI, useAI } from "@/lib/ai";
 import { Background } from "@/components/Background";
 
-const openWeb = (path = "/app") => apiUrl && Linking.openURL(`${apiUrl}${path}`).catch(() => {});
-
 /* ---------------------------------------------------------------- profile */
+
+/** One quiet line about sync: there's nothing to set up, so it's a status, not a section. */
+export function useSyncLine(): { title: string; detail: string; text: string; tone: "ok" | "muted" | "warn" | "accent" } {
+  const s = useSyncStatus();
+  const line = (title: string, detail: string, tone: "ok" | "muted" | "warn" | "accent") => ({ title, detail, tone, text: detail ? `${title} · ${detail}` : title });
+  if (s.state === "syncing") return line("Syncing…", "", "accent");
+  if (s.state === "offline") return line("Offline", "changes save on this phone", "muted");
+  if (s.state === "error") return line("Sync paused", s.error ?? "it tries again soon", "warn");
+  if (s.pending > 0) return line(`${s.pending} ${s.pending === 1 ? "change" : "changes"} waiting`, "they sync in a moment", "muted");
+  return line("Up to date", s.lastSyncedAt ? `synced ${timeAgo(s.lastSyncedAt)}` : "", "ok");
+}
 
 function Profile() {
   const router = useRouter();
   const p = usePalette();
   const a = usePhoneAuth();
-  const sync = useSyncStatus();
+  const sync = useSyncLine();
   const signedIn = a.status === "signed-in";
-  const title = signedIn ? a.account?.name || a.account?.email?.split("@")[0] || "Your account" : "Using Dovli without an account";
-  const sub = signedIn ? (a.account?.email ?? "") : "Your pages are saved on this phone only.";
+  const dot = sync.tone === "ok" ? p.ok : sync.tone === "warn" ? p.warn : sync.tone === "accent" ? p.accent : p.ink4;
+
+  if (!signedIn) {
+    return (
+      <View style={[styles.profile, { backgroundColor: p.panel }, lift(p)]}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: p.well, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="phone-portrait-outline" size={24} color={p.ink3} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: p.ink, fontSize: 18, fontWeight: "700" }}>No account yet</Text>
+            <Text style={{ color: p.ink3, fontSize: 13.5, marginTop: 2 }}>Your pages are on this phone only.</Text>
+          </View>
+        </View>
+        {a.status === "signed-out" && (
+          <Button title="Sign in or create account" icon="person-circle-outline" onPress={() => router.push("/sign-in")} style={{ marginTop: space.lg }} />
+        )}
+      </View>
+    );
+  }
 
   return (
-    <View style={[styles.profile, { backgroundColor: p.panel, borderColor: p.line, borderWidth: p.dark ? StyleSheet.hairlineWidth : 0 }]}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${a.account?.name || "Your account"}, ${a.account?.email ?? ""}. ${sync.text}. Open account`}
+      onPress={() => {
+        tap("select");
+        router.push("/account");
+      }}
+      style={({ pressed }) => [styles.profile, { backgroundColor: p.panel, transform: [{ scale: pressed ? 0.985 : 1 }] }, lift(p)]}
+    >
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-        {signedIn ? (
-          <Avatar name={a.account?.name} email={a.account?.email} size={56} />
-        ) : (
-          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: p.well, alignItems: "center", justifyContent: "center" }}>
-            <Icon name="phone-portrait-outline" size={26} color={p.ink3} />
-          </View>
-        )}
+        <Avatar name={a.account?.name} email={a.account?.email} size={56} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ color: p.ink, fontSize: 19, fontWeight: "700", letterSpacing: -0.3 }} numberOfLines={1}>
-            {title}
+            {a.account?.name || a.account?.email?.split("@")[0] || "Your account"}
           </Text>
-          <Text style={{ color: p.ink3, fontSize: 13.5, marginTop: 2 }} numberOfLines={2}>
-            {sub}
+          <Text style={{ color: p.ink3, fontSize: 13.5, marginTop: 1 }} numberOfLines={1}>
+            {a.account?.email ?? ""}
           </Text>
-          {signedIn && (
-            <View style={{ marginTop: 8 }}>
-              {sync.state === "synced" ? (
-                <Badge text="Synced" icon="cloud-done-outline" tone="ok" />
-              ) : sync.state === "syncing" ? (
-                <Badge text="Syncing…" icon="sync-outline" tone="accent" />
-              ) : sync.state === "offline" ? (
-                <Badge text="Offline" icon="cloud-offline-outline" tone="muted" />
-              ) : sync.state === "error" ? (
-                <Badge text="Sync paused" icon="alert-circle-outline" tone="warn" />
-              ) : null}
-            </View>
-          )}
-        </View>
-      </View>
-      {a.status === "signed-out" && (
-        <View style={{ marginTop: space.lg, gap: space.sm }}>
-          <Text style={{ color: p.ink2, fontSize: 14, lineHeight: 20 }}>Sign in to back up your pages and see them on the web and your other devices.</Text>
-          <Button title="Sign in or create account" icon="person-circle-outline" onPress={() => router.push("/sign-in")} />
-        </View>
-      )}
-    </View>
-  );
-}
-
-/* ---------------------------------------------------------------- account */
-
-function Account() {
-  const p = usePalette();
-  const a = usePhoneAuth();
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState("");
-  const [saving, setSaving] = useState(false);
-  if (a.status !== "signed-in" || !a.account) return null;
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await phoneAuth.updateName(name);
-      tap("success");
-      setEditing(false);
-    } catch {
-      Alert.alert("Couldn't save your name", "Check your connection and try again.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Section title="Account">
-      {editing ? (
-        <View style={{ padding: space.lg, gap: space.md }}>
-          <TextField label="Your name" icon="person-outline" value={name} onChangeText={setName} autoFocus autoCapitalize="words" maxLength={80} returnKeyType="done" onSubmitEditing={() => void save()} />
-          <View style={{ flexDirection: "row", gap: space.sm }}>
-            <Button title="Cancel" tone="secondary" onPress={() => setEditing(false)} style={{ flex: 1 }} />
-            <Button title="Save" loading={saving} disabled={!name.trim()} onPress={() => void save()} style={{ flex: 1 }} />
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6 }}>
+            <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: dot }} />
+            <Text style={{ color: p.ink3, fontSize: 12.5, fontWeight: "500" }}>{sync.text}</Text>
           </View>
         </View>
-      ) : (
-        <Row
-          icon="person-outline"
-          title="Name"
-          value={a.account.name || "Add your name"}
-          onPress={() => {
-            setName(a.account?.name ?? "");
-            setEditing(true);
-          }}
-        />
-      )}
-      <Row icon="mail-outline" title="Email" value={a.account.email ?? ""} />
-      {a.account.createdAt ? (
-        <Row icon="calendar-outline" title="Member since" value={new Date(a.account.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })} />
-      ) : null}
-    </Section>
+        <Icon name="chevron-forward" size={18} color={p.ink4} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -206,101 +169,49 @@ function Appearance() {
   );
 }
 
-/* ---------------------------------------------------------------- sync */
-
-function Sync() {
-  const router = useRouter();
-  const p = usePalette();
-  const a = usePhoneAuth();
-  const s = useSyncStatus();
-  if (a.status !== "signed-in") {
-    return (
-      <Section title="Sync & backups" footer="Your pages are saved on this phone the moment you type, and work offline.">
-        <Row
-          icon="cloud-upload-outline"
-          title="Back up and sync"
-          detail={a.status === "local-only" ? "Accounts aren't set up in this build of the app." : "Sign in to keep your pages in the cloud and on the web."}
-          onPress={a.status === "signed-out" ? () => router.push("/sign-in") : undefined}
-        />
-      </Section>
-    );
-  }
-  const meta: Record<string, { icon: IconName; tint: string; title: string }> = {
-    synced: { icon: "cloud-done-outline", tint: p.ok, title: "Up to date" },
-    syncing: { icon: "sync-outline", tint: p.accent, title: "Syncing…" },
-    offline: { icon: "cloud-offline-outline", tint: p.ink3, title: "Offline" },
-    error: { icon: "alert-circle-outline", tint: p.warn, title: "Sync paused" },
-  };
-  const m = meta[s.state] ?? { icon: "cloud-outline" as IconName, tint: p.accent, title: "Getting ready" };
-  const detail = s.state === "error" && s.error ? s.error : s.lastSyncedAt ? `Last synced ${timeAgo(s.lastSyncedAt)}` : "Not synced yet";
-  return (
-    <Section title="Sync & backups" footer="Pages are saved on this phone first, then sent to your account. Edits made offline sync when you're back online.">
-      <Row icon={m.icon} tint={m.tint} title={m.title} detail={detail} />
-      {s.pending > 0 ? <Row icon="time-outline" title="Waiting to sync" value={`${s.pending} ${s.pending === 1 ? "change" : "changes"}`} /> : null}
-      <Row icon="refresh-outline" title="Sync now" onPress={() => syncNow()} chevron={false} />
-    </Section>
-  );
-}
-
-/* ---------------------------------------------------------------- the rest */
+/* ---------------------------------------------------------------- the page */
 
 export function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const p = usePalette();
   const a = usePhoneAuth();
+  const ai = useAI();
   const version = Constants.expoConfig?.version ?? "0.1.0";
   const trashed = usePages((x) => trashRoots(x).length);
+  const signedIn = a.status === "signed-in";
 
-  const signOut = () =>
-    Alert.alert("Sign out of Dovli?", "Your pages stay in your account. You can sign in again any time.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign out",
-        style: "destructive",
-        onPress: () =>
-          setTimeout(() => {
-            void phoneAuth.signOut();
-            router.back();
-          }, 0),
-      },
-    ]);
+  useEffect(() => {
+    if (signedIn) void refreshAI();
+  }, [signedIn]);
 
   return (
     <View style={{ flex: 1 }}>
       <Background intensity={0.6} />
-      {/* On iOS, Settings opens as a sheet below the status bar, so it needs no room for it. */}
-      <Header top={Platform.OS === "ios" ? space.sm : insets.top} title="Settings" onClose={() => router.back()} />
+      <Header top={insets.top} title="Settings" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.xxxl }}>
         <Profile />
-        <Account />
         <Appearance />
-        <Sync />
 
-        <Section title="AI" footer="Pick your AI (Dovli AI, or your own Groq, OpenRouter, Anthropic or OpenAI key) in Settings on the web. Your choice applies to your account.">
-          <Row icon="sparkles-outline" title="Assistant and Ask AI" detail="On the web app now, coming to the phone next." onPress={apiUrl ? () => openWeb() : undefined} />
-        </Section>
-
-        <Section title="Privacy & data">
-          <Row icon="shield-checkmark-outline" title="Never used to train AI" detail="Your pages are private to your account and stored encrypted." />
-          {a.status === "signed-in" && <Row icon="download-outline" title="Export or delete your data" detail="Opens Dovli on the web" onPress={apiUrl ? () => openWeb() : undefined} />}
+        <Section title="Dovli">
+          <Row
+            icon="sparkles-outline"
+            tint="#A855F7"
+            title="AI"
+            value={signedIn ? (ai.loaded && !ai.failed ? aiLabel(ai) : undefined) : "Needs an account"}
+            onPress={() => router.push("/ai")}
+          />
+          <Row icon="folder-open-outline" tint="#0EA5E9" title="Your data" detail="Export your pages, or take them anywhere" onPress={() => router.push("/data")} />
         </Section>
 
         <Section title="Your pages">
-          <Row icon="grid-outline" title="Templates" detail="Meeting notes, project briefs, journals and more" onPress={() => router.push("/templates")} />
+          <Row icon="grid-outline" title="Templates" onPress={() => router.push("/templates")} />
           <Row icon="trash-outline" title="Trash" value={trashed ? String(trashed) : "Empty"} onPress={() => router.push("/trash")} />
         </Section>
 
-        <Section title="About">
+        <Section>
           <Row icon="information-circle-outline" title="About Dovli" value={`Version ${version}`} onPress={() => router.push("/about")} />
-          {apiUrl ? <Row icon="globe-outline" title="Dovli on the web" detail="Whiteboards, AI and more" onPress={() => openWeb("/")} /> : null}
         </Section>
-
-        {a.status === "signed-in" && (
-          <Section>
-            <Row icon="log-out-outline" title="Sign out" destructive onPress={signOut} chevron={false} />
-          </Section>
-        )}
 
         <Text style={{ color: p.ink4, fontSize: 12, textAlign: "center", marginTop: space.xl }}>Dovli {version} · A calm place to write, plan and sketch</Text>
       </ScrollView>
