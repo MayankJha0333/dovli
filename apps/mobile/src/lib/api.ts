@@ -6,6 +6,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public status = 0,
+    /** The server's own code for what went wrong, like "not_synced". */
+    public code = "",
   ) {
     super(message);
   }
@@ -36,6 +38,6 @@ export async function api<T = any>(path: string, init: { method?: string; body?:
     clearTimeout(timer);
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(typeof data?.error === "string" ? data.error : "Something went wrong. Please try again.", res.status);
+  if (!res.ok) throw new ApiError(typeof data?.error === "string" ? data.error : "Something went wrong. Please try again.", res.status, typeof data?.code === "string" ? data.code : "");
   return data as T;
 }

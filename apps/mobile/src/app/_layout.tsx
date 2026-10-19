@@ -53,6 +53,10 @@ export default function RootLayout() {
             name="actions/[id]"
             options={{ presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, sheetCornerRadius: 28 }}
           />
+          <Stack.Screen
+            name="share/[id]"
+            options={{ presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, sheetCornerRadius: 28 }}
+          />
           <Stack.Screen name="templates" options={{ presentation: "modal" }} />
           <Stack.Screen name="info/[id]" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
           <Stack.Screen name="trash" />

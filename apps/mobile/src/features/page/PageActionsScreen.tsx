@@ -9,7 +9,6 @@ import { space } from "@dovli/theme";
 import { MarkTile } from "@/components/Pages";
 import { Icon, IconButton, Row, Section, T, tap, usePalette, type IconName } from "@/components/ui";
 import { store, usePages } from "@/lib/store";
-import { sharePageText } from "@/lib/export";
 
 function BigAction({ icon, label, onPress, on, tint }: { icon: IconName; label: string; onPress: () => void; on?: boolean; tint?: string }) {
   const p = usePalette();
@@ -84,7 +83,7 @@ export function PageActionsScreen() {
             if (copy) go(() => router.push({ pathname: "/page/[id]", params: { id: copy.id } }));
           }}
         />
-        <BigAction icon="share-outline" label="Share" onPress={() => void sharePageText(page)} />
+        <BigAction icon="share-outline" label="Share" onPress={() => go(() => router.push({ pathname: "/share/[id]", params: { id: page.id } }))} />
       </View>
 
       <Section style={{ marginTop: space.lg }}>
