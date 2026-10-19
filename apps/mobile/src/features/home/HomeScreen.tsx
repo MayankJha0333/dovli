@@ -6,15 +6,16 @@ import { Animated, Platform, Pressable, StyleSheet, TextInput, View } from "reac
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { childrenOf, displayTitle, favoritePages, pagesWithTag, previewLines, recentPages, searchPages, tagIndex, templates, timeAgo, trashRoots, type Page } from "@dovli/core";
+import { favoritePages, pagesWithTag, recentPages, searchPages, tagIndex, templates, trashRoots, type Page } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { Background } from "@/components/Background";
 import { GradientText } from "@/components/GradientText";
-import { MarkTile, PageRow, openPageActions } from "@/components/Pages";
+import { PageRow, openPageActions } from "@/components/Pages";
 import { Avatar, BrandMark, Card, Icon, IconButton, SectionHeader, T, lift, tap, usePalette, type IconName } from "@/components/ui";
 import { firstName, usePhoneAuth } from "@/lib/auth";
 import { store, usePages } from "@/lib/store";
 import { useSyncStatus } from "@/lib/sync";
+import { FavoriteCard, PageGrid, PageTree, ViewAllButton, ViewToggle, childIndex, treeRows } from "./lists";
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,16 +32,6 @@ function openJournal(open: (p: Page) => void) {
   const built = t.build();
   const existing = Object.values(store.getPages()).find((p) => !p.deletedAt && p.title === built.title);
   open(existing ?? store.createPage({ kind: t.kind, title: built.title, mark: t.mark, blocks: built.blocks }));
-}
-
-/** A few lines from the start of a page, joined into one: "Agenda • Action items • Follow ups". */
-function preview(page: Page): string {
-  if (page.kind === "board") return "Whiteboard";
-  return previewLines(page.blocks ?? [], 4)
-    .map((l) => l.text.trim())
-    .filter(Boolean)
-    .slice(0, 3)
-    .join(" • ");
 }
 
 /** Stacked picture cards with a sparkle, beside the greeting. Decoration only. */
@@ -99,108 +90,8 @@ function QuickAction({ icon, label, hint, onPress, colors }: { icon: IconName; l
   );
 }
 
-/** A favourite as a wide card: its mark, title, the start of the page, and when it changed. */
-function FavoriteCard({ page, onPress, onLongPress }: { page: Page; onPress: () => void; onLongPress: () => void }) {
-  const p = usePalette();
-  const line = preview(page);
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`${displayTitle(page)}, favourite`}
-      onPress={() => {
-        tap("select");
-        onPress();
-      }}
-      onLongPress={onLongPress}
-      delayLongPress={350}
-      style={({ pressed }) => [styles.favorite, { backgroundColor: p.panel, transform: [{ scale: pressed ? 0.985 : 1 }] }, lift(p)]}
-    >
-      <MarkTile page={page} size={44} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <T v="headline" numberOfLines={1}>
-          {displayTitle(page)}
-        </T>
-        {line ? (
-          <T v="footnote" tone="ink3" numberOfLines={1} style={{ marginTop: 2 }}>
-            {line}
-          </T>
-        ) : null}
-        <T v="caption" tone="ink4" style={{ fontWeight: "400", marginTop: 4 }}>
-          {timeAgo(page.updatedAt)}
-        </T>
-      </View>
-      <Icon name="star" size={16} color={p.warn} style={{ alignSelf: "flex-start" }} />
-    </Pressable>
-  );
-}
-
-/** Every page as a tree: top-level pages, with their pages inside when opened. */
-function PageTree({ pages, open, actions }: { pages: Record<string, Page>; open: (p: Page) => void; actions: (p: Page) => void }) {
-  const rows: { page: Page; depth: number; count: number }[] = [];
-  const walk = (parentId: string | null, depth: number) => {
-    for (const page of childrenOf(pages, parentId)) {
-      const count = childrenOf(pages, page.id).length;
-      rows.push({ page, depth, count });
-      if (page.expanded && count && depth < 4) walk(page.id, depth + 1);
-    }
-  };
-  walk(null, 0);
-  return (
-    <Card>
-      {rows.map(({ page, depth, count }, i) => (
-        <PageRow
-          key={page.id}
-          page={page}
-          depth={depth}
-          first={i === 0}
-          childCount={count}
-          expanded={!!page.expanded}
-          onToggle={() => store.toggleExpanded(page.id)}
-          onPress={() => open(page)}
-          onLongPress={() => actions(page)}
-          meta={count ? `${count} ${count === 1 ? "page" : "pages"} inside` : page.kind === "board" ? "Whiteboard" : ""}
-        />
-      ))}
-    </Card>
-  );
-}
-
-/** Top-level pages as tiles, two to a row. */
-function PageGrid({ pages, open, actions }: { pages: Record<string, Page>; open: (p: Page) => void; actions: (p: Page) => void }) {
-  const p = usePalette();
-  return (
-    <View style={styles.grid}>
-      {childrenOf(pages, null).map((page) => {
-        const count = childrenOf(pages, page.id).length;
-        return (
-          <Pressable
-            key={page.id}
-            accessibilityRole="button"
-            accessibilityLabel={displayTitle(page)}
-            onPress={() => {
-              tap("select");
-              open(page);
-            }}
-            onLongPress={() => actions(page)}
-            delayLongPress={350}
-            style={({ pressed }) => [styles.tile, { backgroundColor: p.panel, transform: [{ scale: pressed ? 0.97 : 1 }] }, lift(p)]}
-          >
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <MarkTile page={page} size={36} />
-              {page.favorite ? <Icon name="star" size={13} color={p.warn} /> : null}
-            </View>
-            <T v="headline" numberOfLines={2} style={{ marginTop: space.md, fontSize: 15.5, lineHeight: 20 }}>
-              {displayTitle(page)}
-            </T>
-            <T v="caption" tone="ink3" numberOfLines={1} style={{ fontWeight: "400", marginTop: 4 }}>
-              {count ? `${count} ${count === 1 ? "page" : "pages"} inside` : page.kind === "board" ? "Whiteboard" : timeAgo(page.updatedAt)}
-            </T>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
+// How much of each list Home shows. The rest is a tap away, on its own screen.
+const SHOWN = { favorites: 5, recent: 5, pages: 6 };
 
 export function HomeScreen() {
   const router = useRouter();
@@ -211,16 +102,19 @@ export function HomeScreen() {
   const auth = usePhoneAuth();
   const [q, setQ] = useState("");
   const [tag, setTag] = useState<string | null>(null);
-  const [allRecent, setAllRecent] = useState(false);
-  const [allFavorites, setAllFavorites] = useState(false);
   const [grid, setGrid] = useState(false);
   const [searching, setSearching] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const open = (page: Page) => router.push({ pathname: "/page/[id]", params: { id: page.id } });
   const actions = (page: Page) => openPageActions(router, page);
 
-  const favorites = favoritePages(pages);
-  const recent = recentPages(pages, allRecent ? 20 : 5);
+  const favorites = useMemo(() => favoritePages(pages), [pages]);
+  // One more than shown, to know whether there are more.
+  const recent = useMemo(() => recentPages(pages, SHOWN.recent), [pages]);
+  const liveCount = useMemo(() => Object.values(pages).filter((x) => !x.deletedAt).length, [pages]);
+  const children = useMemo(() => childIndex(pages), [pages]);
+  const rows = useMemo(() => treeRows(children), [children]);
+  const tops = children.get(null) ?? [];
   const tags = useMemo(() => tagIndex(pages).slice(0, 12), [pages]);
   const trashed = trashRoots(pages).length;
   const hits = useMemo(() => (q.trim() ? searchPages(pages, q, 30) : []), [pages, q]);
@@ -359,18 +253,18 @@ export function HomeScreen() {
               <>
                 <SectionHeader
                   title="Favourites"
-                  action={favorites.length > 2 ? (allFavorites ? "Show less" : "View all") : undefined}
-                  onAction={favorites.length > 2 ? () => setAllFavorites((v) => !v) : undefined}
+                  action={favorites.length > SHOWN.favorites ? `View all ${favorites.length}` : undefined}
+                  onAction={() => router.push("/favorites")}
                 />
                 <View style={{ gap: space.sm + 2 }}>
-                  {(allFavorites ? favorites : favorites.slice(0, 2)).map((f) => (
+                  {favorites.slice(0, SHOWN.favorites).map((f) => (
                     <FavoriteCard key={f.id} page={f} onPress={() => open(f)} onLongPress={() => actions(f)} />
                   ))}
                 </View>
               </>
             )}
 
-            <SectionHeader title="Recent" action={allRecent ? "Show less" : "Show more"} onAction={recentPages(pages, 6).length > 5 ? () => setAllRecent((v) => !v) : undefined} />
+            <SectionHeader title="Recent" />
             {recent.length ? (
               <Card>
                 {recent.map((pg, i) => (
@@ -422,31 +316,31 @@ export function HomeScreen() {
               <T v="title3" accessibilityRole="header" style={{ flex: 1 }}>
                 All pages
               </T>
-              <View style={[styles.toggle, { backgroundColor: p.well }]}>
-                {([
-                  ["list", "list-outline", false],
-                  ["grid", "grid-outline", true],
-                ] as const).map(([key, icon, value]) => {
-                  const on = grid === value;
-                  return (
-                    <Pressable
-                      key={key}
-                      accessibilityRole="button"
-                      accessibilityLabel={value ? "Show as grid" : "Show as list"}
-                      accessibilityState={{ selected: on }}
-                      onPress={() => {
-                        tap("select");
-                        setGrid(value);
-                      }}
-                      style={[styles.toggleBtn, on && [{ backgroundColor: p.panel }, lift(p)]]}
-                    >
-                      <Icon name={icon} size={17} color={on ? p.accent : p.ink3} />
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <ViewToggle grid={grid} onChange={setGrid} />
             </View>
-            {grid ? <PageGrid pages={pages} open={open} actions={actions} /> : <PageTree pages={pages} open={open} actions={actions} />}
+            {grid ? (
+              <PageGrid tops={tops.slice(0, SHOWN.pages)} children={children} open={open} actions={actions} />
+            ) : (
+              <PageTree rows={rows.slice(0, SHOWN.pages)} open={open} actions={actions} />
+            )}
+            {(grid ? tops.length : rows.length) > SHOWN.pages && <ViewAllButton label={`View all ${liveCount} pages`} onPress={() => router.push("/pages")} />}
+
+            {/* The trash: at the end of the list, where it's out of the way. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Trash, ${trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "empty"}`}
+              onPress={() => router.push("/trash")}
+              style={({ pressed }) => [styles.trashRow, { backgroundColor: pressed ? p.hover : p.panel }, lift(p)]}
+            >
+              <Icon name="trash-outline" size={18} color={p.ink3} />
+              <T v="callout" tone="ink2" style={{ flex: 1 }}>
+                Trash
+              </T>
+              <T v="footnote" tone="ink3">
+                {trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "Empty"}
+              </T>
+              <Icon name="chevron-forward" size={15} color={p.ink4} />
+            </Pressable>
           </>
         )}
       </Animated.ScrollView>
@@ -460,30 +354,9 @@ export function HomeScreen() {
         <LinearGradient colors={[p.bg, `${p.bg}00`]} locations={[0.6, 1]} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
-      {/* The bar at the bottom: the trash on either side, and a new page in the middle. */}
+      {/* New page floats at the bottom, over the list. */}
       {!searching && !q.trim() && (
-        <View style={[styles.dock, { bottom: insets.bottom + space.sm }]} pointerEvents="box-none">
-          <View style={[styles.bar, { backgroundColor: p.panel }, lift(p, 2)]}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Trash" onPress={() => router.push("/trash")} hitSlop={6} style={({ pressed }) => [styles.barSide, { opacity: pressed ? 0.6 : 1 }]}>
-              <Icon name="trash-outline" size={19} color={p.ink3} />
-              <T v="subhead" tone="ink2">
-                Trash
-              </T>
-            </Pressable>
-            <View style={{ flex: 1 }} />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Trash: ${trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "empty"}`}
-              onPress={() => router.push("/trash")}
-              hitSlop={6}
-              style={({ pressed }) => [styles.barSide, { opacity: pressed ? 0.6 : 1 }]}
-            >
-              <T v="footnote" tone="ink3">
-                {trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "Empty"}
-              </T>
-              <Icon name="chevron-forward" size={14} color={p.ink4} />
-            </Pressable>
-          </View>
+        <View style={[styles.dock, { bottom: insets.bottom + space.md }]} pointerEvents="box-none">
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="New page"
@@ -545,9 +418,9 @@ const styles = StyleSheet.create({
   toggleBtn: { width: 36, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm + 2 },
   tile: { width: "48.5%", minHeight: 132, padding: 14, borderRadius: 18 },
-  dock: { position: "absolute", left: space.md, right: space.md, alignItems: "center", justifyContent: "center" },
-  bar: { alignSelf: "stretch", height: 62, borderRadius: 22, flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg },
-  barSide: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44 },
-  // Sits over the middle of the bar, a little raised.
-  newButton: { position: "absolute", top: -12, minHeight: 52, flexDirection: "row", gap: 7, paddingHorizontal: space.xl, borderRadius: 999, alignItems: "center", justifyContent: "center", shadowOpacity: 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  dock: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+  trashRow: { marginTop: space.xl, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 52, borderRadius: 16 },
+  more: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: space.sm, marginTop: space.md },
+  moreBtn: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 40, paddingHorizontal: space.lg, borderRadius: 999 },
+  newButton: { minHeight: 52, flexDirection: "row", gap: 7, paddingHorizontal: space.xl, borderRadius: 999, alignItems: "center", justifyContent: "center", shadowOpacity: 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
 });

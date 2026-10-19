@@ -64,6 +64,8 @@ export default function RootLayout() {
           <Stack.Screen name="templates" options={{ presentation: "modal" }} />
           <Stack.Screen name="info/[id]" options={{ presentation: "formSheet", sheetAllowedDetents: [0.6, 1], sheetGrabberVisible: true, sheetCornerRadius: 24 }} />
           <Stack.Screen name="trash" />
+          <Stack.Screen name="favorites" />
+          <Stack.Screen name="pages" />
           <Stack.Screen name="about" />
         </Stack.Protected>
         <Stack.Protected guard={!signedIn}>
