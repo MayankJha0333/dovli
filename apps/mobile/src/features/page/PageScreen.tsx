@@ -239,6 +239,8 @@ export function PageScreen() {
         background={styled ? base : paper}
         mark={page.mark}
         cover={page.cover ?? null}
+        liveStyle={page.style ?? null}
+        liveLook={page.look ?? null}
         path={crumbs}
         meta={meta}
         topInset={insets.top + 60}

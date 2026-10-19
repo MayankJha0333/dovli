@@ -11,7 +11,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { useDOMImperativeHandle, type DOMImperativeFactory, type DOMProps } from "expo/dom";
 import { connectEditor, type DovliEditor } from "@dovli/editor";
 import PageEditor from "@dovli/editor/page-editor";
-import type { Page } from "@dovli/core";
+import type { Page, PageLook } from "@dovli/core";
 import { FONT_STYLESHEET, coverPreset, getTheme, resolveLook, themeStylesheet, type ThemeId } from "@dovli/theme";
 
 // BlockNote wants the page to shrink above the phone keyboard (as the web app's viewport does).
@@ -152,6 +152,8 @@ export default function PageEditorDom({
   background,
   mark,
   cover,
+  liveStyle,
+  liveLook,
   path,
   meta,
   topInset,
@@ -175,6 +177,9 @@ export default function PageEditorDom({
   /** The page's current icon and cover (they can change from the actions sheet while it's open). */
   mark: string;
   cover?: string | null;
+  /** The page's style and look as they are now (changed from the Style sheet while it's open). */
+  liveStyle?: string | null;
+  liveLook?: PageLook | null;
   /** The pages this one sits inside, outermost first: tap one to go there. */
   path: { id: string; label: string }[];
   /** "Edited 2 min ago · 120 words": opens Page info. */
@@ -197,6 +202,10 @@ export default function PageEditorDom({
   dom?: DOMProps;
   ref?: React.Ref<PageEditorHandle>;
 }) {
+  const shown = useMemo(
+    () => (liveStyle === undefined && liveLook === undefined ? page : { ...page, style: liveStyle ?? undefined, look: liveLook ?? undefined }),
+    [page, liveStyle, liveLook],
+  );
   const editorRef = useRef<DovliEditor | null>(null);
   const [ready, setReady] = useState(false);
   const onReady = useCallback((e: DovliEditor | null) => {
@@ -227,7 +236,7 @@ export default function PageEditorDom({
   // A styled page scrolls inside its paper sheet; a plain page scrolls as a whole.
   const boxRef = useRef<HTMLElement>(null);
   const [title, setTitle] = useState(page.title);
-  const styled = !!resolveLook(page.style, page.look).style;
+  const styled = !!resolveLook(shown.style, shown.look).style;
 
   // Tell the phone when the title has scrolled out of sight (up out of the sheet, or under the
   // floating buttons), so its top bar can show a small title meanwhile.
@@ -325,7 +334,7 @@ export default function PageEditorDom({
 
   // A page with its own style (paper, ink, accent) gets the same look as on the web: its backdrop
   // behind, and the page on a paper sheet. A plain page fills the screen.
-  const look = resolveLook(page.style, page.look);
+  const look = resolveLook(shown.style, shown.look);
   const hasCover = !!cover && (!!coverPreset(cover) || /^https?:\/\//i.test(cover));
   const head = (
     <header className={styled ? "px-4" : "px-5"} style={{ paddingTop: hasCover ? 0 : styled ? 24 : topInset }}>
@@ -369,7 +378,7 @@ export default function PageEditorDom({
   );
   const editor = (
     <div className="px-4">
-      <PageEditor page={page} onReady={onReady} onExitTop={() => titleRef.current?.focus()} readOnly={!!readOnly} touch />
+      <PageEditor page={shown} onReady={onReady} onExitTop={() => titleRef.current?.focus()} readOnly={!!readOnly} touch />
     </div>
   );
 

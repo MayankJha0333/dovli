@@ -97,6 +97,14 @@ export function PageActionsScreen() {
             }}
           />
         ) : null}
+        {page.kind === "doc" ? (
+          <Row
+            icon="color-palette-outline"
+            title="Style"
+            detail="Page style, colours, cover, font and dividers"
+            onPress={() => go(() => router.push({ pathname: "/style/[id]", params: { id: page.id } }))}
+          />
+        ) : null}
         <Row icon="information-circle-outline" title="Page info" detail="Outline, to-dos, links and dates" onPress={() => go(() => router.push({ pathname: "/info/[id]", params: { id: page.id } }))} />
       </Section>
 
