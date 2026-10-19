@@ -1,10 +1,10 @@
 // Talking to Dovli's AI routes (/api/ai and /api/ai/connection), and keeping a per-device count of
 // this month's use. When signed in, the server keeps the real count per account and enforces the
-// monthly Dovli AI allowance. People can also connect their own Anthropic or OpenAI key:
+// monthly Dovli AI allowance. People can also connect their own Groq, OpenRouter, Anthropic or OpenAI key:
 // with accounts, the server keeps it sealed; without accounts, it stays on this device.
 
 import { useSyncExternalStore } from "react";
-import { PROVIDERS, type OwnProviderId, type ProviderId } from "./aiProviders";
+import { PROVIDERS, isOwnProvider, type ModelOption, type OwnProviderId, type ProviderId } from "./aiProviders";
 import { auth } from "./auth";
 
 export { PROVIDERS, type OwnProviderId, type ProviderId };
@@ -39,6 +39,7 @@ export interface AIUsage {
 
 const KEY = "dovli.ai.usage.v1";
 const DEVICE_KEY = "dovli.ai.key.v1"; // only without accounts
+const DEVICE_MODEL = "dovli.ai.dovliModel.v1"; // Dovli AI's model, only without accounts
 const monthNow = () => new Date().toISOString().slice(0, 7);
 
 let usage: AIUsage = {
@@ -84,7 +85,7 @@ type DeviceKey = { provider: OwnProviderId; model: string; key: string };
 function deviceKey(): DeviceKey | null {
   try {
     const v = JSON.parse(localStorage.getItem(DEVICE_KEY) ?? "null");
-    return v && (v.provider === "anthropic" || v.provider === "openai") && typeof v.key === "string" ? v : null;
+    return v && isOwnProvider(v.provider) && typeof v.key === "string" ? v : null;
   } catch {
     return null;
   }
@@ -102,8 +103,13 @@ function setDeviceKey(v: DeviceKey | null) {
 export async function aiHeaders(): Promise<Record<string, string>> {
   const token = await auth.accessToken().catch(() => null);
   const h: Record<string, string> = { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) };
-  const d = usage.keyStorage === "device" ? deviceKey() : null;
+  const device = usage.keyStorage === "device";
+  const d = device ? deviceKey() : null;
   if (d) Object.assign(h, { "x-dovli-ai-provider": d.provider, "x-dovli-ai-model": d.model, "x-dovli-ai-key": d.key });
+  else if (device) {
+    const m = readDeviceModel();
+    if (m) Object.assign(h, { "x-dovli-ai-provider": "groq", "x-dovli-ai-model": m });
+  }
   return h;
 }
 
@@ -181,6 +187,42 @@ export async function connectProvider(provider: OwnProviderId, model: string, ke
   await refreshUsage();
 }
 
+function readDeviceModel(): string | null {
+  try {
+    return localStorage.getItem(DEVICE_MODEL);
+  } catch {
+    return null;
+  }
+}
+
+/** Use Dovli AI on another of its models (it replaces a connected key). */
+export async function setDovliModel(model: string) {
+  if (usage.keyStorage === "device") {
+    try {
+      localStorage.setItem(DEVICE_MODEL, model);
+    } catch {
+      /* private mode */
+    }
+    setDeviceKey(null);
+  }
+  const res = await fetch("/api/ai/connection", { method: "POST", headers: await aiHeaders(), body: JSON.stringify({ provider: "groq", model }) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new AIError(data.error ?? "Couldn't change the model. Please try again.");
+  await refreshUsage();
+}
+
+/** Every model a provider offers right now (OpenRouter and Groq list them live), else Dovli's short list. */
+export async function listModels(provider: ProviderId, key = ""): Promise<{ models: (ModelOption & { free?: boolean })[]; live: boolean }> {
+  try {
+    const res = await fetch("/api/ai/models", { method: "POST", headers: await aiHeaders(), body: JSON.stringify({ provider, key }) });
+    const data = await res.json();
+    if (res.ok && Array.isArray(data.models)) return { models: data.models, live: !!data.live };
+  } catch {
+    /* fall back below */
+  }
+  return { models: PROVIDERS[provider].models, live: false };
+}
+
 /** Back to Dovli AI. */
 export async function disconnectProvider() {
   if (usage.keyStorage === "device") setDeviceKey(null);
@@ -196,7 +238,10 @@ export async function disconnectProvider() {
 
 /** "Dovli AI", "Claude (your key)" and so on, for labels. */
 export function aiLabel(u: Pick<AIUsage, "provider" | "model">): string {
-  if (u.provider === "groq") return "Dovli AI";
+  if (u.provider === "groq") {
+    const m = PROVIDERS.groq.models.find((x) => x.id === u.model);
+    return m && m.id !== PROVIDERS.groq.defaultModel ? `Dovli AI · ${m.label}` : "Dovli AI";
+  }
   const p = PROVIDERS[u.provider];
   const model = p.models.find((m) => m.id === u.model)?.label ?? u.model ?? p.name;
   return `${model}, your ${p.name} key`;

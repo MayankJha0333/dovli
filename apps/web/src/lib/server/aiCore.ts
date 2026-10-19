@@ -12,7 +12,7 @@ import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:cr
 
 import { PROVIDERS, type ProviderId } from "../aiProviders";
 
-export { PROVIDERS, checkKey, cleanModel, isOwnProvider, type OwnProviderId, type ProviderId } from "../aiProviders";
+export { PROVIDERS, checkKey, cleanModel, dovliModel, isOwnProvider, type OwnProviderId, type ProviderId } from "../aiProviders";
 
 /* ---------- Talking to a provider ---------- */
 
@@ -63,8 +63,29 @@ export function buildRequest(r: AIRequest): { url: string; headers: Record<strin
       body: { model: r.model, max_tokens: r.maxTokens, system: r.system, messages: turns(r) },
     };
   }
-  // Groq and OpenAI both speak the OpenAI Chat Completions format.
-  const groq = r.provider === "groq";
+  // Groq, OpenRouter and OpenAI all speak the OpenAI Chat Completions format.
+  if (r.provider === "openrouter") {
+    // Models that think first get a small thinking budget, kept out of the answer.
+    const thinks = /(^|\/)(gpt-oss|gpt-[5-9]|o\d|deepseek-r|qwen3|.*thinking)/.test(r.model);
+    return {
+      url: "https://openrouter.ai/api/v1/chat/completions",
+      headers: {
+        authorization: `Bearer ${r.apiKey}`,
+        "content-type": "application/json",
+        // Shown on openrouter.ai so people can see which app used their key.
+        "x-title": "Dovli",
+        ...(process.env.VERCEL_PROJECT_PRODUCTION_URL ? { "http-referer": `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` } : {}),
+      },
+      body: {
+        model: r.model,
+        messages: [{ role: "system", content: r.system }, ...turns(r)],
+        ...(r.json ? { response_format: { type: "json_object" } } : {}),
+        max_tokens: thinks ? r.maxTokens + 2_000 : r.maxTokens,
+        ...(thinks ? { reasoning: { effort: "low", exclude: true } } : {}),
+      },
+    };
+  }
+  const groq = r.provider === "groq" || r.provider === "groqcloud";
   // Models that think before answering: Groq's GPT-OSS, and OpenAI's GPT-5/6 and o-series.
   const reasoning = groq ? r.model.startsWith("openai/gpt-oss") : /^(gpt-[5-9]|o\d)/.test(r.model);
   return {
@@ -106,7 +127,12 @@ export function explainError(provider: ProviderId, status: number, data: any): A
       : new AIProviderError("Dovli AI isn't available right now. Please try again later.", 503, "key");
   }
   if (status === 404 || msg.includes("model") && (msg.includes("not found") || msg.includes("does not exist") || msg.includes("decommissioned"))) {
-    return new AIProviderError(own ? `${name} doesn't offer that model to your key. Pick another model in Settings → AI.` : "Dovli AI's model is unavailable. Please try again later.", 400, "model");
+    return new AIProviderError(own ? `${name} doesn't offer that model to your key. Pick another model in Settings → AI.` : "That Dovli AI model isn't available right now. Pick another in Settings → AI.", 400, "model");
+  }
+  if (status === 402) {
+    return own
+      ? new AIProviderError(`Your ${name} account is out of credit. Add credit on ${name}'s website, or switch to Dovli AI.`, 402, "quota")
+      : new AIProviderError("Dovli AI isn't available right now. Please try again later.", 503, "other");
   }
   if (status === 429) {
     if (own && (msg.includes("quota") || msg.includes("billing") || msg.includes("credit"))) {

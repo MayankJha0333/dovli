@@ -517,7 +517,10 @@ export function AssistantPanel() {
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => input.current?.focus());
-    else setShowHistory(false);
+    else {
+      setShowHistory(false);
+      count.current = 0; // reopening starts at the newest message
+    }
   }, [open]);
 
   // Keep the newest message in view: jump for a new message, follow along while an answer streams
@@ -526,10 +529,12 @@ export function AssistantPanel() {
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const added = turns.length !== count.current;
+    const before = count.current;
+    const added = turns.length !== before;
     count.current = turns.length;
     const near = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
-    if (added || near) el.scrollTo({ top: el.scrollHeight, behavior: added && turns.length > 1 ? "smooth" : "auto" });
+    // Opening the panel (or another chat) jumps straight to the end; a new message glides there.
+    if (added || near) el.scrollTo({ top: el.scrollHeight, behavior: added && before > 0 && turns.length === before + 1 ? "smooth" : "auto" });
   }, [turns.length, tailKey, busy, showHistory]);
 
   // Grow the box with the text, up to a point.

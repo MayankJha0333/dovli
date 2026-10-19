@@ -6,7 +6,7 @@ import "server-only";
 // provider, the model and the key's last 4 characters.
 
 import { adminDb } from "./firebaseAdmin";
-import { PROVIDERS, cleanModel, isOwnProvider, keyHint, openKey, sealKey, sealingKey, type OwnProviderId, type ProviderId } from "./aiCore";
+import { PROVIDERS, cleanModel, dovliModel, isOwnProvider, keyHint, openKey, sealKey, sealingKey, type OwnProviderId, type ProviderId } from "./aiCore";
 
 const secret = process.env.AI_KEYS_SECRET || process.env.AUTH_CODE_SECRET || "";
 /** People can store their own keys only when the server has a secret to seal them with, and a database. */
@@ -24,11 +24,12 @@ export interface AIChoice {
   keyHint?: string;
 }
 
+/** Either their own key (sealed), or just the Dovli AI model they picked (provider "groq", no key). */
 interface Stored {
-  provider: OwnProviderId;
+  provider: OwnProviderId | "groq";
   model: string;
-  key: string; // sealed
-  keyHint: string;
+  key?: string; // sealed
+  keyHint?: string;
   updatedAt: Date;
 }
 
@@ -38,7 +39,11 @@ const doc = (uid: string) => adminDb()!.collection("aiSettings").doc(uid);
 export async function loadChoice(uid: string): Promise<(AIChoice & { apiKey?: string }) | null> {
   if (!canStoreKeys()) return null;
   const d = (await doc(uid).get()).data() as Stored | undefined;
-  if (!d || !isOwnProvider(d.provider)) return null;
+  if (d?.provider === "groq") {
+    const model = dovliModel(d.model);
+    return model ? { provider: "groq", model } : null;
+  }
+  if (!d || !isOwnProvider(d.provider) || !d.key) return null;
   const apiKey = openKey(d.key, sealer());
   // A key sealed with an old secret can't be opened: treat it as not connected.
   if (!apiKey) return null;
@@ -53,8 +58,14 @@ export async function saveChoice(uid: string, provider: OwnProviderId, model: st
 /** Change only the model of a connected key. */
 export async function saveModel(uid: string, model: string) {
   const d = (await doc(uid).get()).data() as Stored | undefined;
-  if (!d) return;
+  if (!d || d.provider === "groq") return;
   await doc(uid).update({ model: cleanModel(d.provider, model), updatedAt: new Date() });
+}
+
+/** Use Dovli AI with this model (one from its own list). Replaces a connected key. */
+export async function saveDovliModel(uid: string, model: string) {
+  const stored: Stored = { provider: "groq", model, updatedAt: new Date() };
+  await doc(uid).set(stored);
 }
 
 export async function clearChoice(uid: string) {
@@ -62,9 +73,13 @@ export async function clearChoice(uid: string) {
 }
 
 /** Without accounts, Dovli runs on one device: the key travels with each request instead. */
-export function choiceFromHeaders(req: Request): (AIChoice & { apiKey: string }) | null {
+export function choiceFromHeaders(req: Request): (AIChoice & { apiKey?: string }) | null {
   const provider = req.headers.get("x-dovli-ai-provider");
   const apiKey = req.headers.get("x-dovli-ai-key")?.trim();
+  if (provider === "groq") {
+    const model = dovliModel(req.headers.get("x-dovli-ai-model"));
+    return model ? { provider: "groq", model } : null;
+  }
   if (!isOwnProvider(provider) || !apiKey) return null;
   return { provider, model: cleanModel(provider, req.headers.get("x-dovli-ai-model")), keyHint: keyHint(apiKey), apiKey };
 }

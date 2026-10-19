@@ -3,7 +3,8 @@ import "server-only";
 // Which AI answers a request, and the monthly Dovli AI allowance. Shared by the writing help
 // (/api/ai) and the assistant (/api/ai/assistant).
 //
-// Dovli AI runs on Groq with the server's key (GROQ_KEY). An older setup with only
+// Dovli AI runs on Groq with the server's key (GROQ_KEY), on the model each person picks from its
+// list (GROQ_MODEL, else GPT-OSS 120B, until they pick). An older setup with only
 // ANTHROPIC_API_KEY keeps working as Dovli AI too. People's own keys are never limited by the
 // monthly allowance: their provider bills them directly.
 
@@ -57,5 +58,7 @@ export async function ownChoice(req: Request, user: RequestUser | null) {
 export async function engineFor(req: Request, user: RequestUser | null): Promise<{ engine: Engine | null; own: boolean }> {
   const mine = await ownChoice(req, user);
   if (mine?.apiKey) return { engine: { provider: mine.provider, apiKey: mine.apiKey, model: mine.model }, own: true };
+  // Dovli AI, on the model they picked (only ever one from Dovli AI's own list).
+  if (builtIn?.provider === "groq" && mine?.provider === "groq") return { engine: { ...builtIn, model: mine.model }, own: false };
   return { engine: builtIn, own: false };
 }

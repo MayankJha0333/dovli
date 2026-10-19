@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { timeAgo } from "@dovli/core";
 import { APP_THEMES, getTheme, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, type ThemePreference } from "@dovli/theme";
 import { Button, Field, Icon, Input, Kbd, Pill, RadioCard, RadioCards, Segmented, Spinner, Switch, cn, inputStyles, modKey, toast } from "@dovli/ui";
-import { PROVIDERS, connectProvider, disconnectProvider, refreshUsage, useAIUsage, type OwnProviderId, type ProviderId } from "@/lib/ai";
+import { PROVIDERS, connectProvider, disconnectProvider, refreshUsage, setDovliModel, useAIUsage, type OwnProviderId, type ProviderId } from "@/lib/ai";
 import { auth, useAuth } from "@/lib/auth";
 import { backupFile, createBackup, listBackups, parseBackupFile, restoreBackup } from "@/lib/backups";
 import { clearDevice, deleteUnowned, moveUnownedIntoAccount, perAccountStorage, unownedPageCount, type Backup } from "@/lib/db";
@@ -15,6 +15,7 @@ import { download, exportWorkspace, importFiles } from "@/lib/transfer";
 import { ui } from "@/lib/ui";
 import { SignInPanel } from "@/features/auth/SignInDialog";
 import { SHORTCUTS } from "@/features/workspace/useShortcuts";
+import { ModelPicker } from "./ModelPicker";
 import { ThemePreview } from "./ThemePreview";
 
 /* ------------------------------------------------------------------ */
@@ -523,7 +524,7 @@ export function AI() {
         <Group title="AI" description="Rewrite, shorten, fix, translate, summarise and review your writing.">
           <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
             <p className="m-0 font-semibold text-ink">Sign in to use AI</p>
-            <p className="m-0 mt-1">Dovli AI is free with every account, with a monthly allowance. You can also connect your own Anthropic or OpenAI key.</p>
+            <p className="m-0 mt-1">Dovli AI is free with every account, with a monthly allowance. You can also connect your own Groq, OpenRouter, Anthropic or OpenAI key.</p>
             <Button variant="primary" className="mt-3" onClick={() => ui.set({ settings: "account" })}>
               Sign in
             </Button>
@@ -532,19 +533,18 @@ export function AI() {
       </div>
     );
 
-  const cards: { id: ProviderId; mark: ReactNode; title: string; text: string }[] = [
-    { id: "groq", mark: <Icon name="sparkles" size={18} />, title: "Dovli AI", text: "Free with your account, with a monthly allowance." },
-    { id: "anthropic", mark: <span className="font-serif text-lg font-semibold">A</span>, title: "Anthropic", text: "Claude models, on your own API key." },
-    { id: "openai", mark: <span className="font-serif text-lg font-semibold">O</span>, title: "OpenAI", text: "GPT models, on your own API key." },
-  ];
+  const letter = (t: string) => <span className="font-serif text-base font-semibold">{t}</span>;
+  const marks: Record<ProviderId, ReactNode> = { groq: <Icon name="sparkles" size={18} />, groqcloud: letter("G"), openrouter: letter("OR"), anthropic: letter("A"), openai: letter("O") };
+  const order: ProviderId[] = ["groq", "groqcloud", "openrouter", "anthropic", "openai"];
+  const cards = order.map((id) => ({ id, mark: marks[id], title: PROVIDERS[id].name, text: PROVIDERS[id].blurb }));
 
   return (
     <div className="flex flex-col gap-6">
       <Group
         title="AI provider"
-        description="Choose which AI does the writing help. Dovli AI is ready to go. With your own key, the provider bills you directly and there's no monthly limit."
+        description="Choose which AI does the writing help and the assistant. Dovli AI is ready to go. With your own key, the provider bills you directly and there's no monthly limit."
       >
-        <RadioCards value={choice} onValueChange={(v) => setChoice(v as ProviderId)} label="AI provider" className="grid grid-cols-3 gap-2 max-[640px]:grid-cols-1">
+        <RadioCards value={choice} onValueChange={(v) => setChoice(v as ProviderId)} label="AI provider" className="grid grid-cols-3 gap-2 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1">
           {cards.map((c) => (
             <RadioCard key={c.id} value={c.id} className="bg-well p-3.5">
               <span className="grid size-9 place-items-center rounded-md bg-panel text-ink-2 shadow-sm" aria-hidden="true">
@@ -594,7 +594,7 @@ function DovliAIPanel({ pct, resets }: { pct: number; resets: string }) {
       <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
         <p className="m-0 font-semibold text-ink">Dovli AI isn't set up on this server</p>
         <p className="m-0 mt-1">
-          Add <code className="font-mono text-xs">GROQ_KEY</code> to the server settings to turn it on, or connect your own Anthropic or OpenAI key above.
+          Add <code className="font-mono text-xs">GROQ_KEY</code> to the server settings to turn it on, or connect your own key above.
         </p>
       </div>
     );
@@ -637,31 +637,32 @@ function DovliAIPanel({ pct, resets }: { pct: number; resets: string }) {
       <p className="m-0 text-sm text-ink-3">
         {Math.max(0, u.limit - u.used).toLocaleString()} of {u.limit.toLocaleString()} tokens left (a token is about ¾ of a word). Resets on {resets}.
       </p>
+      <Field label="Model" className="mt-2">
+        {(p) => (
+          <ModelPicker
+            {...p}
+            provider="groq"
+            value={u.model ?? PROVIDERS.groq.defaultModel}
+            disabled={busy}
+            onChange={async (m) => {
+              setBusy(true);
+              try {
+                await setDovliModel(m);
+                toast("Model changed");
+              } catch (e) {
+                toast(errText(e), { tone: "danger" });
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        )}
+      </Field>
     </div>
   );
 }
 
-const selectStyles = cn(inputStyles, "appearance-none pr-8");
-
-function ModelSelect({ provider, value, onChange, disabled, id }: { provider: OwnProviderId; value: string; onChange: (v: string) => void; disabled?: boolean; id?: string }) {
-  const models = PROVIDERS[provider].models;
-  const known = models.some((m) => m.id === value);
-  return (
-    <div className="relative">
-      <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={selectStyles}>
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.label} ({m.hint.toLowerCase()})
-          </option>
-        ))}
-        {!known && <option value={value}>{value}</option>}
-      </select>
-      <Icon name="chevronDown" size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-3" />
-    </div>
-  );
-}
-
-/** Connect, change or remove your own Anthropic or OpenAI key. */
+/** Connect, change or remove your own key: Groq, OpenRouter, Anthropic or OpenAI. */
 function OwnKeyPanel({ provider }: { provider: OwnProviderId }) {
   const u = useAIUsage();
   const info = PROVIDERS[provider];
@@ -712,7 +713,7 @@ function OwnKeyPanel({ provider }: { provider: OwnProviderId }) {
         </div>
         <Field label="Model">
           {(p) => (
-            <ModelSelect
+            <ModelPicker
               {...p}
               provider={provider}
               value={u.model ?? info.defaultModel}
@@ -768,7 +769,9 @@ function OwnKeyPanel({ provider }: { provider: OwnProviderId }) {
         void connect();
       }}
     >
-      <Field label="Model">{(p) => <ModelSelect {...p} provider={provider} value={model} onChange={setModel} disabled={!!busy} />}</Field>
+      <Field label="Model" hint={info.liveModels ? `Every ${info.name} model is in the list, or type any model id.` : undefined}>
+        {(p) => <ModelPicker {...p} provider={provider} value={model} onChange={setModel} disabled={!!busy} apiKey={key} />}
+      </Field>
       <Field
         label={`${info.name} API key`}
         hint={

@@ -1,13 +1,14 @@
-// Connecting your own AI provider (Anthropic or OpenAI) in Settings → AI.
+// Connecting your own AI provider (Groq, OpenRouter, Anthropic or OpenAI) in Settings → AI.
 //   POST   { provider, model, key? }  Test the key with one tiny request, then save it (sealed).
 //                                     Without a key: change the model of the key already connected.
+//   POST   { provider: "groq", model } Use Dovli AI, on one of its models.
 //   DELETE                            Remove the key, back to Dovli AI.
 // Without accounts (Dovli on one device), POST only tests the key; the app keeps it on the device.
 
 import { NextResponse } from "next/server";
 import { firebaseOnServer, userFromRequest } from "@/lib/server/firebaseAdmin";
-import { AIProviderError, PROVIDERS, callAI, checkKey, cleanModel, isOwnProvider, keyHint } from "@/lib/server/aiCore";
-import { canStoreKeys, clearChoice, loadChoice, saveChoice, saveModel } from "@/lib/server/aiKeys";
+import { AIProviderError, PROVIDERS, callAI, checkKey, cleanModel, dovliModel, isOwnProvider, keyHint } from "@/lib/server/aiCore";
+import { canStoreKeys, clearChoice, loadChoice, saveChoice, saveDovliModel, saveModel } from "@/lib/server/aiKeys";
 import { noStore, readJson, sameOrigin } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -34,7 +35,14 @@ export async function POST(req: Request) {
     return reply({ error: "That request didn't make sense." }, 400);
   }
   const provider = body.provider;
-  if (!isOwnProvider(provider)) return reply({ error: "Choose Anthropic or OpenAI." }, 400);
+  // Dovli AI on another of its models: nothing to check, the server's key runs it.
+  if (provider === "groq") {
+    const model = dovliModel(body.model);
+    if (!model) return reply({ error: "Dovli AI doesn't offer that model." }, 400);
+    if (who.user) await saveDovliModel(who.user.id, model);
+    return reply({ provider, model });
+  }
+  if (!isOwnProvider(provider)) return reply({ error: "Choose an AI provider." }, 400);
   const model = cleanModel(provider, body.model);
   const key = typeof body.key === "string" ? body.key.trim() : "";
 

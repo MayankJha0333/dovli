@@ -99,7 +99,7 @@ export async function POST(req: Request) {
   if (!engine)
     return NextResponse.json(
       {
-        error: "AI isn't set up yet. Connect your own Anthropic or OpenAI key in Settings → AI.",
+        error: "AI isn't set up yet. Connect your own AI key (Groq, OpenRouter, Anthropic or OpenAI) in Settings → AI.",
       },
       { status: 503, headers: noStore },
     );

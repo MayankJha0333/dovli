@@ -1,5 +1,5 @@
 // Dovli's AI writing help.
-// GET tells the app which AI is in use (Dovli AI, or the person's own Anthropic/OpenAI key), whether
+// GET tells the app which AI is in use (Dovli AI, or the person's own Groq, OpenRouter, Anthropic or OpenAI key), whether
 // it's ready, and how much of this month's Dovli AI allowance is used.
 // POST runs one action (rewrite, shorten, fix, translate, summarise, review…) on a piece of text.
 //
@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { firebaseOnServer, userFromRequest } from "@/lib/server/firebaseAdmin";
 import { AIProviderError, callAI } from "@/lib/server/aiCore";
 import { canStoreKeys } from "@/lib/server/aiKeys";
-import { LIMIT, addUsage, builtIn, month, ownChoice, usedThisMonth } from "@/lib/server/aiEngine";
+import { LIMIT, addUsage, builtIn, engineFor, month, ownChoice, usedThisMonth } from "@/lib/server/aiEngine";
 import { noStore } from "@/lib/server/http";
 
 export const runtime = "nodejs";
@@ -57,7 +57,9 @@ const ACTIONS: Record<string, (o: { language?: string; instruction?: string; foc
 
 export async function GET(req: Request) {
   const user = firebaseOnServer ? await userFromRequest(req) : null;
-  const own = await ownChoice(req, user);
+  const choice = await ownChoice(req, user);
+  // Their own key; or only a Dovli AI model choice (no key: the allowance still applies).
+  const own = choice?.apiKey ? choice : null;
   const used = own ? null : await usedThisMonth(user?.id ?? null);
   const needsSignIn = firebaseOnServer && !user;
   return NextResponse.json(
@@ -65,7 +67,7 @@ export async function GET(req: Request) {
       available: !needsSignIn && (!!own || !!builtIn),
       reason: needsSignIn ? "sign-in" : !own && !builtIn ? "no-key" : null,
       provider: own?.provider ?? "groq",
-      model: own?.model ?? builtIn?.model ?? null,
+      model: own?.model ?? (choice?.provider === "groq" && builtIn?.provider === "groq" ? choice.model : (builtIn?.model ?? null)),
       keyHint: own?.keyHint ?? null,
       dovliAI: !!builtIn,
       // Whether people can connect their own key here: with accounts, the server needs a secret to seal keys with.
@@ -97,10 +99,9 @@ export async function POST(req: Request) {
   const user = firebaseOnServer ? await userFromRequest(req) : null;
   if (firebaseOnServer && !user) return NextResponse.json({ error: "Sign in to use AI." }, { status: 401 });
 
-  const own = await ownChoice(req, user);
-  const engine = own?.apiKey ? { provider: own.provider, apiKey: own.apiKey, model: own.model } : builtIn;
+  const { engine, own } = await engineFor(req, user);
   if (!engine) {
-    return NextResponse.json({ error: "AI isn't set up yet. Connect your own Anthropic or OpenAI key in Settings → AI." }, { status: 503 });
+    return NextResponse.json({ error: "AI isn't set up yet. Connect your own AI key (Groq, OpenRouter, Anthropic or OpenAI) in Settings → AI." }, { status: 503 });
   }
 
   // Dovli AI has a monthly allowance; people's own keys don't.

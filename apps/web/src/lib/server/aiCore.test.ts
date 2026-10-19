@@ -189,3 +189,37 @@ describe("streaming an answer", () => {
     ).rejects.toMatchObject({ kind: "busy" });
   });
 });
+
+describe("Groq and OpenRouter on your own key", () => {
+  it("sends your Groq key to Groq, like Dovli AI", () => {
+    const r = buildRequest({ ...base, provider: "groqcloud", model: "openai/gpt-oss-120b" });
+    expect(r.url).toBe("https://api.groq.com/openai/v1/chat/completions");
+    expect((r.body as any).include_reasoning).toBe(false);
+  });
+  it("talks to OpenRouter, with a small thinking budget only for thinking models", () => {
+    const r = buildRequest({ ...base, provider: "openrouter", model: "anthropic/claude-haiku-5.5" });
+    expect(r.url).toBe("https://openrouter.ai/api/v1/chat/completions");
+    expect(r.headers["x-title"]).toBe("Dovli");
+    expect(r.body).toMatchObject({ model: "anthropic/claude-haiku-5.5", max_tokens: 500 });
+    expect((r.body as any).reasoning).toBeUndefined();
+    const thinking = buildRequest({ ...base, provider: "openrouter", model: "openai/gpt-oss-120b" }).body as any;
+    expect(thinking.reasoning).toEqual({ effort: "low", exclude: true });
+    expect(thinking.max_tokens).toBeGreaterThan(500);
+  });
+  it("says so when an OpenRouter or Groq account is out of credit", () => {
+    expect(explainError("openrouter", 402, {})).toMatchObject({ kind: "quota", status: 402 });
+    expect(explainError("openrouter", 402, {}).message).toMatch(/OpenRouter account is out of credit/);
+    expect(explainError("groqcloud", 401, {}).message).toMatch(/Groq didn't accept that API key/);
+  });
+  it("spots a key pasted under the wrong provider", () => {
+    expect(checkKey("openrouter", "sk-or-v1-abcdefghijklmnopqrstuvwxyz")).toBeNull();
+    expect(checkKey("groqcloud", "gsk_abcdefghijklmnopqrstuvwxyz1234")).toBeNull();
+    expect(checkKey("openai", "sk-or-v1-abcdefghijklmnopqrstuvwxyz")).toMatch(/OpenRouter key/);
+    expect(checkKey("groqcloud", "sk-ant-api03-abcdefghijklmnopqrstuvwxyz")).toMatch(/Anthropic key/);
+    expect(checkKey("openrouter", "sk-proj-abcdefghijklmnopqrstuvwxyz")).toMatch(/start with “sk-or-”/);
+  });
+  it("accepts OpenRouter's model ids, free and alias ones too", () => {
+    expect(cleanModel("openrouter", "nvidia/nemotron-3.5-super-vl:free")).toBe("nvidia/nemotron-3.5-super-vl:free");
+    expect(cleanModel("openrouter", "~deepseek/deepseek-pro-latest")).toBe("~deepseek/deepseek-pro-latest");
+  });
+});
