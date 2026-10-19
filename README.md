@@ -4,6 +4,8 @@ A calm place to write, plan and sketch: block pages, nested pages, `[[links]]` a
 #tags, templates, page styles, link previews, flowcharts and whiteboards. It works offline,
 syncs between web and phone, and has optional AI writing help.
 
+**Live at [dovli.in](https://dovli.in).**
+
 This repo is a **monorepo**: one repo with several apps and the code they share,
 managed by **pnpm** (installs packages) and **Turborepo** (runs tasks across all of them).
 

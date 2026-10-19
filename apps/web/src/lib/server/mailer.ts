@@ -14,7 +14,7 @@ import { MAIL_MARK_PNG } from "./mailMark";
 
 const url = process.env.SMTP_URL;
 const host = process.env.SMTP_HOST;
-const from = process.env.EMAIL_FROM || "Dovli <no-reply@dovli.app>";
+const from = process.env.EMAIL_FROM || "Dovli <no-reply@dovli.in>";
 
 // A user name without its password (say, the Gmail app password isn't pasted in yet) counts as not set up.
 export const mailConfigured = Boolean(url || (host && (!process.env.SMTP_USER || process.env.SMTP_PASS)));

@@ -3,7 +3,7 @@
 // It passes the app's messages to your Dovli address and the answers back. No installs needed:
 // just Node.js 18 or newer.
 //
-//   node dovli-mcp.mjs https://your-dovli/api/mcp/dvl_…
+//   node dovli-mcp.mjs https://dovli.in/api/mcp/dvl_…
 //
 // (or set DOVLI_MCP_URL instead of passing the address). Get the address in Dovli → Settings →
 // AI apps. Messages arrive on stdin, one JSON message per line, and answers go to stdout the

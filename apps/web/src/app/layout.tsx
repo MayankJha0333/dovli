@@ -4,10 +4,18 @@ import { VercelAnalytics } from "@/components/VercelAnalytics";
 import { themeBootScript } from "@/lib/themeBoot";
 import "@/styles/globals.css";
 
+/** Dovli's home address. APP_URL wins (a test copy of Dovli sets its own); otherwise dovli.in. */
+const SITE = (process.env.APP_URL || "https://dovli.in").replace(/\/$/, "");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE),
   title: "Dovli",
   description: "A calm place to write, plan and sketch.",
   applicationName: "Dovli",
+  alternates: { canonical: "/" },
+  // How a dovli.in link looks when it's shared in chats and social apps.
+  openGraph: { type: "website", url: "/", siteName: "Dovli", title: "Dovli", description: "A calm place to write, plan and sketch." },
+  twitter: { card: "summary", title: "Dovli", description: "A calm place to write, plan and sketch." },
 };
 
 export const viewport: Viewport = {
