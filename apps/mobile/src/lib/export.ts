@@ -1,9 +1,10 @@
 // Taking your pages out of Dovli, from the phone: a Dovli backup (one .json file the web app can
-// import), or a .zip of Markdown files laid out like your page tree. Files go out through the
-// phone's share sheet (Save to Files, AirDrop, Mail…).
+// import), or a .zip of Markdown files laid out like your page tree. On iPhone the file goes out
+// through the share sheet (Save to Files, AirDrop, Mail…). Android's share sheet only takes text,
+// so there you pick a folder (Downloads, Drive…) and the file is saved into it.
 
-import { Share } from "react-native";
-import { File, Paths } from "expo-file-system";
+import { Platform, Share } from "react-native";
+import { Directory, File, Paths } from "expo-file-system";
 import { strToU8, zipSync, type Zippable } from "fflate";
 import { blocksToMarkdown, childrenOf, displayTitle, type Page } from "@dovli/core";
 import { store } from "./store";
@@ -25,6 +26,17 @@ export function livePages(pages = store.getPages()): Page[] {
 }
 
 async function shareFile(name: string, content: string | Uint8Array): Promise<boolean> {
+  if (Platform.OS === "android") {
+    let folder: Directory;
+    try {
+      folder = await Directory.pickDirectoryAsync();
+    } catch {
+      return false; // closed the folder picker
+    }
+    const file = folder.createFile(name, name.endsWith(".zip") ? "application/zip" : "application/json");
+    await file.write(content);
+    return true;
+  }
   const file = new File(Paths.cache, name);
   file.create({ overwrite: true });
   await file.write(content);

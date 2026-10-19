@@ -90,15 +90,6 @@ export function PageActionsScreen() {
       <Section style={{ marginTop: space.lg }}>
         {page.kind === "doc" ? (
           <Row
-            icon="sparkles-outline"
-            tint="#A855F7"
-            title="AI"
-            detail="Summarise or review this page"
-            onPress={() => go(() => router.push({ pathname: "/assist/[id]", params: { id: page.id } }))}
-          />
-        ) : null}
-        {page.kind === "doc" ? (
-          <Row
             icon="add-circle-outline"
             title="New page inside"
             onPress={() => {

@@ -2,7 +2,7 @@
 // page as Markdown. Deleting your account lives on the Account page.
 
 import { useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { space } from "@dovli/theme";
@@ -77,14 +77,14 @@ export function DataScreen() {
             icon="archive-outline"
             title="Dovli backup"
             detail="One .json file with everything, to restore any time."
-            right={busy === "backup" ? <ActivityIndicator color={p.accent} /> : <Icon name="share-outline" size={18} color={p.accent} />}
+            right={busy === "backup" ? <ActivityIndicator color={p.accent} /> : <Icon name={Platform.OS === "android" ? "download-outline" : "share-outline"} size={18} color={p.accent} />}
             onPress={busy ? undefined : () => void run("backup")}
           />
           <Row
             icon="logo-markdown"
             title="Markdown files"
             detail="A .zip with one file per page, in folders like your page tree."
-            right={busy === "markdown" ? <ActivityIndicator color={p.accent} /> : <Icon name="share-outline" size={18} color={p.accent} />}
+            right={busy === "markdown" ? <ActivityIndicator color={p.accent} /> : <Icon name={Platform.OS === "android" ? "download-outline" : "share-outline"} size={18} color={p.accent} />}
             onPress={busy ? undefined : () => void run("markdown")}
           />
         </Section>
@@ -97,7 +97,7 @@ export function DataScreen() {
           </View>
         ) : (
           <T v="footnote" tone="ink3" style={{ marginTop: space.sm, marginHorizontal: space.xs }}>
-            Save to Files, AirDrop it, or send it anywhere from the share sheet.
+            {Platform.OS === "android" ? "Pick a folder, like Downloads or Drive, and the file is saved there." : "Save to Files, AirDrop it, or send it anywhere from the share sheet."}
           </T>
         )}
 

@@ -1,8 +1,7 @@
 // Settings on the phone: your profile (opens Account), how Dovli looks, and a short list of rows
-// that each open their own page: AI, Your data, Templates, Trash and About. Everything happens in
+// that each open their own page: Your data, Templates, Trash and About. Everything happens in
 // the app; nothing sends you to the web.
 
-import { useEffect } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
@@ -14,7 +13,6 @@ import { usePhoneAuth } from "@/lib/auth";
 import { themeStore, useThemePreference } from "@/lib/theme";
 import { useSyncStatus } from "@/lib/sync";
 import { usePages } from "@/lib/store";
-import { aiLabel, refreshAI, useAI } from "@/lib/ai";
 import { Background } from "@/components/Background";
 
 /* ---------------------------------------------------------------- profile */
@@ -176,14 +174,8 @@ export function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const p = usePalette();
   const a = usePhoneAuth();
-  const ai = useAI();
   const version = Constants.expoConfig?.version ?? "0.1.0";
   const trashed = usePages((x) => trashRoots(x).length);
-  const signedIn = a.status === "signed-in";
-
-  useEffect(() => {
-    if (signedIn) void refreshAI();
-  }, [signedIn]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -193,20 +185,10 @@ export function SettingsScreen() {
         <Profile />
         <Appearance />
 
-        <Section title="Dovli">
-          <Row
-            icon="sparkles-outline"
-            tint="#A855F7"
-            title="AI"
-            value={signedIn ? (ai.loaded && !ai.failed ? aiLabel(ai) : undefined) : "Needs an account"}
-            onPress={() => router.push("/ai")}
-          />
-          <Row icon="folder-open-outline" tint="#0EA5E9" title="Your data" detail="Export your pages, or take them anywhere" onPress={() => router.push("/data")} />
-        </Section>
-
         <Section title="Your pages">
           <Row icon="grid-outline" title="Templates" onPress={() => router.push("/templates")} />
           <Row icon="trash-outline" title="Trash" value={trashed ? String(trashed) : "Empty"} onPress={() => router.push("/trash")} />
+          <Row icon="folder-open-outline" title="Your data" detail="Export your pages, or take them anywhere" onPress={() => router.push("/data")} />
         </Section>
 
         <Section>

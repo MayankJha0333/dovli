@@ -45,7 +45,7 @@ const copy = {
     badge: "Free to start",
     badgeIcon: "sparkles" as const,
     title: "Create your account",
-    lead: "Your pages sync between this phone and the web. No password to remember.",
+    lead: "Your pages sync across all your devices. No password to remember.",
     send: "Continue",
     finish: "Create account",
     switchText: "Already have an account?",

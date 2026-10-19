@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { LogBox, View } from "react-native";
+import { View } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -10,18 +10,17 @@ import { Splash } from "@/components/Splash";
 import { useTheme } from "@/lib/theme";
 import { canUseApp, usePhoneAuth } from "@/lib/auth";
 import { startSync } from "@/lib/sync";
+import { quietDomWebViewRejections } from "@/lib/quietRejections";
 
 // Keep the system splash up until we know who's signed in and the icons are loaded.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-// Expo sends the page editor its settings the moment it's created, a beat before the editor's web
-// view is ready, and that first send fails. It's harmless: Expo sends them again once the editor
-// has loaded. Hide the dev warning it leaves behind.
-LogBox.ignoreLogs([/Unable to find the 'DomWebView' view with tag/]);
+// A known, harmless Expo error when the editor opens (see lib/quietRejections.ts).
+quietDomWebViewRejections();
 
 // Opening the app from a link (dovli://settings, a page link) still puts Home underneath, so Back
 // and Close always have somewhere to go.
-export const unstable_settings = { initialRouteName: "index" };
+export const unstable_settings = { anchor: "index" };
 
 export default function RootLayout() {
   const t = useTheme();
@@ -49,9 +48,7 @@ export default function RootLayout() {
           <Stack.Screen name="page/[id]" />
           <Stack.Screen name="settings" />
           <Stack.Screen name="account" />
-          <Stack.Screen name="ai" />
           <Stack.Screen name="data" />
-          <Stack.Screen name="assist/[id]" />
           <Stack.Screen
             name="actions/[id]"
             options={{ presentation: "formSheet", sheetAllowedDetents: "fitToContents", sheetGrabberVisible: true, sheetCornerRadius: 28 }}

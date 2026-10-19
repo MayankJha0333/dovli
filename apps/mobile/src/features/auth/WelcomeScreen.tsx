@@ -17,7 +17,7 @@ const todos: [string, boolean][] = [
   ["Invite the first 200 people", false],
 ];
 
-/** A small Dovli page, the assistant beside it, and a "synced" note. One picture to screen readers. */
+/** A small Dovli page, a whiteboard beside it, and a "synced" note. One picture to screen readers. */
 function Preview() {
   const p = usePalette();
   const shadow = { shadowColor: "#1a1530", shadowOpacity: p.dark ? 0.5 : 0.14, shadowRadius: 24, shadowOffset: { width: 0, height: 14 }, elevation: 8 };
@@ -30,7 +30,7 @@ function Preview() {
     <View
       accessible
       accessibilityRole="image"
-      accessibilityLabel="A Dovli page called Launch plan with ticked to-dos and a small flowchart, and the assistant suggesting a summary."
+      accessibilityLabel="A Dovli page called Launch plan with ticked to-dos and a small flowchart, a whiteboard beside it, and a note that it's saved on all your devices."
       style={{ height: 344, marginTop: space.xl }}
     >
       <View style={[styles.paper, shadow, { backgroundColor: p.panel, borderRadius: 22, borderColor: p.line, borderWidth: p.dark ? StyleSheet.hairlineWidth : 0 }]}>
@@ -71,19 +71,17 @@ function Preview() {
 
       <View style={[styles.assistant, shadow, { backgroundColor: p.raised, borderColor: p.line }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <Icon name="sparkles" size={12} color={p.accent} />
-          <Text style={{ color: p.ink, fontSize: 12, fontWeight: "700" }}>Assistant</Text>
+          <Icon name="easel-outline" size={12} color={p.accent} />
+          <Text style={{ color: p.ink, fontSize: 12, fontWeight: "700" }}>Whiteboard</Text>
         </View>
-        <View style={{ alignSelf: "flex-end", backgroundColor: p.accentSoft, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6, marginTop: 7 }}>
-          <Text style={{ color: p.ink, fontSize: 11.5 }}>Sum up this page</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10 }}>
+          <View style={{ width: 42, height: 26, borderRadius: 13, borderWidth: 1.5, borderColor: p.accent, backgroundColor: p.accentSoft }} />
+          <Icon name="arrow-forward" size={12} color={p.ink3} />
+          <View style={{ width: 22, height: 22, borderWidth: 1.5, borderColor: p.ink3, borderRadius: 3, transform: [{ rotate: "45deg" }] }} />
+          <Icon name="arrow-forward" size={12} color={p.ink3} />
+          <View style={{ width: 42, height: 26, borderRadius: 6, borderWidth: 1.5, borderColor: p.ok }} />
         </View>
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-          <Text style={{ color: p.ink2, fontSize: 11.5 }}>Add at the top</Text>
-          <View style={{ backgroundColor: p.accent, borderRadius: 7, paddingHorizontal: 8, height: 22, justifyContent: "center", flexDirection: "row", alignItems: "center", gap: 3 }}>
-            <Icon name="checkmark" size={11} color={p.accentInk} />
-            <Text style={{ color: p.accentInk, fontSize: 11, fontWeight: "700" }}>Apply</Text>
-          </View>
-        </View>
+        <Text style={{ color: p.ink3, fontSize: 11, marginTop: 9 }}>Sketch it next to your notes</Text>
       </View>
 
       <View style={[styles.synced, shadow, { backgroundColor: p.raised, borderColor: p.line }]}>
@@ -98,8 +96,8 @@ function Preview() {
 
 const points: { icon: IconName; text: string }[] = [
   { icon: "create-outline", text: "Pages inside pages" },
-  { icon: "git-network-outline", text: "Flowcharts" },
-  { icon: "sparkles-outline", text: "AI that edits with you" },
+  { icon: "easel-outline", text: "Whiteboards" },
+  { icon: "cloud-done-outline", text: "Works offline" },
 ];
 
 export function WelcomeScreen() {

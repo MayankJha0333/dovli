@@ -1,6 +1,6 @@
 // About Dovli: what it is, what's in this version, what it's built with, and where to find it.
 
-import { Image, ScrollView, StyleSheet, View } from "react-native";
+import { Image, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,8 +11,8 @@ import { Card, Header, Icon, Row, Section, T, lift, usePalette, type IconName } 
 const features: { icon: IconName; title: string; text: string; tint: string }[] = [
   { icon: "document-text-outline", title: "Pages inside pages", text: "Write notes, plans and docs, and nest them as deep as you like.", tint: "#5146D9" },
   { icon: "checkbox-outline", title: "To-dos, tables and toggles", text: "Type / for any block: headings, lists, quotes, code and more.", tint: "#10B981" },
-  { icon: "git-network-outline", title: "Flowcharts and whiteboards", text: "Sketch ideas next to your notes, with shapes that stay connected.", tint: "#F59E0B" },
-  { icon: "sparkles-outline", title: "AI that reads with you", text: "Summarise a page, or get a review of its clarity, grammar, structure or tone.", tint: "#A855F7" },
+  { icon: "easel-outline", title: "Whiteboards and flowcharts", text: "Sketch ideas next to your notes, with shapes and arrows that stay connected.", tint: "#F59E0B" },
+  { icon: "grid-outline", title: "Templates", text: "Meeting notes, project briefs, journals and more, ready to fill in.", tint: "#A855F7" },
   { icon: "cloud-done-outline", title: "Works offline, everywhere", text: "One account on every device. Pages open instantly, even without a connection.", tint: "#0EA5E9" },
 ];
 
@@ -70,14 +70,13 @@ export function AboutScreen() {
           <Row icon="person-add-outline" title="Accounts on your phone" detail="Sign in or sign up with Google, or with a code we email you." />
           <Row icon="color-palette-outline" title="A fresh look" detail="New home screen, page info, templates and trash, in every theme." />
           <Row icon="easel-outline" title="Whiteboards on your phone" detail="Draw, add shapes and arrows, right in the app." />
-          <Row icon="sparkles-outline" title="AI on your phone" detail="Summaries and reviews of any page, and your AI settings." />
+          <Row icon="folder-open-outline" title="Export your pages" detail="A full backup, or every page as Markdown." />
         </Section>
 
-        <Section title="Dovli everywhere">
-          <Row icon="logo-apple" title="iPhone and iPad" detail="You're using it" />
-          <Row icon="desktop-outline" title="Computer" detail="In any browser, with the same account" />
-          <Row icon="logo-android" title="Android" detail="Coming soon" />
-          <Row icon="extension-puzzle-outline" title="Browser extension" detail="Clip the web into Dovli. Coming soon" />
+        <Section title="Dovli everywhere" footer="One account, the same pages on every device.">
+          <Row icon="logo-apple" title="iPhone and iPad" detail={Platform.OS === "ios" ? "You're using it" : "The same app, the same pages"} />
+          <Row icon="logo-android" title="Android phones and tablets" detail={Platform.OS === "android" ? "You're using it" : "The same app, the same pages"} />
+          <Row icon="desktop-outline" title="Computer" detail="dovli.in, in any browser" />
         </Section>
 
         <Section title="Built with" footer="Thank you to the open-source projects Dovli is built on.">
