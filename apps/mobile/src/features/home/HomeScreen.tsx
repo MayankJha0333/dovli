@@ -158,7 +158,7 @@ export function HomeScreen() {
             hitSlop={8}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
-            <Avatar name={auth.account?.name} email={auth.account?.email} size={38} />
+            <Avatar name={auth.account?.name} email={auth.account?.email} photo={auth.account?.photoURL} size={38} ring />
           </Pressable>
         </View>
 

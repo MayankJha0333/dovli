@@ -478,19 +478,65 @@ export function CodeInput({ value, onChange, disabled, error }: { value: string;
   );
 }
 
-/** Initials in a circle with the mark's colours. */
-export function Avatar({ name, email, size = 40 }: { name?: string | null; email?: string | null; size?: number }) {
-  const source = (name || email || "").trim();
-  const parts = source.split(/[\s@._-]+/).filter(Boolean);
-  const initials = parts.length >= 2 && name ? parts[0][0] + parts[1][0] : (parts[0]?.slice(0, 2) ?? "");
+// Colours for avatars without a picture: each one dark enough for white letters. A person always
+// gets the same one, picked from their email (or name).
+const AVATAR_COLORS: [string, string][] = [
+  ["#6366F1", "#8B5CF6"],
+  ["#3B82F6", "#0891B2"],
+  ["#0EA5A4", "#0F766E"],
+  ["#10B981", "#047857"],
+  ["#F97316", "#DC2626"],
+  ["#EC4899", "#BE185D"],
+  ["#A855F7", "#7C3AED"],
+  ["#0EA5E9", "#4F46E5"],
+];
+
+function avatarColors(key: string): [string, string] {
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+/** "Monkey D. Luffy" → "ML", "Luffy" → "L", "kaizuku@x.com" → "K". */
+function initialsOf(name?: string | null, email?: string | null): string {
+  const words = (name ?? "").trim().split(/\s+/).filter((w) => /\p{L}|\p{N}/u.test(w));
+  if (words.length >= 2) return (Array.from(words[0])[0] + Array.from(words[words.length - 1])[0]).toUpperCase();
+  if (words.length === 1) return Array.from(words[0])[0].toUpperCase();
+  const local = (email ?? "").split("@")[0].replace(/[^\p{L}\p{N}]/gu, "");
+  return local ? Array.from(local)[0].toUpperCase() : "";
+}
+
+/** A person's picture: their Google photo when there is one, otherwise their initials on a colour of their own. */
+export function Avatar({ name, email, photo, size = 40, ring }: { name?: string | null; email?: string | null; photo?: string | null; size?: number; ring?: boolean }) {
+  const p = usePalette();
+  const [failed, setFailed] = useState(false);
+  // Google sends a small picture by default; ask for one sharp enough for this size.
+  const src = photo && !failed ? photo.replace(/=s\d+(-c)?$/, `=s${Math.round(size * 3)}-c`) : null;
+  const initials = initialsOf(name, email);
+  const [from, to] = avatarColors((email || name || "").toLowerCase());
+  const frame = {
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    overflow: "hidden" as const,
+    alignItems: "center" as const,
+    justifyContent: "center" as const,
+    ...(ring ? { borderWidth: Math.max(2, size / 28), borderColor: p.raised } : null),
+  };
   return (
-    <LinearGradient colors={MARK_GRADIENT} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ width: size, height: size, borderRadius: size / 2, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
-      {initials ? (
-        <Text style={{ color: "#fff", fontWeight: "700", fontSize: size * 0.38, letterSpacing: 0.3 }}>{initials.toUpperCase()}</Text>
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[frame, { backgroundColor: to }]}>
+      {src ? (
+        <Image source={{ uri: src }} onError={() => setFailed(true)} style={{ width: "100%", height: "100%" }} accessibilityIgnoresInvertColors />
       ) : (
-        <Ionicons name="person" size={size * 0.48} color="#fff" />
+        <LinearGradient colors={[from, to]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "center" }]}>
+          {initials ? (
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: size * (initials.length > 1 ? 0.38 : 0.44), letterSpacing: 0.2 }}>{initials}</Text>
+          ) : (
+            <Ionicons name="person" size={size * 0.5} color="#fff" />
+          )}
+        </LinearGradient>
       )}
-    </LinearGradient>
+    </View>
   );
 }
 

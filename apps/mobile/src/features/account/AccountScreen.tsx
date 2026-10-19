@@ -103,7 +103,7 @@ export function AccountScreen() {
       <Header top={insets.top} title="Account" onBack={() => router.back()} />
       <ScrollView ref={scroller} contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.xxxl }} keyboardShouldPersistTaps="handled">
         <View style={{ alignItems: "center", marginTop: space.md }}>
-          <Avatar name={account.name} email={account.email} size={84} />
+          <Avatar name={account.name} email={account.email} photo={account.photoURL} size={84} ring />
           <T v="title" style={{ marginTop: space.md, textAlign: "center" }} numberOfLines={1}>
             {account.name || account.email?.split("@")[0] || "Your account"}
           </T>

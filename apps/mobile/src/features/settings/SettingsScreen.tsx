@@ -46,7 +46,7 @@ function Profile() {
       style={({ pressed }) => [styles.profile, { backgroundColor: p.panel, transform: [{ scale: pressed ? 0.985 : 1 }] }, lift(p)]}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-        <Avatar name={a.account?.name} email={a.account?.email} size={56} />
+        <Avatar name={a.account?.name} email={a.account?.email} photo={a.account?.photoURL} size={56} />
         <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ color: p.ink, fontSize: 19, fontWeight: "700", letterSpacing: -0.3 }} numberOfLines={1}>
             {a.account?.name || a.account?.email?.split("@")[0] || "Your account"}

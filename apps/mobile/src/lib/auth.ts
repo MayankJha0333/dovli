@@ -22,6 +22,8 @@ export interface PhoneAccount {
   id: string;
   email: string | null;
   name: string | null;
+  /** The profile picture from Google, when signed in with it. */
+  photoURL: string | null;
   /** When the account was made, in ms. */
   createdAt: number | null;
 }
@@ -57,6 +59,7 @@ const toAccount = (u: User): PhoneAccount => ({
   id: u.uid,
   email: u.email,
   name: u.displayName,
+  photoURL: u.photoURL ?? u.providerData.find((d) => d.photoURL)?.photoURL ?? null,
   createdAt: u.metadata.creationTime ? Date.parse(u.metadata.creationTime) : null,
 });
 
