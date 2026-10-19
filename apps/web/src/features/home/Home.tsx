@@ -1,7 +1,7 @@
 // "All pages", like Craft's All Docs: every page as a little picture of itself, in a masonry of
 // cards, a tidy grid or a plain list, sorted and filtered the way you like.
 
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { displayTitle, favoritePages, livePages, pageText, previewLines, templates, timeAgo, type Page } from "@dovli/core";
 import { coverPreset, resolveLook, styleVars } from "@dovli/theme";
 import { Button, EmptyState, Icon, MenuContent, MenuItem, MenuLabel, MenuRoot, MenuTrigger, Segmented, cn, toast, type IconName } from "@dovli/ui";
@@ -63,7 +63,7 @@ function MiniPage({ page }: { page: Page }) {
     <button
       type="button"
       onClick={() => open(page.id)}
-      className="group mb-6 inline-flex w-full break-inside-avoid flex-col gap-2.5 text-left text-ink focus-visible:outline-none"
+      className="group flex w-full flex-col gap-2.5 text-left text-ink focus-visible:outline-none"
     >
       <span
         aria-hidden="true"
@@ -167,10 +167,37 @@ function Pages({ list, view }: { list: Page[]; view: View }) {
       </div>
     );
   return (
-    <div className="columns-[200px] gap-x-6 max-[640px]:columns-2 max-[640px]:gap-x-3.5">
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-x-6 [grid-auto-rows:4px] max-[640px]:grid-cols-2 max-[640px]:gap-x-3.5">
       {list.map((p) => (
-        <MiniPage key={p.id} page={p} />
+        <Brick key={p.id}>
+          <MiniPage page={p} />
+        </Brick>
       ))}
+    </div>
+  );
+}
+
+// CSS columns fill top to bottom (so "last edited" read down, not across) and Chrome stacks a short
+// list in one column. Instead each card spans as many 4px grid rows as it is tall, and the grid's
+// own placement drops it under the shortest column, in order, at any width.
+const ROW = 4;
+const ROW_GAP = 24;
+
+function Brick({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [span, setSpan] = useState<number>();
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => setSpan(Math.ceil((el.offsetHeight + ROW_GAP) / ROW));
+    fit();
+    const watch = new ResizeObserver(fit);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className="min-w-0 self-start" style={span ? { gridRowEnd: `span ${span}` } : undefined}>
+      {children}
     </div>
   );
 }
