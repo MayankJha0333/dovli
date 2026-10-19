@@ -73,6 +73,17 @@
 }
 :root[data-scheme="dark"] .lp-wash { opacity: 0.45; }
 
+/* ---------- Header: how far down the page you are ---------- */
+.lp-progress {
+  background: linear-gradient(90deg, #7db4ff, #a592ff 50%, #e39aec);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+@supports (animation-timeline: scroll()) {
+  .lp-progress { animation: lp-progress linear both; animation-timeline: scroll(root); }
+}
+@keyframes lp-progress { to { transform: scaleX(1); } }
+
 /* ---------- Hero: a sheet of ruled paper under a soft sky ---------- */
 .lp-sky {
   background:

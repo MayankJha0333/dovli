@@ -19,12 +19,6 @@ import { tone, type Tone } from "./tones";
 
 type Start = { href: string; label: string };
 
-const navLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#templates", label: "Templates" },
-  { href: "#mcp", label: "AI apps" },
-  { href: "#coming", label: "Coming soon" },
-];
 
 /**
  * `accounts`: sign-in is set up. Without it, Dovli runs on this device only, so the buttons open the app.
@@ -63,12 +57,58 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
 
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
+// Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
+const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; soon?: boolean }[] = [
+  { href: "#features", icon: "pencil", t: "blue", title: "Pages and blocks", text: "Type / for to-dos, tables, callouts and more" },
+  { href: "#features", icon: "board", t: "mint", title: "Whiteboards", text: "Sketch and flowchart beside your notes" },
+  { href: "#templates", icon: "templates", t: "butter", title: "Templates", text: "Meeting notes, briefs, reviews and boards" },
+  { href: "#mcp", icon: "plug", t: "lilac", title: "AI apps", text: "Claude, Codex and more, through MCP" },
+  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", soon: true },
+  { href: "#coming", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", soon: true },
+];
+
+// The links in the bar, and which sections light each one up.
+const navLinks: { href: string; label: string; sections: string[]; menu?: boolean }[] = [
+  { href: "#features", label: "Product", sections: ["features", "coming"], menu: true },
+  { href: "#templates", label: "Templates", sections: ["templates"] },
+  { href: "#mcp", label: "AI apps", sections: ["mcp"] },
+];
+const watched = ["features", "templates", "mcp", "coming"];
+
+function ProductItem({ item, onPick, large }: { item: (typeof productItems)[number]; onPick: () => void; large?: boolean }) {
+  const c = tone(item.t);
+  return (
+    <a href={item.href} onClick={onPick} className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
+      <span
+        className={cn("grid flex-none place-items-center rounded-[10px] transition-transform duration-300 group-hover:-rotate-6", large ? "size-11" : "size-10")}
+        style={{ background: c.bg, color: c.ink }}
+        aria-hidden="true"
+      >
+        <Icon name={item.icon} size={large ? 19 : 18} />
+      </span>
+      <span className="min-w-0 pt-0.5">
+        <span className="flex items-center gap-2 text-base font-semibold text-ink">
+          {item.title}
+          {item.soon && <span className="rounded-full bg-well px-1.5 py-px text-2xs font-semibold text-ink-2">Soon</span>}
+        </span>
+        <span className="mt-0.5 block text-sm leading-snug text-ink-2">{item.text}</span>
+      </span>
+    </a>
+  );
+}
+
 function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
-  const [open, setOpen] = useState(false);
+  const [menu, setMenu] = useState(false); // the phone menu
+  const [product, setProduct] = useState(false); // the Product dropdown on wide screens
   const [scrolled, setScrolled] = useState(false);
-  const [current, setCurrent] = useState("");
-  const menuRef = useRef<HTMLDivElement>(null);
-  const toggleRef = useRef<HTMLButtonElement>(null);
+  const [current, setCurrent] = useState(""); // the section on screen
+  const [hovered, setHovered] = useState<string | null>(null);
+  const [mark, setMark] = useState<{ left: number; width: number } | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  const productButton = useRef<HTMLButtonElement>(null);
+  const hoverTimer = useRef<number>(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -77,17 +117,17 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Light up the link for the section on screen.
+  // Which section is on screen.
   useEffect(() => {
     if (!("IntersectionObserver" in window)) return;
     const io = new IntersectionObserver(
       (entries) => {
-        for (const e of entries) if (e.isIntersecting) setCurrent(`#${e.target.id}`);
+        for (const e of entries) if (e.isIntersecting) setCurrent(e.target.id);
       },
       { rootMargin: "-45% 0px -50% 0px" },
     );
-    navLinks.forEach((l) => {
-      const el = document.getElementById(l.href.slice(1));
+    watched.forEach((id) => {
+      const el = document.getElementById(id);
       if (el) io.observe(el);
     });
     const top = new IntersectionObserver(([e]) => e?.isIntersecting && setCurrent(""), { rootMargin: "0px 0px -60% 0px" });
@@ -99,46 +139,116 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
     };
   }, []);
 
-  // The mobile menu closes on Escape (focus goes back to its button), on a click outside, and
-  // when focus leaves it.
+  const activeHref = navLinks.find((l) => l.sections.includes(current))?.href ?? null;
+
+  // One soft highlight glides to the link you point at, or rests on the section you're reading.
   useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      setOpen(false);
-      toggleRef.current?.focus();
+    const target = hovered ?? (product ? "#features" : activeHref);
+    const el = target ? navRef.current?.querySelector<HTMLElement>(`[data-nav="${target}"]`) : null;
+    setMark(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+  }, [hovered, activeHref, product]);
+
+  // Menus close on Escape (focus goes back to the button that opened them), on a click outside,
+  // and when keyboard focus leaves the header.
+  useEffect(() => {
+    if (!menu && !product) return;
+    const close = (refocus: boolean) => {
+      if (refocus) (menu ? menuButton : productButton).current?.focus();
+      setMenu(false);
+      setProduct(false);
     };
-    const onPointer = (e: PointerEvent) => !menuRef.current?.contains(e.target as Node) && setOpen(false);
-    const onFocus = (e: FocusEvent) => !menuRef.current?.contains(e.target as Node) && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close(true);
+    const outside = (e: Event) => !wrapRef.current?.contains(e.target as Node) && close(false);
     window.addEventListener("keydown", onKey);
-    window.addEventListener("pointerdown", onPointer);
-    window.addEventListener("focusin", onFocus);
+    window.addEventListener("pointerdown", outside);
+    window.addEventListener("focusin", outside);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("pointerdown", onPointer);
-      window.removeEventListener("focusin", onFocus);
+      window.removeEventListener("pointerdown", outside);
+      window.removeEventListener("focusin", outside);
     };
-  }, [open]);
+  }, [menu, product]);
+
+  // On a mouse, the Product menu opens on hover too, with a short grace period when leaving.
+  const hoverProduct = (on: boolean) => {
+    window.clearTimeout(hoverTimer.current);
+    if (on) setProduct(true);
+    else hoverTimer.current = window.setTimeout(() => setProduct(false), 160);
+  };
+
+  const raised = scrolled || menu || product;
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:pt-4">
-      <div ref={menuRef} className="relative mx-auto max-w-[1120px]">
-        <div className={cn("flex h-14 items-center gap-1 pl-4 pr-2 transition-shadow duration-300", scrolled || open ? "chrome-pill" : "rounded-full")}>
-          <Link href="/" aria-label="Dovli home" className="mr-3 rounded-md">
+      <div
+        ref={wrapRef}
+        className={cn("relative mx-auto transition-[max-width] duration-500 ease-out", scrolled ? "max-w-[1000px]" : "max-w-[1120px]")}
+      >
+        <div className={cn("relative flex h-14 items-center gap-1 pl-4 pr-2 transition-[box-shadow,background-color] duration-300", raised ? "chrome-pill" : "rounded-full")}>
+          <Link href="/" aria-label="Dovli home" className="mr-4 rounded-md">
             <DovliLogo size={28} />
           </Link>
-          <nav aria-label="Main" className="hidden items-center lg:flex">
-            {navLinks.map((l) => (
-              <a
-                key={l.href}
-                href={l.href}
-                aria-current={current === l.href ? "location" : undefined}
-                className={cn(buttonStyles({ variant: "ghost", size: "sm" }), "h-8 rounded-full px-3 text-base aria-[current]:bg-active aria-[current]:text-active-ink")}
-              >
-                {l.label}
-              </a>
-            ))}
-          </nav>
+
+          <div ref={navRef} className="relative hidden items-center lg:flex" onPointerLeave={() => setHovered(null)}>
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 h-8 -translate-y-1/2 rounded-full bg-active transition-[left,width,opacity] duration-300 ease-out"
+              style={{ left: mark?.left ?? 0, width: mark?.width ?? 0, opacity: mark ? 1 : 0 }}
+            />
+            <nav aria-label="Main" className="relative flex items-center">
+              {navLinks.map((l) =>
+                l.menu ? (
+                  <div key={l.href} onPointerEnter={(e) => e.pointerType === "mouse" && hoverProduct(true)} onPointerLeave={(e) => e.pointerType === "mouse" && hoverProduct(false)}>
+                    <button
+                      ref={productButton}
+                      type="button"
+                      data-nav={l.href}
+                      aria-expanded={product}
+                      aria-controls="product-menu"
+                      onPointerEnter={() => setHovered(l.href)}
+                      onClick={() => setProduct((p) => !p)}
+                      className={cn(
+                        "relative flex h-8 items-center gap-1 rounded-full px-3 text-base font-semibold transition-colors",
+                        activeHref === l.href || product ? "text-active-ink" : "text-ink-2 hover:text-ink",
+                      )}
+                    >
+                      {l.label}
+                      <Icon name="chevronDown" size={13} className={cn("transition-transform duration-300", product && "rotate-180")} aria-hidden="true" />
+                    </button>
+                    {product && (
+                      <div
+                        id="product-menu"
+                        className="absolute left-0 top-[calc(100%+14px)] grid w-[620px] animate-pop-in grid-cols-2 gap-1 p-2 chrome-panel"
+                        // Nearly solid glass, so the page behind never competes with the menu's text.
+                        style={{ transformOrigin: "top left", background: "var(--c-pill)" }}
+                      >
+                        {/* An invisible bridge so the mouse can travel from the button to the menu. */}
+                        <span aria-hidden="true" className="absolute inset-x-0 -top-4 h-4" />
+                        {productItems.map((it) => (
+                          <ProductItem key={it.title} item={it} onPick={() => setProduct(false)} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <a
+                    key={l.href}
+                    href={l.href}
+                    data-nav={l.href}
+                    aria-current={activeHref === l.href ? "location" : undefined}
+                    onPointerEnter={() => setHovered(l.href)}
+                    className={cn(
+                      "relative flex h-8 items-center rounded-full px-3 text-base font-semibold transition-colors",
+                      activeHref === l.href ? "text-active-ink" : "text-ink-2 hover:text-ink",
+                    )}
+                  >
+                    {l.label}
+                  </a>
+                ),
+              )}
+            </nav>
+          </div>
+
           <div className="ml-auto flex items-center gap-1.5">
             {showSignIn && (
               <Link href={LOGIN_PATH} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "hidden rounded-full sm:inline-flex")}>
@@ -149,30 +259,44 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
               {start.label}
             </Link>
             <button
-              ref={toggleRef}
+              ref={menuButton}
               type="button"
-              aria-expanded={open}
+              aria-expanded={menu}
               aria-controls="landing-menu"
-              aria-label={open ? "Close menu" : "Open menu"}
-              onClick={() => setOpen((o) => !o)}
+              aria-label={menu ? "Close menu" : "Open menu"}
+              onClick={() => setMenu((o) => !o)}
               className="grid size-11 place-items-center rounded-full text-ink-2 hover:bg-hover hover:text-ink lg:hidden"
             >
-              <Icon name={open ? "close" : "menu"} size={18} />
+              <Icon name={menu ? "close" : "menu"} size={18} />
             </button>
           </div>
+
+          {/* How far down the page you are, in the mark's colours (browsers that can tie it to scrolling). */}
+          <span aria-hidden="true" className={cn("lp-progress pointer-events-none absolute inset-x-6 bottom-0 h-[2px] rounded-full transition-opacity duration-300", raised ? "opacity-100" : "opacity-0")} />
         </div>
-        {open && (
-          <nav id="landing-menu" aria-label="Menu" className="absolute inset-x-0 top-[calc(100%+8px)] flex animate-pop-in flex-col p-2 chrome-panel lg:hidden">
-            {navLinks.map((l) => (
-              <a key={l.href} href={l.href} onClick={() => setOpen(false)} className="rounded-md px-3 py-3 text-md font-semibold text-ink hover:bg-hover">
-                {l.label}
-              </a>
-            ))}
-            {showSignIn && (
-              <Link href={LOGIN_PATH} className="rounded-md px-3 py-3 text-md font-semibold text-ink hover:bg-hover sm:hidden">
-                Sign in
+
+        {menu && (
+          <nav
+            id="landing-menu"
+            aria-label="Menu"
+            className="absolute inset-x-0 top-[calc(100%+8px)] max-h-[calc(100dvh-6rem)] animate-pop-in overflow-y-auto p-2 chrome-panel lg:hidden"
+            style={{ background: "var(--c-pill)" }}
+          >
+            <div className="grid gap-0.5 sm:grid-cols-2">
+              {productItems.map((it) => (
+                <ProductItem key={it.title} item={it} large onPick={() => setMenu(false)} />
+              ))}
+            </div>
+            <div className="mt-2 flex gap-2 border-t border-line p-2 pt-3">
+              {showSignIn && (
+                <Link href={LOGIN_PATH} className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "flex-1 rounded-full")}>
+                  Sign in
+                </Link>
+              )}
+              <Link href={start.href} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "flex-1 rounded-full")}>
+                {start.label}
               </Link>
-            )}
+            </div>
           </nav>
         )}
       </div>
