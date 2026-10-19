@@ -2,7 +2,7 @@
 // so the app works offline; when signed in, the shared sync engine sends them to the cloud.
 
 import { useSyncExternalStore } from "react";
-import { childrenOf, descendantIds, pageWithBlockIds, seedPages, type Page, type PageKind } from "@dovli/core";
+import { childrenOf, descendantIds, pageWithBlockIds, seedPages, withBlockIds, type BoardData, type Page, type PageKind } from "@dovli/core";
 import { kv } from "./kv";
 
 const PAGES = "dovli.pages.v1";
@@ -38,6 +38,12 @@ function commit(next: Record<string, Page>, changed: string[], { local = true, p
 
 const newId = () => Math.random().toString(36).slice(2, 12);
 
+/** A copied block gets new ids (withBlockIds adds them), so two pages never share block ids. */
+function stripIds(b: any): any {
+  const { id: _id, ...rest } = b ?? {};
+  return Array.isArray(rest.children) ? { ...rest, children: rest.children.map(stripIds) } : rest;
+}
+
 export const store = {
   subscribe(l: () => void) {
     listeners.add(l);
@@ -49,31 +55,67 @@ export const store = {
     return () => changeHooks.delete(fn);
   },
 
-  createPage(input: { id?: string; kind?: PageKind; parentId?: string | null; title?: string } = {}): Page {
+  createPage(
+    input: { id?: string; kind?: PageKind; parentId?: string | null; title?: string; mark?: string; style?: string; blocks?: any[]; board?: BoardData } = {},
+  ): Page {
     const now = Date.now();
     const parentId = input.parentId ?? null;
+    const kind = input.kind ?? "doc";
+    const id = input.id ?? newId();
     const sibs = childrenOf(pages, parentId, { includeTrashed: true });
     const page: Page = {
-      id: input.id ?? newId(),
+      id,
       parentId,
-      kind: input.kind ?? "doc",
+      kind,
       title: input.title ?? "",
-      mark: input.kind === "board" ? "◇" : "¶",
-      blocks: input.kind === "board" ? undefined : [],
-      board: input.kind === "board" ? { elements: [] } : undefined,
+      mark: input.mark ?? (kind === "board" ? "◇" : "¶"),
+      style: input.style,
+      blocks: kind === "board" ? undefined : (withBlockIds(input.blocks, id) ?? []),
+      board: kind === "board" ? (input.board ?? { elements: [] }) : undefined,
       createdAt: now,
       updatedAt: now,
       lastOpenedAt: now,
       order: sibs.length ? Math.max(...sibs.map((s) => s.order)) + 1 : 0,
     };
-    commit({ ...pages, [page.id]: page }, [page.id]);
+    const next = { ...pages, [page.id]: page };
+    const changed = [page.id];
+    // Open the parent in the page tree, as on the web.
+    if (parentId && next[parentId] && !next[parentId].expanded) {
+      next[parentId] = { ...next[parentId], expanded: true };
+      changed.push(parentId);
+    }
+    commit(next, changed);
     return page;
   },
 
   updatePage(id: string, patch: Partial<Page>, touch = true) {
     const cur = pages[id];
     if (!cur) return;
+    // The editor saves once when a page opens; nothing changed, so it isn't an edit.
+    if ((Object.keys(patch) as (keyof Page)[]).every((k) => JSON.stringify(cur[k]) === JSON.stringify(patch[k]))) return;
     commit({ ...pages, [id]: { ...cur, ...patch, updatedAt: touch ? Date.now() : cur.updatedAt } }, [id]);
+  },
+
+  /** Show or hide a page's sub-pages in the page tree. Not an edit. */
+  toggleExpanded(id: string) {
+    const p = pages[id];
+    if (p) store.updatePage(id, { expanded: !p.expanded }, false);
+  },
+
+  duplicatePage(id: string): Page | null {
+    const src = pages[id];
+    if (!src) return null;
+    const copy = store.createPage({
+      parentId: src.parentId,
+      kind: src.kind,
+      title: src.title ? `${src.title} (copy)` : "",
+      mark: src.mark,
+      style: src.style,
+      blocks: src.blocks ? JSON.parse(JSON.stringify(src.blocks)).map((b: any) => stripIds(b)) : undefined,
+      board: src.board ? JSON.parse(JSON.stringify(src.board)) : undefined,
+    });
+    if (src.cover || src.look) store.updatePage(copy.id, { cover: src.cover, look: src.look }, false);
+    return copy;
   },
 
   /** Remember that a page was opened (for Recent), without counting it as an edit. */
@@ -97,10 +139,37 @@ export const store = {
     return ids;
   },
 
+  /** Bring pages back from the trash, with whatever was trashed with them. A page whose parent is still in the trash moves to the top. */
   restorePages(ids: string[]) {
     const next = { ...pages };
-    for (const id of ids) if (next[id]) next[id] = { ...next[id], deletedAt: null, updatedAt: Date.now() };
-    commit(next, ids);
+    const all = new Set<string>();
+    for (const id of ids) {
+      const p = next[id];
+      if (!p?.deletedAt) continue;
+      for (const x of [id, ...descendantIds(next, id)]) if (next[x].deletedAt === p.deletedAt) all.add(x);
+    }
+    for (const x of all) {
+      const p = next[x];
+      const parentGone = p.parentId && (!next[p.parentId] || (next[p.parentId].deletedAt && !all.has(p.parentId)));
+      next[x] = { ...p, deletedAt: null, parentId: parentGone ? null : p.parentId, updatedAt: Date.now() };
+    }
+    commit(next, [...all]);
+  },
+
+  /** Delete pages for good, here and in the cloud. */
+  deleteForever(ids: string[]) {
+    const doomed = new Set<string>();
+    for (const id of ids) {
+      if (!pages[id]) continue;
+      doomed.add(id);
+      descendantIds(pages, id).forEach((x) => doomed.add(x));
+    }
+    if (!doomed.size) return;
+    commit(Object.fromEntries(Object.entries(pages).filter(([k]) => !doomed.has(k))), [], { purged: [...doomed] });
+  },
+
+  emptyTrash() {
+    store.deleteForever(Object.values(pages).filter((p) => p.deletedAt).map((p) => p.id));
   },
 
   /* ---------- For the sync engine ---------- */

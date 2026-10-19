@@ -1,241 +1,316 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { APP_THEMES, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, space, touchTarget, type AppTheme, type ThemePreference } from "@dovli/theme";
-import { Button, Card, IconButton, Label, usePalette } from "@/components/ui";
-import { themeStore, useThemePreference } from "@/lib/theme";
-import { AuthError, phoneAuth, usePhoneAuth } from "@/lib/auth";
+// Settings on the phone, in the same sections as the web app: your profile and account, how Dovli
+// looks, sync and backups, AI, privacy and data, and about. Things only the web app can do yet open
+// it in the browser.
 
-/** A small picture of a theme: its background, a card and an accent dot. */
-function Swatch({ theme }: { theme: AppTheme }) {
-  const c = theme.colors;
+import { useState } from "react";
+import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import Constants from "expo-constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { timeAgo, trashRoots } from "@dovli/core";
+import { APP_THEMES, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, space, type AppTheme, type ThemePreference } from "@dovli/theme";
+import { Avatar, Badge, Button, Header, Icon, Label, Row, Section, TextField, tap, usePalette, type IconName } from "@/components/ui";
+import { phoneAuth, usePhoneAuth } from "@/lib/auth";
+import { apiUrl } from "@/lib/firebase";
+import { themeStore, useThemePreference } from "@/lib/theme";
+import { syncNow, useSyncStatus } from "@/lib/sync";
+import { usePages } from "@/lib/store";
+import { Background } from "@/components/Background";
+
+const openWeb = (path = "/app") => apiUrl && Linking.openURL(`${apiUrl}${path}`).catch(() => {});
+
+/* ---------------------------------------------------------------- profile */
+
+function Profile() {
+  const router = useRouter();
+  const p = usePalette();
+  const a = usePhoneAuth();
+  const sync = useSyncStatus();
+  const signedIn = a.status === "signed-in";
+  const title = signedIn ? a.account?.name || a.account?.email?.split("@")[0] || "Your account" : "Using Dovli without an account";
+  const sub = signedIn ? (a.account?.email ?? "") : "Your pages are saved on this phone only.";
+
   return (
-    <View style={[styles.swatch, { backgroundColor: c.bg, borderColor: c.lineStrong }]}>
-      <View style={{ width: 14, alignSelf: "stretch", backgroundColor: c.sidebar === "transparent" ? c.bg : c.sidebar, opacity: 0.9 }} />
-      <View style={{ flex: 1, padding: 5, gap: 3 }}>
-        <View style={{ height: 4, width: "70%", borderRadius: 2, backgroundColor: c.ink }} />
+    <View style={[styles.profile, { backgroundColor: p.panel, borderColor: p.line, borderWidth: p.dark ? StyleSheet.hairlineWidth : 0 }]}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+        {signedIn ? (
+          <Avatar name={a.account?.name} email={a.account?.email} size={56} />
+        ) : (
+          <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: p.well, alignItems: "center", justifyContent: "center" }}>
+            <Icon name="phone-portrait-outline" size={26} color={p.ink3} />
+          </View>
+        )}
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={{ color: p.ink, fontSize: 19, fontWeight: "700", letterSpacing: -0.3 }} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={{ color: p.ink3, fontSize: 13.5, marginTop: 2 }} numberOfLines={2}>
+            {sub}
+          </Text>
+          {signedIn && (
+            <View style={{ marginTop: 8 }}>
+              {sync.state === "synced" ? (
+                <Badge text="Synced" icon="cloud-done-outline" tone="ok" />
+              ) : sync.state === "syncing" ? (
+                <Badge text="Syncing…" icon="sync-outline" tone="accent" />
+              ) : sync.state === "offline" ? (
+                <Badge text="Offline" icon="cloud-offline-outline" tone="muted" />
+              ) : sync.state === "error" ? (
+                <Badge text="Sync paused" icon="alert-circle-outline" tone="warn" />
+              ) : null}
+            </View>
+          )}
+        </View>
+      </View>
+      {a.status === "signed-out" && (
+        <View style={{ marginTop: space.lg, gap: space.sm }}>
+          <Text style={{ color: p.ink2, fontSize: 14, lineHeight: 20 }}>Sign in to back up your pages and see them on the web and your other devices.</Text>
+          <Button title="Sign in or create account" icon="person-circle-outline" onPress={() => router.push("/sign-in")} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+/* ---------------------------------------------------------------- account */
+
+function Account() {
+  const p = usePalette();
+  const a = usePhoneAuth();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  if (a.status !== "signed-in" || !a.account) return null;
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await phoneAuth.updateName(name);
+      tap("success");
+      setEditing(false);
+    } catch {
+      Alert.alert("Couldn't save your name", "Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Section title="Account">
+      {editing ? (
+        <View style={{ padding: space.lg, gap: space.md }}>
+          <TextField label="Your name" icon="person-outline" value={name} onChangeText={setName} autoFocus autoCapitalize="words" maxLength={80} returnKeyType="done" onSubmitEditing={() => void save()} />
+          <View style={{ flexDirection: "row", gap: space.sm }}>
+            <Button title="Cancel" tone="secondary" onPress={() => setEditing(false)} style={{ flex: 1 }} />
+            <Button title="Save" loading={saving} disabled={!name.trim()} onPress={() => void save()} style={{ flex: 1 }} />
+          </View>
+        </View>
+      ) : (
+        <Row
+          icon="person-outline"
+          title="Name"
+          value={a.account.name || "Add your name"}
+          onPress={() => {
+            setName(a.account?.name ?? "");
+            setEditing(true);
+          }}
+        />
+      )}
+      <Row icon="mail-outline" title="Email" value={a.account.email ?? ""} />
+      {a.account.createdAt ? (
+        <Row icon="calendar-outline" title="Member since" value={new Date(a.account.createdAt).toLocaleDateString(undefined, { month: "long", year: "numeric" })} />
+      ) : null}
+    </Section>
+  );
+}
+
+/* ---------------------------------------------------------------- appearance */
+
+/** A tiny picture of the app in a theme: sidebar, a page card with lines, and the accent. */
+function ThemeThumb({ theme }: { theme: AppTheme }) {
+  const c = theme.colors;
+  const solid = (x: string) => (x === "transparent" ? c.bg : x);
+  return (
+    <View style={{ height: 74, borderRadius: 10, backgroundColor: c.bg, overflow: "hidden", flexDirection: "row", padding: 6, gap: 5 }}>
+      <View style={{ width: 18, borderRadius: 5, backgroundColor: solid(c.sidebar), gap: 3, padding: 3 }}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={{ height: 3, borderRadius: 2, backgroundColor: c.ink4, opacity: 0.6 }} />
+        ))}
+      </View>
+      <View style={{ flex: 1, borderRadius: 6, backgroundColor: solid(c.panel), padding: 7, gap: 4 }}>
+        <View style={{ height: 5, width: "62%", borderRadius: 3, backgroundColor: c.ink }} />
         <View style={{ height: 3, width: "90%", borderRadius: 2, backgroundColor: c.ink3 }} />
-        <View style={{ height: 6, width: 6, borderRadius: 3, backgroundColor: c.accent, marginTop: 2 }} />
+        <View style={{ height: 3, width: "76%", borderRadius: 2, backgroundColor: c.ink3 }} />
+        <View style={{ flexDirection: "row", gap: 4, marginTop: 2 }}>
+          <View style={{ height: 9, width: 22, borderRadius: 5, backgroundColor: c.primary }} />
+          <View style={{ height: 9, width: 9, borderRadius: 5, backgroundColor: c.accent }} />
+        </View>
       </View>
     </View>
   );
 }
 
-function ThemeRow({ value, title, hint, theme, selected, first }: { value: ThemePreference; title: string; hint: string; theme: AppTheme; selected: boolean; first: boolean }) {
+function ThemeCard({ value, theme, title, hint, selected }: { value: ThemePreference; theme: AppTheme; title: string; hint: string; selected: boolean }) {
   const p = usePalette();
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       accessibilityLabel={`${title}. ${hint}`}
-      onPress={() => themeStore.set(value)}
-      style={({ pressed }) => [styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.line }, pressed && { backgroundColor: p.hover }]}
+      onPress={() => {
+        tap("select");
+        themeStore.set(value);
+      }}
+      style={({ pressed }) => [
+        styles.themeCard,
+        { backgroundColor: p.panel, borderColor: selected ? p.accent : p.line, borderWidth: selected ? 2 : StyleSheet.hairlineWidth * 2, opacity: pressed ? 0.85 : 1 },
+      ]}
     >
-      <Swatch theme={theme} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: p.ink, fontSize: 15, fontWeight: "600" }}>{title}</Text>
-        <Text style={{ color: p.ink3, fontSize: 12.5 }}>{hint}</Text>
+      <ThemeThumb theme={theme} />
+      <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 }}>
+        <Text style={{ color: p.ink, fontSize: 14, fontWeight: "700", flex: 1 }} numberOfLines={1}>
+          {title}
+        </Text>
+        {selected && <Icon name="checkmark-circle" size={18} color={p.accent} />}
       </View>
-      <View style={[styles.radio, { borderColor: selected ? p.accent : p.ink3 }]}>{selected && <View style={[styles.radioDot, { backgroundColor: p.accent }]} />}</View>
+      <Text style={{ color: p.ink3, fontSize: 11.5, lineHeight: 15, marginTop: 2 }} numberOfLines={2}>
+        {hint}
+      </Text>
     </Pressable>
   );
 }
 
-/** Seconds left until a moment, ticking once a second. */
-function useCountdown(until: number) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    setNow(Date.now()); // start from now, not from the last tick
-    if (until <= Date.now()) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [until]);
-  return Math.max(0, Math.ceil((until - now) / 1000));
-}
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-
-function Account() {
+function Appearance() {
   const p = usePalette();
-  const a = usePhoneAuth();
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"" | "send" | "verify">("");
-  const [resendAt, setResendAt] = useState(0);
-  const [expiresAt, setExpiresAt] = useState(0);
-  const resendIn = useCountdown(resendAt);
-  const expiresIn = useCountdown(expiresAt);
-
-  if (a.status === "local-only") {
-    return (
-      <Card style={{ padding: space.lg }}>
-        <Text style={{ color: p.ink, fontWeight: "600" }}>Saved on this phone</Text>
-        <Text style={{ color: p.ink3, marginTop: 4, lineHeight: 19 }}>Sign-in isn't set up in this build of the app. Your pages stay on this phone.</Text>
-      </Card>
-    );
-  }
-
-  if (a.status === "signed-in") {
-    return (
-      <Card style={{ padding: space.lg, gap: space.md }}>
-        <View>
-          <Text style={{ color: p.ink, fontWeight: "600" }}>{a.account?.email}</Text>
-          <Text style={{ color: p.ink3, marginTop: 2, lineHeight: 19 }}>Signed in. Pages stay saved on this phone; syncing them through your account is coming next.</Text>
-        </View>
-        <Button title="Sign out" tone="secondary" onPress={() => void phoneAuth.signOut()} />
-      </Card>
-    );
-  }
-
-  const send = async () => {
-    setEmail(email.trim().toLowerCase());
-    setBusy("send");
-    setError(null);
-    try {
-      const r = await phoneAuth.sendEmailCode(email.trim());
-      setSent(true);
-      setCode("");
-      setResendAt(Date.now() + r.resendAfter * 1000);
-      setExpiresAt(Date.now() + r.expiresIn * 1000);
-    } catch (e) {
-      if (e instanceof AuthError && e.code === "wait" && e.extra.retryAfter) {
-        setSent(true);
-        setResendAt(Date.now() + e.extra.retryAfter * 1000);
-      }
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const verify = async (value: string) => {
-    if (busy) return;
-    setBusy("verify");
-    setError(null);
-    try {
-      await phoneAuth.verifyEmailCode(email.trim(), value);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-      if (e instanceof AuthError && (e.code === "expired" || e.code === "locked")) {
-        setExpiresAt(0);
-        setResendAt(0);
-      }
-      setCode("");
-    } finally {
-      setBusy("");
-    }
-  };
-
-  const expired = sent && expiresAt > 0 && expiresIn === 0;
-
+  const pref = useThemePreference();
+  const light = getTheme(SYSTEM_LIGHT_THEME);
+  const dark = getTheme(SYSTEM_DARK_THEME);
   return (
-    <Card style={{ padding: space.lg, gap: space.md }}>
-      {!sent ? (
-        <>
-          <Text style={{ color: p.ink3, lineHeight: 19 }}>Sign in with a 6-digit code we email you. No password needed.</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@example.com"
-            placeholderTextColor={p.ink3}
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            keyboardType="email-address"
-            accessibilityLabel="Email"
-            style={[styles.input, { backgroundColor: p.well, color: p.ink, borderRadius: p.radius.md }]}
-          />
-          <Button title={busy === "send" ? "Sending…" : "Email me a code"} disabled={!!busy || !/\S+@\S+\.\S+/.test(email)} onPress={() => void send()} />
-        </>
-      ) : (
-        <>
-          <Text style={{ color: p.ink2, lineHeight: 19 }}>
-            We emailed a code to <Text style={{ color: p.ink, fontWeight: "600" }}>{email.trim()}</Text>.{expiresAt > 0 && !expired ? ` It works for ${clock(expiresIn)}.` : ""}
-          </Text>
-          <TextInput
-            value={code}
-            onChangeText={(v) => {
-              const digits = v.replace(/\D/g, "").slice(0, 6);
-              setCode(digits);
-              if (digits.length === 6) void verify(digits);
-            }}
-            placeholder="000000"
-            placeholderTextColor={p.ink3}
-            keyboardType="number-pad"
-            autoComplete="one-time-code"
-            textContentType="oneTimeCode"
-            editable={busy !== "verify"}
-            accessibilityLabel="6-digit code"
-            style={[styles.input, { backgroundColor: p.well, color: p.ink, borderRadius: p.radius.md, letterSpacing: 8, textAlign: "center", fontSize: 22 }]}
-          />
-          <Button title={busy === "verify" ? "Checking…" : "Sign in"} disabled={!!busy || code.length !== 6 || expired} onPress={() => void verify(code)} />
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-            <Pressable accessibilityRole="button" onPress={() => { setSent(false); setError(null); }} style={{ paddingVertical: 8 }}>
-              <Text style={{ color: p.accent }}>Use a different email</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" disabled={resendIn > 0 || !!busy} onPress={() => void send()} style={{ paddingVertical: 8 }}>
-              <Text style={{ color: resendIn > 0 ? p.ink3 : p.accent }}>{resendIn > 0 ? `Send again in ${clock(resendIn)}` : "Send a new code"}</Text>
-            </Pressable>
-          </View>
-          {expired && !error && <Text style={{ color: p.ink2 }}>This code has expired. Send a new one.</Text>}
-        </>
-      )}
-      {error && <Text accessibilityLiveRegion="polite" style={{ color: p.danger }}>{error}</Text>}
-    </Card>
+    <View style={{ marginTop: space.xl }}>
+      <Label style={{ marginBottom: space.sm, marginLeft: space.xs }}>Appearance</Label>
+      <View accessibilityRole="radiogroup" style={styles.themeGrid}>
+        {APP_THEMES.map((theme) => (
+          <ThemeCard key={theme.id} value={theme.id} theme={theme} title={theme.name} hint={theme.description} selected={pref === theme.id} />
+        ))}
+      </View>
+      <Section style={{ marginTop: space.md }}>
+        <Row
+          icon="contrast-outline"
+          title="Match device"
+          detail={`${light.name} by day, ${dark.name} when your phone is in dark mode`}
+          right={pref === "system" ? <Icon name="checkmark-circle" size={20} color={p.accent} /> : <View style={[styles.radio, { borderColor: p.ink4 }]} />}
+          onPress={() => themeStore.set("system")}
+        />
+      </Section>
+    </View>
   );
 }
+
+/* ---------------------------------------------------------------- sync */
+
+function Sync() {
+  const router = useRouter();
+  const p = usePalette();
+  const a = usePhoneAuth();
+  const s = useSyncStatus();
+  if (a.status !== "signed-in") {
+    return (
+      <Section title="Sync & backups" footer="Your pages are saved on this phone the moment you type, and work offline.">
+        <Row
+          icon="cloud-upload-outline"
+          title="Back up and sync"
+          detail={a.status === "local-only" ? "Accounts aren't set up in this build of the app." : "Sign in to keep your pages in the cloud and on the web."}
+          onPress={a.status === "signed-out" ? () => router.push("/sign-in") : undefined}
+        />
+      </Section>
+    );
+  }
+  const meta: Record<string, { icon: IconName; tint: string; title: string }> = {
+    synced: { icon: "cloud-done-outline", tint: p.ok, title: "Up to date" },
+    syncing: { icon: "sync-outline", tint: p.accent, title: "Syncing…" },
+    offline: { icon: "cloud-offline-outline", tint: p.ink3, title: "Offline" },
+    error: { icon: "alert-circle-outline", tint: p.warn, title: "Sync paused" },
+  };
+  const m = meta[s.state] ?? { icon: "cloud-outline" as IconName, tint: p.accent, title: "Getting ready" };
+  const detail = s.state === "error" && s.error ? s.error : s.lastSyncedAt ? `Last synced ${timeAgo(s.lastSyncedAt)}` : "Not synced yet";
+  return (
+    <Section title="Sync & backups" footer="Pages are saved on this phone first, then sent to your account. Edits made offline sync when you're back online.">
+      <Row icon={m.icon} tint={m.tint} title={m.title} detail={detail} />
+      {s.pending > 0 ? <Row icon="time-outline" title="Waiting to sync" value={`${s.pending} ${s.pending === 1 ? "change" : "changes"}`} /> : null}
+      <Row icon="refresh-outline" title="Sync now" onPress={() => syncNow()} chevron={false} />
+    </Section>
+  );
+}
+
+/* ---------------------------------------------------------------- the rest */
 
 export function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const p = usePalette();
-  const pref = useThemePreference();
-  const auto = getTheme(SYSTEM_LIGHT_THEME);
+  const a = usePhoneAuth();
+  const version = Constants.expoConfig?.version ?? "0.1.0";
+  const trashed = usePages((x) => trashRoots(x).length);
+
+  const signOut = () =>
+    Alert.alert("Sign out of Dovli?", "Your pages stay in your account. You can sign in again any time.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign out",
+        style: "destructive",
+        onPress: () =>
+          setTimeout(() => {
+            void phoneAuth.signOut();
+            router.back();
+          }, 0),
+      },
+    ]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: p.bg }}>
-      <View style={[styles.header, { paddingTop: insets.top + space.sm }]}>
-        <Text style={{ color: p.ink, fontSize: 20, fontWeight: "700", flex: 1 }} accessibilityRole="header">
-          Settings
-        </Text>
-        <IconButton label="Close" glyph="✕" onPress={() => router.back()} />
-      </View>
-      <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + space.xxl }}>
-        <Label style={styles.section}>Theme</Label>
-        <Card accessibilityRole="radiogroup">
-          {APP_THEMES.map((theme, i) => (
-            <ThemeRow key={theme.id} value={theme.id} title={theme.name} hint={theme.description} theme={theme} selected={pref === theme.id} first={i === 0} />
-          ))}
-          <ThemeRow
-            value="system"
-            title="Match device"
-            hint={`${auto.name} by day, ${getTheme(SYSTEM_DARK_THEME).name} when your phone is in dark mode`}
-            theme={pref === "system" ? p.t : auto}
-            selected={pref === "system"}
-            first={false}
-          />
-        </Card>
-
-        <Label style={styles.section}>Account and sync</Label>
+    <View style={{ flex: 1 }}>
+      <Background intensity={0.6} />
+      {/* On iOS, Settings opens as a sheet below the status bar, so it needs no room for it. */}
+      <Header top={Platform.OS === "ios" ? space.sm : insets.top} title="Settings" onClose={() => router.back()} />
+      <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.xxxl }}>
+        <Profile />
         <Account />
+        <Appearance />
+        <Sync />
 
-        <Label style={styles.section}>Privacy</Label>
-        <Card style={{ padding: space.lg }}>
-          <Text style={{ color: p.ink3, lineHeight: 19 }}>Your pages are never used to train AI. They're stored encrypted, and you can export or delete them at any time from the web app.</Text>
-        </Card>
+        <Section title="AI" footer="Pick your AI (Dovli AI, or your own Groq, OpenRouter, Anthropic or OpenAI key) in Settings on the web. Your choice applies to your account.">
+          <Row icon="sparkles-outline" title="Assistant and Ask AI" detail="On the web app now, coming to the phone next." onPress={apiUrl ? () => openWeb() : undefined} />
+        </Section>
+
+        <Section title="Privacy & data">
+          <Row icon="shield-checkmark-outline" title="Never used to train AI" detail="Your pages are private to your account and stored encrypted." />
+          {a.status === "signed-in" && <Row icon="download-outline" title="Export or delete your data" detail="Opens Dovli on the web" onPress={apiUrl ? () => openWeb() : undefined} />}
+        </Section>
+
+        <Section title="Your pages">
+          <Row icon="grid-outline" title="Templates" detail="Meeting notes, project briefs, journals and more" onPress={() => router.push("/templates")} />
+          <Row icon="trash-outline" title="Trash" value={trashed ? String(trashed) : "Empty"} onPress={() => router.push("/trash")} />
+        </Section>
+
+        <Section title="About">
+          <Row icon="information-circle-outline" title="About Dovli" value={`Version ${version}`} onPress={() => router.push("/about")} />
+          {apiUrl ? <Row icon="globe-outline" title="Dovli on the web" detail="Whiteboards, AI and more" onPress={() => openWeb("/")} /> : null}
+        </Section>
+
+        {a.status === "signed-in" && (
+          <Section>
+            <Row icon="log-out-outline" title="Sign out" destructive onPress={signOut} chevron={false} />
+          </Section>
+        )}
+
+        <Text style={{ color: p.ink4, fontSize: 12, textAlign: "center", marginTop: space.xl }}>Dovli {version} · A calm place to write, plan and sketch</Text>
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: space.lg, paddingBottom: space.sm },
-  section: { marginTop: space.xl, marginBottom: space.sm },
-  row: { minHeight: 64, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, paddingVertical: 10 },
-  swatch: { width: 52, height: 38, borderRadius: 8, borderWidth: StyleSheet.hairlineWidth, overflow: "hidden", flexDirection: "row" },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  radioDot: { width: 10, height: 10, borderRadius: 5 },
-  input: { minHeight: touchTarget, paddingHorizontal: space.lg, fontSize: 16 },
+  profile: { borderRadius: 20, padding: space.lg },
+  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: space.md },
+  themeCard: { width: "47.5%", flexGrow: 1, borderRadius: 16, padding: 10 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2 },
 });

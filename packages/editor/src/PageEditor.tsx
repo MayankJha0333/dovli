@@ -220,11 +220,15 @@ export default function PageEditor({
   readOnly = false,
   spellcheck = true,
   onExitTop,
+  touch = false,
 }: {
   page: Page;
   onReady?: (editor: DovliEditor | null) => void;
   readOnly?: boolean;
   spellcheck?: boolean;
+  /** Phone layout: no floating format bar or block handles. Both are made for a mouse; on a phone
+   *  "/" picks the block, markdown shortcuts and the system's text menu do the formatting. */
+  touch?: boolean;
   /** Backspace, ← or ↑ at the very top of the page: move to the title (see topEdge.ts). */
   onExitTop?: () => void;
 }) {
@@ -418,15 +422,17 @@ export default function PageEditor({
           suggestionMenuComponent={SlashMenu}
         />
         <SuggestionMenuController triggerCharacter="[[" getItems={async (query) => linkItems(query)} suggestionMenuComponent={SlashMenu} />
-        <SideMenuController sideMenu={(props) => <SideMenu {...props} dragHandleMenu={() => <BlockMenu pageId={page.id} />} />} />
-        <FormattingToolbarController
-          formattingToolbar={() => (
-            <FormattingToolbar>
-              <AIButton key="ai" />
-              {getFormattingToolbarItems()}
-            </FormattingToolbar>
-          )}
-        />
+        {!touch && <SideMenuController sideMenu={(props) => <SideMenu {...props} dragHandleMenu={() => <BlockMenu pageId={page.id} />} />} />}
+        {!touch && (
+          <FormattingToolbarController
+            formattingToolbar={() => (
+              <FormattingToolbar>
+                <AIButton key="ai" />
+                {getFormattingToolbarItems()}
+              </FormattingToolbar>
+            )}
+          />
+        )}
       </BlockNoteView>
       {!readOnly && (
         // The empty space under the last block: clicking it carries on writing at the end,

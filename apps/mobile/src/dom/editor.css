@@ -1,11 +1,21 @@
 /* Styles for the editor inside the phone app (a DOM component, rendered in a web view).
    The same theme tokens, page styles and editor styles as the web app. */
 @import "tailwindcss";
+/* BlockNote's own block styles (to-do checkbox beside its text, list markers, spacing). The editor
+   pulls them in through nested @imports, which the phone's CSS bundler doesn't follow, so import
+   them here directly. */
+@import "@blocknote/react/style.css";
 @import "@dovli/ui/styles.css";
 @import "@dovli/editor/editor.css";
 
 @source "./";
 
 html, body { margin: 0; background: transparent; }
+/* Expo's page lays out #root as a flex row, which shrank the editor to the width of its text, so a
+   tap beside a short line missed it. Let the editor fill the screen's width. */
+#root > * { flex: 1 1 auto; min-width: 0; }
 body { -webkit-tap-highlight-color: transparent; }
 .dovli-editor .bn-editor { padding-inline: 2px; font-size: 17px; }
+/* On the web, tables hang 9px left to line up with the block handles. The phone has no handles
+   there, so tables line up with the text instead. */
+.dovli-editor .bn-block-content[data-content-type="table"] .tableWrapper { margin-left: 0; }

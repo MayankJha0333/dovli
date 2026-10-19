@@ -20,7 +20,24 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       }
     },
-    "plugins": ["expo-router", "expo-sqlite"],
+    "plugins": [
+      "expo-router",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#EDEFF4",
+          "dark": {
+            "image": "./assets/images/splash-icon.png",
+            "backgroundColor": "#08090B"
+          }
+        }
+      ],
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true
     }

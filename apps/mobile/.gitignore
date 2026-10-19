@@ -4,3 +4,6 @@
 
 expo-env.d.ts
 # @end expo-cli
+# Native folders made by "expo run:ios" / "expo prebuild" (Expo makes them again from app.json)
+/ios
+/android
