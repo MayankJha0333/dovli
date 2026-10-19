@@ -1,21 +1,24 @@
-// The page side of the sidebar, like Craft's: the open page at the top, then four tabs:
-// Contents (its headings, with the one you're reading marked), To-dos, Attachments and Links.
+// The page side of the sidebar, like Craft's: the open page at the top, then tabs: Contents (its
+// headings, with the one you're reading marked), To-dos, Attachments, Links, and Find (⌘F).
 
 import { useEffect, useMemo, useState } from "react";
 import { attachments, backlinksOf, childrenOf, displayTitle, outgoingLinks, outline, timeAgo, todoItems, webLinks, type AttachmentKind, type Page } from "@dovli/core";
 import { resolveLook, styleVars } from "@dovli/theme";
-import { Icon, cn, type IconName } from "@dovli/ui";
+import { Icon, cn, modKey, type IconName } from "@dovli/ui";
 import { store, useStore } from "@/lib/store";
 import { getActiveEditor } from "@/lib/ui";
 import { BoardSketch, DocPreview, sketchOf } from "@/features/home/cards";
+import { find, useFind } from "@/lib/find";
+import { FindTab } from "./FindTab";
 import { scrollToBlock } from "@/features/page/PageInfo";
 
-type Tab = "contents" | "todos" | "files" | "links";
+type Tab = "contents" | "todos" | "files" | "links" | "find";
 const TABS: { id: Tab; icon: IconName; label: string }[] = [
   { id: "contents", icon: "outline", label: "Contents" },
   { id: "todos", icon: "checkbox", label: "To-dos" },
   { id: "files", icon: "paperclip", label: "Attachments" },
   { id: "links", icon: "link", label: "Links" },
+  { id: "find", icon: "search", label: "Find" },
 ];
 
 /** Scroll to a block and flash it briefly so the eye can find it. */
@@ -139,7 +142,14 @@ function Todos({ page }: { page: Page }) {
   );
 }
 
-const KIND_ICON: Record<AttachmentKind, IconName> = { image: "image", video: "play", audio: "play", file: "file", pdf: "pdf", embed: "link" };
+const KIND_ICON: Record<AttachmentKind, IconName> = {
+  image: "image",
+  video: "play",
+  audio: "play",
+  file: "file",
+  pdf: "pdf",
+  embed: "link",
+};
 
 function Files({ page }: { page: Page }) {
   const items = useMemo(() => attachments(page), [page]);
@@ -166,11 +176,7 @@ function Files({ page }: { page: Page }) {
 
 function PageLinkRow({ page }: { page: Page }) {
   return (
-    <button
-      type="button"
-      onClick={() => store.navigate({ name: "page", id: page.id })}
-      className={itemRow}
-    >
+    <button type="button" onClick={() => store.navigate({ name: "page", id: page.id })} className={itemRow}>
       <span className="w-4 flex-none text-center font-serif text-ink-3">{page.mark}</span>
       <span className="truncate">{displayTitle(page)}</span>
     </button>
@@ -189,11 +195,16 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
 function Links({ page }: { page: Page }) {
   const pages = useStore((s) => s.pages);
   const from = useMemo(() => backlinksOf(pages, page.id), [pages, page.id]);
-  const to = useMemo(() => outgoingLinks(page).map((id) => pages[id]).filter((p) => p && !p.deletedAt), [page, pages]);
+  const to = useMemo(
+    () =>
+      outgoingLinks(page)
+        .map((id) => pages[id])
+        .filter((p) => p && !p.deletedAt),
+    [page, pages],
+  );
   const inside = childrenOf(pages, page.id);
   const web = useMemo(() => webLinks(page), [page]);
-  if (!from.length && !to.length && !inside.length && !web.length)
-    return <Empty>Nothing links here yet. Type [[ in any page to link to another one.</Empty>;
+  if (!from.length && !to.length && !inside.length && !web.length) return <Empty>Nothing links here yet. Type [[ in any page to link to another one.</Empty>;
   return (
     <div>
       {from.length > 0 && (
@@ -259,7 +270,16 @@ function Thumb({ page }: { page: Page }) {
 }
 
 export function PageSide({ page }: { page: Page }) {
-  const [tab, setTab] = useState<Tab>("contents");
+  const [picked, setPicked] = useState<Exclude<Tab, "find">>("contents");
+  const finding = useFind((s) => s.open) && page.kind === "doc";
+  const tab: Tab = finding ? "find" : picked;
+  // Leaving the page side (all pages, or a view that isn't a page) ends Find.
+  useEffect(() => () => find.close(), []);
+  const setTab = (t: Tab) => {
+    if (t === "find") return find.show();
+    find.close();
+    setPicked(t);
+  };
   const counts: Partial<Record<Tab, number>> = {
     todos: todoItems(page).filter((t) => !t.checked).length,
     files: attachments(page).length,
@@ -273,8 +293,8 @@ export function PageSide({ page }: { page: Page }) {
           <span className="text-xs text-ink-3">Edited {timeAgo(page.updatedAt)}</span>
         </div>
       </div>
-      <div role="tablist" aria-label="About this page" className="mx-0.5 mb-2 grid grid-cols-4 gap-0.5 rounded-md bg-well p-0.5">
-        {TABS.map((t) => {
+      <div role="tablist" aria-label="About this page" className={cn("mx-0.5 mb-2 grid gap-0.5 rounded-md bg-well p-0.5", page.kind === "doc" ? "grid-cols-5" : "grid-cols-4")}>
+        {TABS.filter((t) => t.id !== "find" || page.kind === "doc").map((t) => {
           const on = tab === t.id;
           return (
             <button
@@ -285,7 +305,7 @@ export function PageSide({ page }: { page: Page }) {
               aria-selected={on}
               aria-controls="side-tab-panel"
               aria-label={t.label}
-              title={t.label}
+              title={t.id === "find" ? `Find (${modKey()}F)` : t.label}
               onClick={() => setTab(t.id)}
               className={cn(
                 "relative grid h-8 place-items-center rounded-[calc(var(--radius-md)-2px)] text-ink-3 transition-colors hover:text-ink",
@@ -300,13 +320,19 @@ export function PageSide({ page }: { page: Page }) {
           );
         })}
       </div>
-      <div id="side-tab-panel" role="tabpanel" aria-labelledby={`side-tab-${tab}`} className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
-        <h2 className="label-text m-0 mb-1.5 px-2.5 pt-1">{TABS.find((t) => t.id === tab)!.label}</h2>
-        {tab === "contents" && <Contents page={page} />}
-        {tab === "todos" && <Todos page={page} />}
-        {tab === "files" && <Files page={page} />}
-        {tab === "links" && <Links page={page} />}
-      </div>
+      {tab === "find" ? (
+        <div id="side-tab-panel" role="tabpanel" aria-labelledby="side-tab-find" className="flex min-h-0 flex-1 flex-col">
+          <FindTab page={page} />
+        </div>
+      ) : (
+        <div id="side-tab-panel" role="tabpanel" aria-labelledby={`side-tab-${tab}`} className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-2">
+          <h2 className="label-text m-0 mb-1.5 px-2.5 pt-1">{TABS.find((t) => t.id === tab)!.label}</h2>
+          {tab === "contents" && <Contents page={page} />}
+          {tab === "todos" && <Todos page={page} />}
+          {tab === "files" && <Files page={page} />}
+          {tab === "links" && <Links page={page} />}
+        </div>
+      )}
     </div>
   );
 }

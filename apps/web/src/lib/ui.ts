@@ -53,12 +53,28 @@ export const ui = {
   },
 };
 
-/** The editor of the page on screen, for actions that start outside it (summaries from the page menu). */
+/** The editor of the page on screen, for actions that start outside it (summaries from the page menu, Find). */
 let activeEditor: any = null;
-export const setActiveEditor = (e: any) => {
+let activeEditorPage: string | null = null;
+const editorListeners = new Set<() => void>();
+export const setActiveEditor = (e: any, pageId: string | null = null) => {
   activeEditor = e;
+  activeEditorPage = e ? pageId : null;
+  editorListeners.forEach((l) => l());
 };
 export const getActiveEditor = () => activeEditor;
+/** The open page's editor and which page it belongs to; re-renders when the page on screen changes. */
+export function useActiveEditor<T = any>(): { editor: T | null; pageId: string | null } {
+  const editor = useSyncExternalStore(
+    (l) => {
+      editorListeners.add(l);
+      return () => editorListeners.delete(l);
+    },
+    () => activeEditor,
+    () => null,
+  );
+  return { editor, pageId: editor ? activeEditorPage : null };
+}
 
 export function useUI<T>(select: (s: UIState) => T): T {
   return useSyncExternalStore(ui.subscribe, () => select(state), () => select(state));

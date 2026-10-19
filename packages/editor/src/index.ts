@@ -5,3 +5,4 @@ export { useIsDark } from "./useIsDark";
 export type { DovliEditor } from "./schema";
 export * from "./format";
 export type { FontId } from "./blocks/textStyles";
+export * from "./findReplace";

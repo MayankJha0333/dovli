@@ -9,8 +9,8 @@ export const keepSelection = { onMouseDown: (e: React.MouseEvent) => e.preventDe
 
 export function PanelTitle({ children, aside }: { children: ReactNode; aside?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-2 px-1 pb-3 pt-0.5">
-      <h2 className="m-0 font-display text-lg font-bold tracking-tight text-ink">{children}</h2>
+    <div className="flex items-center justify-between gap-2 px-0.5 pb-3 pt-0.5">
+      <h2 className="m-0 text-lg font-bold tracking-[-0.01em] text-ink">{children}</h2>
       {aside}
     </div>
   );
@@ -20,7 +20,7 @@ export function PanelTitle({ children, aside }: { children: ReactNode; aside?: R
 export function Section({ title, children, collapsible = false, defaultOpen = true, className }: { title: string; children: ReactNode; collapsible?: boolean; defaultOpen?: boolean; className?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className={cn("border-t border-line py-3 first-of-type:border-t-0 first-of-type:pt-1", className)}>
+    <section className={cn("border-t border-line py-3.5 first-of-type:border-t-0 first-of-type:pt-1", className)}>
       {collapsible ? (
         <button
           type="button"
@@ -32,7 +32,7 @@ export function Section({ title, children, collapsible = false, defaultOpen = tr
           <Icon name={open ? "chevronDown" : "chevron"} size={13} className="text-ink-3" />
         </button>
       ) : (
-        <h3 className="m-0 mb-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink-3">{title}</h3>
+        <h3 className="m-0 mb-1.5 text-xs font-semibold uppercase tracking-[0.05em] text-ink-3">{title}</h3>
       )}
       {open && children}
     </section>
@@ -46,10 +46,10 @@ export function Tile({ active, className, children, ...rest }: ButtonHTMLAttribu
       type="button"
       aria-pressed={active}
       className={cn(
-        "flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-md px-2.5 text-base text-ink transition-[background-color,box-shadow,color] duration-150",
+        "flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-md px-2.5 text-base text-ink transition-[background-color,box-shadow,color] duration-150",
         "bg-well hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-40",
-        // Chosen: the accent outline and tint show it; the label stays in the text colour so it reads well.
-        active && "bg-accent-soft font-semibold text-ink shadow-[inset_0_0_0_1.5px_var(--d-accent)] hover:bg-accent-soft",
+        // Chosen, as in Craft: a darker fill and a bolder label, the same in every theme.
+        active && "bg-active font-semibold text-ink shadow-[inset_0_0_0_0.5px_var(--d-line-strong)] hover:bg-active",
         className,
       )}
       {...rest}
@@ -73,7 +73,7 @@ export function IconRowButton({ icon, label, active, ...rest }: ButtonHTMLAttrib
       aria-pressed={active}
       className={cn(
         "grid min-w-0 flex-1 place-items-center text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:bg-hover focus-visible:outline-none disabled:pointer-events-none disabled:opacity-35",
-        active && "bg-accent-soft text-accent hover:bg-accent-soft hover:text-accent",
+        active && "bg-active text-ink hover:bg-active",
       )}
       {...rest}
     >

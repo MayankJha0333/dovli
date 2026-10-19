@@ -28,7 +28,6 @@ import { schema, type DovliEditor } from "./schema";
 import { useBridge, type EditorBridge } from "./bridge";
 import { useIsDark } from "./useIsDark";
 import { newTable } from "./blocks/dataTable";
-import { FindBar } from "./FindBar";
 import { tagFromEvent, tagsExtension } from "./tags";
 import { handleTopEdgeKey } from "./topEdge";
 import { fixBlockDropPosition } from "./dropPosition";
@@ -220,14 +219,12 @@ export default function PageEditor({
   onReady,
   readOnly = false,
   spellcheck = true,
-  find,
   onExitTop,
 }: {
   page: Page;
   onReady?: (editor: DovliEditor | null) => void;
   readOnly?: boolean;
   spellcheck?: boolean;
-  find?: { open: boolean; onClose: () => void };
   /** Backspace, ← or ↑ at the very top of the page: move to the title (see topEdge.ts). */
   onExitTop?: () => void;
 }) {
@@ -355,7 +352,6 @@ export default function PageEditor({
         }
       }}
     >
-      {find?.open && <FindBar editor={editor} onClose={find.onClose} />}
       <BlockNoteView
         editor={editor}
         editable={!readOnly}

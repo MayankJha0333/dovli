@@ -88,14 +88,15 @@ export const PopoverTrigger = P.Trigger;
 export const PopoverAnchor = P.Anchor;
 export const PopoverClose = P.Close;
 
-export function PopoverContent({ className, align = "start", sideOffset = 8, children, ...rest }: ComponentProps<typeof P.Content>) {
+/** A popover. `glass` is the page-chrome panel (the same in every theme, like Craft's); the default follows the theme. */
+export function PopoverContent({ className, align = "start", sideOffset = 8, glass = false, children, ...rest }: ComponentProps<typeof P.Content> & { glass?: boolean }) {
   return (
     <P.Portal>
       <P.Content
         align={align}
         sideOffset={sideOffset}
         collisionPadding={12}
-        className={cn("z-[350] rounded-lg p-3 text-ink surface-raised animate-pop-in focus:outline-none", className)}
+        className={cn("z-[350] p-3 animate-pop-in focus:outline-none", glass ? "chrome-panel" : "rounded-lg text-ink surface-raised", className)}
         {...rest}
       >
         {children}

@@ -142,6 +142,117 @@
   backdrop-filter: var(--d-filter-chrome, none);
 }
 
+/* ---------- Page chrome, the way Craft does it ----------
+   The buttons floating over a page and the panels they open (Format, Style, Info) look the same
+   in every theme, like Craft's CraftGlassMaterialView and CraftPanelContainerView: only light or
+   dark changes. Themes paint the app and the page; this glass sits on top. Inside, the neutral
+   tokens are set again, so every class used there (text-ink-3, bg-well, hover:bg-hover,
+   rounded-md) follows the glass instead of the theme. Measured from Craft on a Mac: pills 36pt
+   tall and fully round; panels 280pt wide, 14pt corners, 9pt below the buttons. */
+:root {
+  --c-font: var(--d-doc-sans);
+  --c-filter: blur(28px) saturate(1.8);
+  --c-pill: rgba(253, 252, 250, 0.95);
+  --c-pill-shadow: 0 0 0 0.5px rgba(20, 22, 26, 0.08), 0 1px 2px rgba(20, 22, 26, 0.06), 0 4px 14px rgba(20, 22, 26, 0.08);
+  --c-panel: rgba(249, 249, 251, 0.82);
+  --c-panel-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6), 0 0 0 0.5px rgba(20, 22, 26, 0.12), 0 2px 6px rgba(20, 22, 26, 0.05), 0 18px 50px rgba(20, 22, 26, 0.18);
+  --c-ink: #1f2225;
+  --c-ink-2: rgba(31, 34, 37, 0.78);
+  --c-ink-3: rgba(31, 34, 37, 0.64);
+  --c-ink-4: rgba(31, 34, 37, 0.42);
+  --c-line: rgba(31, 34, 37, 0.09);
+  --c-line-strong: rgba(31, 34, 37, 0.17);
+  --c-control: rgba(255, 255, 255, 0.6);
+  --c-control-hover: rgba(255, 255, 255, 0.92);
+  --c-control-on: rgba(31, 34, 37, 0.1);
+  --c-hover: rgba(31, 34, 37, 0.06);
+}
+:root[data-scheme="dark"] {
+  --c-pill: rgba(46, 46, 50, 0.94);
+  --c-pill-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.28);
+  --c-panel: rgba(36, 36, 40, 0.84);
+  --c-panel-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 0 0.5px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.2), 0 18px 50px rgba(0, 0, 0, 0.45);
+  --c-ink: #f4f4f4;
+  --c-ink-2: rgba(244, 244, 244, 0.8);
+  --c-ink-3: rgba(244, 244, 244, 0.64);
+  --c-ink-4: rgba(244, 244, 244, 0.42);
+  --c-line: rgba(255, 255, 255, 0.1);
+  --c-line-strong: rgba(255, 255, 255, 0.18);
+  --c-control: rgba(255, 255, 255, 0.06);
+  --c-control-hover: rgba(255, 255, 255, 0.11);
+  --c-control-on: rgba(255, 255, 255, 0.17);
+  --c-hover: rgba(255, 255, 255, 0.08);
+}
+@utility chrome-tokens {
+  --d-ink: var(--c-ink);
+  --d-ink-2: var(--c-ink-2);
+  --d-ink-3: var(--c-ink-3);
+  --d-ink-4: var(--c-ink-4);
+  --d-line: var(--c-line);
+  --d-line-strong: var(--c-line-strong);
+  --d-font-sans: var(--c-font);
+  --d-font-display: var(--c-font);
+  --d-display-tracking: -0.01em;
+  --d-display-weight: 700;
+  color: var(--c-ink);
+  font-family: var(--c-font);
+}
+@utility chrome-pill {
+  @apply chrome-tokens;
+  --d-hover: var(--c-hover);
+  --d-active-bg: var(--c-control-on);
+  --d-active-ink: var(--c-ink);
+  background: var(--c-pill);
+  box-shadow: var(--c-pill-shadow);
+  border-radius: 999px;
+  -webkit-backdrop-filter: var(--c-filter);
+  backdrop-filter: var(--c-filter);
+}
+@utility chrome-panel {
+  @apply chrome-tokens;
+  --d-well: var(--c-control);
+  --d-hover: var(--c-control-hover);
+  --d-panel: var(--c-control-hover);
+  --d-active-bg: var(--c-control-on);
+  --d-active-ink: var(--c-ink);
+  --d-radius-sm: 7px;
+  --d-radius-md: 10px;
+  --d-radius-lg: 12px;
+  --d-shadow-sm: 0 0 0 0.5px var(--c-line-strong), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --d-shadow-card: 0 0 0 0.5px var(--c-line-strong), 0 6px 16px rgba(0, 0, 0, 0.12);
+  --d-label-font: var(--c-font);
+  background: var(--c-panel);
+  box-shadow: var(--c-panel-shadow);
+  border-radius: 14px;
+  -webkit-backdrop-filter: var(--c-filter);
+  backdrop-filter: var(--c-filter);
+}
+
+/* Craft's scroll fader (CraftScrollViewFaderView, with its FadeOutGradient and Blur parts): once
+   a page scrolls, the text slides under the floating top bar and fades away into the page's own
+   background, softly blurred, instead of running hard into the buttons. Plain pages fade into
+   the page colour; styled pages fade into their backdrop (both painted from the window, so the
+   two line up exactly). The page view sets --fade-o from 0 at the top to 1 after a little
+   scrolling. */
+@utility scroll-fader {
+  background: linear-gradient(to bottom, var(--d-panel) 0, var(--d-panel) 30%, transparent 100%);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 34%, rgb(0 0 0 / 0.72) 58%, rgb(0 0 0 / 0.28) 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 34%, rgb(0 0 0 / 0.72) 58%, rgb(0 0 0 / 0.28) 80%, transparent 100%);
+  opacity: var(--fade-o, 0);
+  @media print {
+    display: none;
+  }
+}
+@media (hover: hover) {
+  [data-backdrop-fixed] { background-attachment: fixed !important; }
+  .scroll-fader[data-styled] { background: var(--s-backdrop); background-attachment: fixed; }
+}
+@media (hover: none) {
+  .scroll-fader[data-styled] { background: none; }
+}
+
 /* Section labels ("Pages", "Favourites"): sentence case, small caps, or mono, set by the theme. */
 @utility label-text {
   font-family: var(--d-label-font);

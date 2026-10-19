@@ -1,10 +1,10 @@
 // The top-right of a page, like Craft: a Share button, then one group with Aa (format),
-// Style and Info. Each opens a panel beside the page that stays out of the way of the text.
+// Style and Info. Each opens the same glass panel, flush right under the group.
 
 import { forwardRef, useEffect, useRef, useState, type ButtonHTMLAttributes } from "react";
 import type { DovliEditor } from "@dovli/editor";
 import type { Page } from "@dovli/core";
-import { Icon, PopoverContent, PopoverRoot, PopoverTrigger, Tooltip, cn, modKey, type IconName } from "@dovli/ui";
+import { Icon, PopoverAnchor, PopoverContent, PopoverRoot, Tooltip, cn, modKey, type IconName } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
 import { share, sharingOn } from "@/lib/share";
 import { ui, useUI } from "@/lib/ui";
@@ -14,10 +14,14 @@ import { StylePanel } from "./StylePanel";
 
 type PanelId = "format" | "style" | "info";
 
-const ToolButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { icon?: IconName; label: string; active?: boolean }>(function ToolButton(
-  { icon, label, active, children, className, ...rest },
-  ref,
-) {
+const ToolButton = forwardRef<
+  HTMLButtonElement,
+  ButtonHTMLAttributes<HTMLButtonElement> & {
+    icon?: IconName;
+    label: string;
+    active?: boolean;
+  }
+>(function ToolButton({ icon, label, active, children, className, ...rest }, ref) {
   return (
     <button
       ref={ref}
@@ -25,7 +29,7 @@ const ToolButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButton
       aria-label={label}
       aria-pressed={active}
       className={cn(
-        "grid h-8 min-w-9 place-items-center rounded-md px-2 text-ink-2 transition-colors hover:bg-hover hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        "grid h-7 min-w-8 place-items-center rounded-full px-2 text-ink transition-colors hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
         active && "bg-hover text-ink",
         className,
       )}
@@ -55,7 +59,10 @@ function useShareState(page: Page) {
     if (shareState.has(page.id) && !justClosed) return;
     share.settings(page.id).then(
       (s) => {
-        const v = { people: s.people.filter((p) => p.role !== "owner").length, link: s.link?.enabled ? s.link.role : null };
+        const v = {
+          people: s.people.filter((p) => p.role !== "owner").length,
+          link: s.link?.enabled ? s.link.role : null,
+        };
         shareState.set(page.id, v);
         if (live) setState(v);
       },
@@ -68,12 +75,19 @@ function useShareState(page: Page) {
   const shared = !!state && (state.people > 0 || !!state.link);
   const who = state?.people ? `${state.people} ${state.people === 1 ? "person has" : "people have"} access` : "";
   const viaLink = state?.link ? (state.link === "editor" ? "anyone with the link can edit" : "anyone with the link can view") : "";
-  const tip = shared ? `${[who, viaLink].filter(Boolean).join(", and ").replace(/^./, (c) => c.toUpperCase())}. Click to change.` : "Only you can access this page. Click to share it or export it.";
+  const tip = shared
+    ? `${[who, viaLink]
+        .filter(Boolean)
+        .join(", and ")
+        .replace(/^./, (c) => c.toUpperCase())}. Click to change.`
+    : "Only you can access this page. Click to share it or export it.";
   return { shared, tip };
 }
 
 export function PageToolbar({ page, editor, onFind, onPresent }: { page: Page; editor: DovliEditor | null; onFind: () => void; onPresent: () => void }) {
   const [open, setOpen] = useState<PanelId | null>(null);
+  const openRef = useRef(open);
+  openRef.current = open;
   const { shared, tip } = useShareState(page);
   const isDoc = page.kind === "doc";
 
@@ -94,36 +108,20 @@ export function PageToolbar({ page, editor, onFind, onPresent }: { page: Page; e
     return () => window.removeEventListener("keydown", onKey);
   }, [isDoc]);
 
-  const panel = (id: PanelId, trigger: React.ReactElement, body: React.ReactNode, keepEditorFocus = false) => (
-    <PopoverRoot open={open === id} onOpenChange={(o) => setOpen(o ? id : null)} modal={false}>
-      <Tooltip label={id === "format" ? "Format" : id === "style" ? "Style" : "Info"} shortcut={id === "info" ? `${modKey()}⇧I` : id === "style" ? `${modKey()}⇧Y` : undefined}>
-        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      </Tooltip>
-      <PopoverContent
-        align="end"
-        sideOffset={10}
-        aria-label={id === "format" ? "Format" : id === "style" ? "Style" : "Info"}
-        className="w-[min(360px,calc(100vw-24px))] max-h-[calc(100dvh-84px)] overflow-y-auto overscroll-contain rounded-xl p-4"
-        // The format panel works on the text, so the cursor stays in the page while it is open,
-        // and clicking back into the page doesn't close it.
-        onOpenAutoFocus={keepEditorFocus ? (e) => e.preventDefault() : undefined}
-        // On close, go back to writing rather than to the button (whose tooltip would pop up).
-        onCloseAutoFocus={(e) => {
-          e.preventDefault();
-          (document.querySelector(".bn-editor") as HTMLElement | null)?.focus({ preventScroll: true });
-        }}
-        onInteractOutside={
-          keepEditorFocus
-            ? (e) => {
-                const t = e.target as HTMLElement | null;
-                if (t?.closest?.(".bn-editor, .bn-formatting-toolbar, [data-page-toolbar]")) e.preventDefault();
-              }
-            : undefined
-        }
-      >
-        {body}
-      </PopoverContent>
-    </PopoverRoot>
+  const LABEL: Record<PanelId, string> = {
+    format: "Format",
+    style: "Style",
+    info: "Info",
+  };
+  const SHORTCUT: Partial<Record<PanelId, string>> = {
+    info: `${modKey()}⇧I`,
+    style: `${modKey()}⇧Y`,
+  };
+  const toggle = (id: PanelId) => setOpen((o) => (o === id ? null : id));
+  const trigger = (id: PanelId, button: React.ReactElement) => (
+    <Tooltip label={LABEL[id]} shortcut={SHORTCUT[id]}>
+      {button}
+    </Tooltip>
   );
 
   return (
@@ -132,25 +130,75 @@ export function PageToolbar({ page, editor, onFind, onPresent }: { page: Page; e
         <button
           type="button"
           onClick={() => ui.set({ share: page.id })}
-          className="flex h-9 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-ink surface-chip transition-colors hover:bg-hover max-[640px]:px-2.5"
+          className="flex h-9 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-ink chrome-pill transition-[filter] hover:brightness-[0.97] max-[640px]:px-2.5"
         >
           <Icon name={shared ? "link" : "lock"} size={15} />
           <span className="max-[480px]:sr-only">{shared ? "Shared" : "Share"}</span>
         </button>
       </Tooltip>
-      <div className="flex h-9 items-center gap-0.5 rounded-full px-1 surface-chip">
-        {isDoc &&
-          panel(
-            "format",
-            <ToolButton label="Format" active={open === "format"} className="font-display text-[15px] font-semibold" onMouseDown={(e) => e.preventDefault()}>
-              Aa
-            </ToolButton>,
-            <FormatPanel page={page} editor={editor} />,
-            true,
-          )}
-        {isDoc && panel("style", <ToolButton icon="brush" label="Style" active={open === "style"} />, <StylePanel page={page} />)}
-        {panel("info", <ToolButton icon="info" label="Info" active={open === "info"} />, <InfoPanel page={page} onFind={onFind} onPresent={onPresent} close={() => setOpen(null)} />)}
-      </div>
+      {/* One popover for the group, anchored to the group's right edge (like Craft): Format, Style
+          and Info all open in the same place, flush right under the buttons, whichever was pressed. */}
+      <PopoverRoot open={open !== null} onOpenChange={(o) => !o && setOpen(null)} modal={false}>
+        <PopoverAnchor asChild>
+          <div className="flex h-9 items-center gap-0.5 px-1 chrome-pill">
+            {isDoc &&
+              trigger(
+                "format",
+                <ToolButton
+                  label="Format"
+                  active={open === "format"}
+                  aria-expanded={open === "format"}
+                  aria-haspopup="dialog"
+                  className="text-[15px] font-semibold"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => toggle("format")}
+                >
+                  Aa
+                </ToolButton>,
+              )}
+            {isDoc &&
+              trigger(
+                "style",
+                <ToolButton icon="brush" label="Style" active={open === "style"} aria-expanded={open === "style"} aria-haspopup="dialog" onClick={() => toggle("style")} />,
+              )}
+            {trigger(
+              "info",
+              <ToolButton icon="info" label="Info" active={open === "info"} aria-expanded={open === "info"} aria-haspopup="dialog" onClick={() => toggle("info")} />,
+            )}
+          </div>
+        </PopoverAnchor>
+        {open && (
+          <PopoverContent
+            key={open}
+            glass
+            align="end"
+            sideOffset={9}
+            aria-label={LABEL[open]}
+            data-page-panel={open}
+            className="w-[min(300px,calc(100vw-24px))] max-h-[calc(var(--radix-popover-content-available-height)-4px)] overflow-y-auto overscroll-contain p-3.5"
+            // The format panel works on the text, so the cursor stays in the page while it is open,
+            // and clicking back into the page doesn't close it.
+            onOpenAutoFocus={open === "format" ? (e) => e.preventDefault() : undefined}
+            // On close, go back to writing rather than to the button (whose tooltip would pop up).
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              // Switching to another panel (Format → Style) also unmounts this one: leave focus to the new one.
+              if (openRef.current) return;
+              (document.querySelector(".bn-editor") as HTMLElement | null)?.focus({ preventScroll: true });
+            }}
+            onInteractOutside={(e) => {
+              const t = e.target as HTMLElement | null;
+              // The toolbar's own buttons switch or close the panel themselves.
+              if (t?.closest?.("[data-page-toolbar]")) return e.preventDefault();
+              if (open === "format" && t?.closest?.(".bn-editor, .bn-formatting-toolbar")) e.preventDefault();
+            }}
+          >
+            {open === "format" && <FormatPanel page={page} editor={editor} />}
+            {open === "style" && <StylePanel page={page} />}
+            {open === "info" && <InfoPanel page={page} onFind={onFind} onPresent={onPresent} close={() => setOpen(null)} />}
+          </PopoverContent>
+        )}
+      </PopoverRoot>
     </div>
   );
 }

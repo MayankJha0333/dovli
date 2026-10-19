@@ -10,6 +10,7 @@ import { Crumb, CrumbSep, TopBar } from "@/components/TopBar";
 import { Backlinks, scrollToBlock } from "./PageInfo";
 import { Cover, CoverPicker, IconPicker, PageIconGlyph, TitleField, hasOwnIcon } from "./PageHeader";
 import { PageToolbar } from "./panels/PageToolbar";
+import { find } from "@/lib/find";
 
 export const PageEditor = lazy(() => import("@dovli/editor/page-editor"));
 export const Whiteboard = lazy(() => import("@/features/whiteboard/Whiteboard"));
@@ -40,20 +41,35 @@ export function PageView({ id }: { id: string }) {
   const spellcheck = useSettings((s) => s.spellcheck);
   const editorRef = useRef<DovliEditor | null>(null);
   const [editor, setEditor] = useState<DovliEditor | null>(null);
-  const onReady = useCallback((e: DovliEditor | null) => {
-    editorRef.current = e;
-    setEditor(e);
-    setActiveEditor(e);
-  }, []);
+  const onReady = useCallback(
+    (e: DovliEditor | null) => {
+      editorRef.current = e;
+      setEditor(e);
+      setActiveEditor(e, id);
+    },
+    [id],
+  );
   const presenting = useUI((s) => s.presenting === id);
   const scroller = useRef<HTMLDivElement>(null);
-  // The top bar floats over the page. Once the page scrolls under it, it gets a background.
-  const [scrolled, setScrolled] = useState(false);
-  const [findOpen, setFindOpen] = useState(false);
-  const closeFind = useCallback(() => {
-    setFindOpen(false);
-    editorRef.current?.focus();
+
+  // Craft's scroll fader: it fades in over the first 48px of scrolling, so the top of the page is untouched.
+  const fadeFrame = useRef(0);
+  const root = useRef<HTMLDivElement>(null);
+  const onScroll = useCallback(() => {
+    if (fadeFrame.current) return;
+    fadeFrame.current = requestAnimationFrame(() => {
+      fadeFrame.current = 0;
+      const el = scroller.current;
+      const r = root.current;
+      if (!el || !r) return;
+      r.style.setProperty("--fade-o", String(Math.min(1, Math.max(0, el.scrollTop / 48))));
+      r.style.setProperty("--scrollbar", `${el.offsetWidth - el.clientWidth}px`);
+    });
   }, []);
+  useEffect(() => {
+    root.current?.style.setProperty("--fade-o", "0");
+    return () => cancelAnimationFrame(fadeFrame.current);
+  }, [id]);
 
   // A brand-new page starts with the cursor in its title.
   useEffect(() => {
@@ -90,13 +106,17 @@ export function PageView({ id }: { id: string }) {
     };
   }, [presenting]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ⌘F finds in this page.
+  // ⌘F opens Find in the sidebar, like Craft; ⌘G and ⌘⇧G step through the matches.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey)) return;
-      if (e.key.toLowerCase() === "f" && !e.shiftKey && page?.kind === "doc") {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || page?.kind !== "doc") return;
+      const k = e.key.toLowerCase();
+      if (k === "f" && !e.shiftKey) {
         e.preventDefault();
-        setFindOpen(true);
+        find.show();
+      } else if (k === "g" && find.get().open) {
+        e.preventDefault();
+        find.step(e.shiftKey ? -1 : 1);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -131,7 +151,7 @@ export function PageView({ id }: { id: string }) {
     </>
   );
 
-  const actions = <PageToolbar page={page} editor={editor} onFind={() => setFindOpen(true)} onPresent={() => ui.set({ presenting: page.id })} />;
+  const actions = <PageToolbar page={page} editor={editor} onFind={() => find.show()} onPresent={() => ui.set({ presenting: page.id })} />;
 
   if (page.kind === "board")
     return (
@@ -159,28 +179,37 @@ export function PageView({ id }: { id: string }) {
 
   const meta = [`Edited ${timeAgo(page.updatedAt)}`, `${words} ${words === 1 ? "word" : "words"}`, ...(kids.length ? [`${kids.length} ${kids.length === 1 ? "page" : "pages"} inside`] : [])];
 
-  // A cover or a page style paints right up to the top edge, under the floating top bar.
-  const painted = !!page.cover || !!style;
   return (
-    <div className="relative flex h-full flex-col">
+    <div ref={root} className="relative flex h-full flex-col">
       {!presenting && (
         <TopBar
           crumbs={crumbs}
           bareActions
           showCrumbs={trail.length > 0}
-          className={cn(
-            "absolute inset-x-0 top-0 transition-[background-color,box-shadow] duration-200",
-            scrolled ? "surface-panel shadow-[0_1px_0_var(--d-line)]" : painted && "[--d-chip-bg:var(--d-raised)]",
-          )}
+          // Like Craft, the bar itself has no background, before or after scrolling: only its glass
+          // pills float over the page, and the strip between them lets clicks through to the page.
+          className="pointer-events-none absolute inset-x-0 top-0 [&>*]:pointer-events-auto"
         >
           {actions}
         </TopBar>
       )}
+      {/* Craft's scroll fader: a blur that fades out downwards, under the top bar's pills. It stops
+          short of the scrollbar so that stays crisp. */}
+      {!presenting && (
+        <div
+          aria-hidden="true"
+          data-scroll-fader
+          data-styled={style ? "" : undefined}
+          style={look?.vars as any}
+          className="scroll-fader pointer-events-none absolute left-0 right-[var(--scrollbar,0px)] top-0 z-[15] h-[76px]"
+        />
+      )}
       <div className="flex min-h-0 flex-1">
         <div
           ref={scroller}
-          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           data-print="scroll"
+          data-backdrop-fixed={style && !presenting ? "" : undefined}
+          onScroll={presenting ? undefined : onScroll}
           className={cn(
             "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden [scrollbar-gutter:stable]",
             style && "[background:var(--s-backdrop)]",
@@ -282,7 +311,6 @@ export function PageView({ id }: { id: string }) {
                 onReady={onReady}
                 readOnly={presenting}
                 spellcheck={spellcheck}
-                find={{ open: findOpen, onClose: closeFind }}
                 onExitTop={focusTitleEnd}
               />
             </Suspense>

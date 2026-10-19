@@ -21,14 +21,14 @@ function setLook(page: Page, patch: Partial<PageLook>) {
 function ColorRow({ label, value, shown, onPick, onReset }: { label: string; value: string; shown: string; onPick: (hex: string) => void; onReset?: () => void }) {
   const input = useRef<HTMLInputElement>(null);
   return (
-    <div className="flex min-h-11 items-center gap-2">
-      <span className="flex-1 text-base text-ink">{label}</span>
+    <div className="flex min-h-9 items-center gap-2">
+      <span className="flex-1 text-md text-ink">{label}</span>
       {onReset && (
         <button type="button" onClick={onReset} className="rounded-sm px-1.5 py-0.5 text-xs text-ink-3 hover:bg-hover hover:text-ink">
           Reset
         </button>
       )}
-      <label className="relative h-9 w-[72px] cursor-pointer overflow-hidden rounded-md shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)] focus-within:ring-2 focus-within:ring-accent" style={{ background: shown }}>
+      <label className="relative h-7 w-9 cursor-pointer overflow-hidden rounded-[8px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.12)] focus-within:ring-2 focus-within:ring-accent" style={{ background: shown }}>
         <input ref={input} type="color" value={value} aria-label={label} onChange={(e) => onPick(e.target.value)} className="absolute inset-0 size-full cursor-pointer opacity-0" />
       </label>
     </div>
@@ -53,7 +53,7 @@ export function StylePanel({ page }: { page: Page }) {
         type="button"
         onClick={() => ui.set({ styleFor: page.id })}
         aria-label={`Page style: ${lookName(r)}. See all styles`}
-        className="group relative block h-[150px] w-full overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]"
+        className="group relative block h-[136px] w-full overflow-hidden rounded-lg shadow-[inset_0_0_0_1px_rgba(0,0,0,0.08)]"
         style={{ background: shownStyle ? shownStyle.backdrop : "var(--d-bg)" }}
       >
         <span
@@ -111,8 +111,8 @@ export function StylePanel({ page }: { page: Page }) {
       </Section>
 
       <Section title="Cover">
-        <div className="flex min-h-11 items-center gap-2">
-          <span className="flex-1 text-base text-ink">Cover picture</span>
+        <div className="flex min-h-9 items-center gap-2">
+          <span className="flex-1 text-md text-ink">Cover picture</span>
           {page.cover && (
             <button type="button" onClick={() => store.updatePage(page.id, { cover: null })} className="rounded-sm px-1.5 py-0.5 text-xs text-ink-3 hover:bg-hover hover:text-ink">
               Remove
@@ -124,7 +124,7 @@ export function StylePanel({ page }: { page: Page }) {
               <button
                 type="button"
                 aria-label={page.cover ? "Change cover" : "Add a cover"}
-                className="grid h-9 w-[72px] place-items-center overflow-hidden rounded-md bg-well text-ink-3 shadow-[inset_0_0_0_1px_var(--d-line)] hover:text-ink"
+                className="grid h-7 w-9 place-items-center overflow-hidden rounded-[8px] bg-well text-ink-3 shadow-[inset_0_0_0_1px_var(--d-line)] hover:text-ink"
                 style={preset ? { background: preset.css } : undefined}
               >
                 {coverSrc ? <img src={coverSrc} alt="" className="size-full object-cover" /> : !preset && <Icon name="plus" size={16} />}
@@ -158,9 +158,9 @@ export function StylePanel({ page }: { page: Page }) {
         </div>
       </Section>
 
-      <Section title="Layout">
+      <Section title="Advanced">
         <div className="flex min-h-10 items-center gap-2">
-          <label htmlFor="wide-page" className="flex-1 text-base text-ink">
+          <label htmlFor="wide-page" className="flex-1 text-md text-ink">
             Wide page
           </label>
           <Switch id="wide-page" label="Wide page" checked={r.wide} onCheckedChange={(v) => setLook(page, { wide: v || undefined })} />
