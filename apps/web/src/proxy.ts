@@ -7,7 +7,8 @@ import { LOGIN_PATH, SESSION_COOKIE, SIGNUP_PATH, authGateOn, loginUrl, sessionL
 export function proxy(req: NextRequest) {
   if (!authGateOn) return NextResponse.next();
   const { pathname, search } = req.nextUrl;
-  if (pathname === LOGIN_PATH || pathname === SIGNUP_PATH) return NextResponse.next();
+  // The sign-in pages and the landing page ("/", for everyone; "/welcome" is an old address for it).
+  if (pathname === LOGIN_PATH || pathname === SIGNUP_PATH || pathname === "/" || pathname === "/welcome") return NextResponse.next();
   if (sessionLooksLive(req.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
   const res = NextResponse.redirect(new URL(loginUrl(pathname + search), req.url));
   res.headers.set("cache-control", "no-store");

@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { loginUrl, safeNext, sessionLooksLive } from "./authGate";
+import { APP_PATH, loginUrl, safeNext, sessionLooksLive } from "./authGate";
 
 const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
 const cookie = (claims: object) => `${b64({ alg: "RS256" })}.${b64(claims)}.signature`;
 
 describe("where to go after signing in", () => {
   it("keeps paths on this site", () => {
-    expect(safeNext("/")).toBe("/");
-    expect(safeNext("/#p-abc")).toBe("/#p-abc");
+    expect(safeNext("/app")).toBe("/app");
+    expect(safeNext("/app#p-abc")).toBe("/app#p-abc");
     expect(safeNext(["/x", "/y"])).toBe("/x");
   });
+  it("sends the landing page and old page links on to the app", () => {
+    expect(safeNext("/")).toBe(APP_PATH);
+    expect(safeNext("/#p-abc")).toBe("/app#p-abc");
+    expect(safeNext(undefined)).toBe(APP_PATH);
+  });
   it("refuses other websites and loops back to sign-in", () => {
-    for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "evil", "", undefined, 42, "/login", "/signup?next=/"]) expect(safeNext(bad)).toBe("/");
+    for (const bad of ["https://evil.example", "//evil.example", "/\\evil.example", "evil", "", undefined, 42, "/login", "/signup?next=/"]) expect(safeNext(bad)).toBe(APP_PATH);
   });
   it("builds the sign-in address", () => {
+    expect(loginUrl("/app")).toBe("/login");
     expect(loginUrl("/")).toBe("/login");
-    expect(loginUrl("/?x=1")).toBe("/login?next=%2F%3Fx%3D1");
-    expect(loginUrl("/", "/signup")).toBe("/signup");
+    expect(loginUrl("/app?x=1")).toBe("/login?next=%2Fapp%3Fx%3D1");
+    expect(loginUrl("/app", "/signup")).toBe("/signup");
   });
 });
 

@@ -19,19 +19,25 @@ export const SESSION_DAYS = 14;
 
 export const LOGIN_PATH = "/login";
 export const SIGNUP_PATH = "/signup";
+/** The app itself (your workspace). "/" is the landing page, for everyone. */
+export const APP_PATH = "/app";
 
-/** Where to go after signing in: only a path on this site (never "//elsewhere" or a full URL). */
+/**
+ * Where to go after signing in: only a path on this site (never "//elsewhere" or a full URL).
+ * Anything else, and the landing page itself, means the app. Old page links ("/#p-…") go to the app too.
+ */
 export function safeNext(raw: unknown): string {
   const v = typeof raw === "string" ? raw : Array.isArray(raw) ? String(raw[0] ?? "") : "";
-  if (!v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\") || v.length > 500) return "/";
-  if (v === LOGIN_PATH || v === SIGNUP_PATH || v.startsWith(`${LOGIN_PATH}?`) || v.startsWith(`${SIGNUP_PATH}?`)) return "/";
+  if (!v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\") || v.length > 500) return APP_PATH;
+  if (v === LOGIN_PATH || v === SIGNUP_PATH || v.startsWith(`${LOGIN_PATH}?`) || v.startsWith(`${SIGNUP_PATH}?`)) return APP_PATH;
+  if (v === "/" || v.startsWith("/#") || v.startsWith("/?")) return APP_PATH + v.slice(1);
   return v;
 }
 
 /** The sign-in page's address, remembering where to come back to. */
-export function loginUrl(next = "/", path = LOGIN_PATH): string {
+export function loginUrl(next = APP_PATH, path = LOGIN_PATH): string {
   const n = safeNext(next);
-  return n === "/" ? path : `${path}?next=${encodeURIComponent(n)}`;
+  return n === APP_PATH ? path : `${path}?next=${encodeURIComponent(n)}`;
 }
 
 /**

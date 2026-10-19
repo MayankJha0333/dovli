@@ -5,6 +5,7 @@ import { PageIconGlyph, hasOwnIcon } from "@/features/page/PageIcon";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
 import { coverPreset, resolveLook } from "@dovli/theme";
 import { Button, DovliMark, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
+import { APP_PATH } from "@/lib/authGate";
 import { auth, initAuth } from "@/lib/auth";
 import { applySettings } from "@/lib/settings";
 import { share } from "@/lib/share";
@@ -55,7 +56,7 @@ export default function SharedPage({ source }: { source: SharedSource }) {
     try {
       const r = await share.open(source);
       // Your own page: open it in your workspace instead.
-      if (r.role === "owner" && "pageId" in source) return location.replace(`/#p-${encodeURIComponent(r.pageId)}`);
+      if (r.role === "owner" && "pageId" in source) return location.replace(`${APP_PATH}#p-${encodeURIComponent(r.pageId)}`);
       rev.current = r.rev;
       setCurrent(r.page);
       setState({ role: r.role, signInToEdit: r.signInToEdit, ownerName: r.ownerName, page: r.page });
@@ -132,7 +133,7 @@ export default function SharedPage({ source }: { source: SharedSource }) {
           </span>
           <h1 className="display-text m-0 text-2xl">This page isn't available</h1>
           <p className="m-0 text-ink-2">It may have been unshared or deleted, or the link was typed wrong. Ask the person who shared it for a new link.</p>
-          <Button variant="primary" onClick={() => location.assign("/")}>
+          <Button variant="primary" onClick={() => location.assign(APP_PATH)}>
             Open Dovli
           </Button>
         </main>
