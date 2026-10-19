@@ -98,6 +98,80 @@ const grain = svg(
   160,
 );
 
+const blossoms = svg(
+  flower(24, 26, 7, "#ffd1e0", "#f28fb1") +
+    flower(74, 68, 5.5, "#ffe3ec", "#ee7ca3") +
+    flower(82, 18, 3.5, "#fff0f5", "#f5a3bf") +
+    `<g fill='#ffc2d6' opacity='.8'><ellipse cx='52' cy='40' rx='2.6' ry='4.2' transform='rotate(35 52 40)'/><ellipse cx='16' cy='78' rx='2.2' ry='3.6' transform='rotate(-25 16 78)'/><ellipse cx='92' cy='92' rx='2' ry='3.2' transform='rotate(60 92 92)'/></g>`,
+  100,
+  100,
+  "opacity='0.9'",
+);
+
+const dunes = svg(
+  `<path d='M0 60C70 30 130 44 200 56s130 2 200-24v108H0z' fill='#eab47a'/><path d='M0 86C90 58 160 70 240 84s110 0 160-14v70H0z' fill='#d98c52'/><path d='M0 112c100-22 170-10 250 0s110 4 150-6v34H0z' fill='#b8643a'/>`,
+  400,
+  140,
+  "preserveAspectRatio='none'",
+);
+
+/** A row of pines: tall and short, two shades for depth. */
+function pineRow(base: number, fill: string, opacity: number, seed: number) {
+  let out = "";
+  let x = -10 + (seed % 17);
+  let i = seed;
+  while (x < 410) {
+    const h = 44 + ((i * 37) % 38);
+    const w = h * 0.42;
+    out += `<path d='M${x} ${base}L${(x + w / 2).toFixed(1)} ${base - h}L${(x + w).toFixed(1)} ${base}z'/>`;
+    x += w * 0.72 + ((i * 13) % 9);
+    i++;
+  }
+  return `<g fill='${fill}' opacity='${opacity}'>${out}</g>`;
+}
+const pines = svg(pineRow(120, "#4f7d63", 0.45, 3) + pineRow(120, "#2d5442", 0.85, 11) + `<rect y='118' width='400' height='2' fill='#2d5442'/>`, 400, 120, "preserveAspectRatio='none'");
+
+const synthSun = svg(
+  `<defs><linearGradient id='s' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#ffd36b'/><stop offset='1' stop-color='#ff4fa3'/></linearGradient></defs><circle cx='200' cy='150' r='70' fill='url(#s)'/><g fill='#2a1150'><rect x='120' y='166' width='160' height='4'/><rect x='120' y='180' width='160' height='6'/><rect x='120' y='196' width='160' height='9'/></g><rect y='210' width='400' height='90' fill='#2a1150'/><g stroke='#ff4fa3' stroke-opacity='.6' stroke-width='1.2' fill='none'><path d='M0 220H400M0 234H400M0 254H400M0 284H400'/><path d='M200 210L200 300M200 210L130 300M200 210L50 300M200 210L-40 300M200 210L270 300M200 210L350 300M200 210L440 300'/></g>`,
+  400,
+  300,
+  "preserveAspectRatio='xMidYMax slice'",
+);
+
+const beans = svg(
+  [
+    [18, 22, 30],
+    [64, 16, -20],
+    [42, 56, 70],
+    [86, 58, 15],
+    [20, 88, -40],
+    [70, 94, 50],
+  ]
+    .map(
+      ([x, y, r]) =>
+        `<g transform='rotate(${r} ${x} ${y})'><ellipse cx='${x}' cy='${y}' rx='6.5' ry='9.5' fill='#5a3420' opacity='.42'/><path d='M${x} ${y - 8}c-3 4 3 12 0 16' stroke='#e9d2bb' stroke-opacity='.55' stroke-width='1.3' fill='none'/></g>`,
+    )
+    .join(""),
+  100,
+  110,
+);
+
+/** Folded paper in the mark's colours: a fixed low-poly mesh. */
+const folds = (() => {
+  const pts: Record<string, [number, number]> = {
+    a: [0, 0], b: [140, 0], c: [260, 0], d: [400, 0],
+    e: [0, 130], f: [110, 160], g: [230, 120], h: [330, 170], i: [400, 140],
+    j: [0, 280], k: [150, 300], l: [270, 260], m: [400, 300],
+    n: [0, 400], o: [120, 400], q: [260, 400], r: [400, 400],
+  };
+  const tris = "abf afe bcg bgf cdh chg dih efj fkj fgk glk ghl him hml jkn kon kqo klq lmq mrq".split(" ");
+  const fills = ["#a9c8ff", "#c3b5ff", "#f1c3f2", "#b8d6ff", "#d8cdff", "#f6d6f4", "#9dbcff", "#b4a4ff", "#e7b8f0", "#cfe0ff"];
+  const body = tris
+    .map((t, k) => `<path d='M${t.split("").map((c) => pts[c].join(" ")).join("L")}z' fill='${fills[k % fills.length]}'/>`)
+    .join("");
+  return svg(`${body}<g fill='none' stroke='#fff' stroke-opacity='.55' stroke-width='1.2'>${tris.map((t) => `<path d='M${t.split("").map((c) => pts[c].join(" ")).join("L")}z'/>`).join("")}</g>`, 400, 400, "preserveAspectRatio='none'");
+})();
+
 export const PAGE_STYLES: PageStyle[] = [
   {
     id: "paper",
@@ -245,6 +319,67 @@ export const PAGE_STYLES: PageStyle[] = [
     title: "sans",
   },
   {
+    id: "blossom",
+    name: "Cherry Blossom",
+    tags: "pink flowers sakura spring soft japan",
+    backdrop: `${blossoms}, linear-gradient(170deg, #fde4ec, #f7c6d6 60%, #eab0c6)`,
+    paper: "#fffafb",
+    ink: "#3b1d2a",
+    accent: "#c8406f",
+    title: "italic",
+  },
+  {
+    id: "dunes",
+    name: "Desert Dunes",
+    tags: "sand orange warm desert sun travel",
+    backdrop: `${dunes} bottom / 100% 46% no-repeat, radial-gradient(circle at 26% 30%, #fff1c9 0 6%, transparent 6.5%), radial-gradient(circle at 26% 30%, rgba(255, 214, 150, 0.6), transparent 36%), linear-gradient(180deg, #f9d9a8, #f3b27a 60%, #e48f5c)`,
+    paper: "#fffaf2",
+    ink: "#3a2414",
+    accent: "#b4532a",
+    title: "serif",
+  },
+  {
+    id: "evergreen",
+    name: "Evergreen",
+    tags: "green forest pine trees nature mist calm",
+    backdrop: `${pines} bottom / 100% 40% no-repeat, radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.65), transparent 60%), linear-gradient(180deg, #e3ece4, #bfd3c4 60%, #93b39f)`,
+    paper: "#f8fbf7",
+    ink: "#17291f",
+    accent: "#2f6b4b",
+    title: "serif",
+  },
+  {
+    id: "notebook",
+    name: "Notebook",
+    tags: "yellow lined paper school notes study legal pad",
+    backdrop:
+      "linear-gradient(90deg, transparent 0 56px, rgba(214, 72, 72, 0.5) 56px 58px, transparent 58px), repeating-linear-gradient(180deg, transparent 0 27px, rgba(70, 120, 190, 0.3) 27px 28px), #fdf3c8",
+    paper: "#fffdf3",
+    ink: "#1f2430",
+    accent: "#c23b3b",
+    title: "sans",
+  },
+  {
+    id: "cafe",
+    name: "Café",
+    tags: "coffee brown warm beans cozy latte",
+    backdrop: `${beans}, linear-gradient(170deg, #caa27c, #9c6b47)`,
+    paper: "#fffaf3",
+    ink: "#2e1d12",
+    accent: "#8b4a24",
+    title: "serif",
+  },
+  {
+    id: "origami",
+    name: "Origami",
+    tags: "folded paper triangles pastel blue purple pink geometric",
+    backdrop: `${folds} center / cover no-repeat, #e9ecff`,
+    paper: "#ffffff",
+    ink: "#1d1b3a",
+    accent: "#6a4fe0",
+    title: "display",
+  },
+  {
     id: "graphite",
     name: "Graphite",
     tags: "dark grey charcoal code focus mono",
@@ -266,6 +401,17 @@ export const PAGE_STYLES: PageStyle[] = [
     ink: "#eceef4",
     accent: "#6fe0c0",
     title: "sans",
+    dark: true,
+  },
+  {
+    id: "synthwave",
+    name: "Synthwave",
+    tags: "dark neon retro pink purple sun grid 80s",
+    backdrop: `${synthSun} center bottom / cover no-repeat, linear-gradient(180deg, #120a2e, #3a1466 62%, #2a1150)`,
+    paper: "#1c1433",
+    ink: "#f3eefc",
+    accent: "#ff5fae",
+    title: "display",
     dark: true,
   },
 ];
