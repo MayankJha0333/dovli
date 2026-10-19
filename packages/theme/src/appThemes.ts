@@ -96,8 +96,13 @@ export interface AppTheme {
   };
 }
 
-const FONT_STACK = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
-const MONO_STACK = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+// Fonts, the way Craft does it: no downloaded interface fonts at all. Craft's app only asks the
+// system for its fonts (UIFont systemFont, plus the rounded, serif and monospaced designs), and
+// its web pages use -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial. So
+// every theme uses the device's own font: SF Pro on Apple devices, Segoe UI on Windows, Roboto on
+// Android. Themes still differ in colour, shape and weight, never in typeface.
+const FONT_STACK = '-apple-system, BlinkMacSystemFont, system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"';
+const MONO_STACK = 'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace';
 
 export const softStudio: AppTheme = {
   id: "soft-studio",
@@ -139,11 +144,11 @@ export const softStudio: AppTheme = {
     sketch: "#E3E1FB",
   },
   fonts: {
-    sans: `"Figtree", ${FONT_STACK}`,
-    display: `"Bricolage Grotesque", "Figtree", ${FONT_STACK}`,
-    mono: `"Geist Mono", ${MONO_STACK}`,
+    sans: FONT_STACK,
+    display: FONT_STACK,
+    mono: MONO_STACK,
     displayWeight: 700,
-    displayTracking: "-0.03em",
+    displayTracking: "-0.015em",
   },
   radius: { sm: 8, md: 12, lg: 18, xl: 22, shell: 20, sheet: 28 },
   shadow: {
@@ -204,11 +209,11 @@ export const frost: AppTheme = {
     sketch: "rgba(61, 91, 245, 0.14)",
   },
   fonts: {
-    sans: `"Onest", ${FONT_STACK}`,
-    display: `"Onest", ${FONT_STACK}`,
-    mono: `"Geist Mono", ${MONO_STACK}`,
-    displayWeight: 800,
-    displayTracking: "-0.035em",
+    sans: FONT_STACK,
+    display: FONT_STACK,
+    mono: MONO_STACK,
+    displayWeight: 700,
+    displayTracking: "-0.015em",
   },
   radius: { sm: 9, md: 12, lg: 20, xl: 24, shell: 24, sheet: 30 },
   shadow: {
@@ -266,11 +271,11 @@ export const nightDesk: AppTheme = {
     sketch: "rgba(200, 242, 90, 0.14)",
   },
   fonts: {
-    sans: `"Geist", ${FONT_STACK}`,
-    display: `"Geist", ${FONT_STACK}`,
-    mono: `"Geist Mono", ${MONO_STACK}`,
-    displayWeight: 600,
-    displayTracking: "-0.035em",
+    sans: FONT_STACK,
+    display: FONT_STACK,
+    mono: MONO_STACK,
+    displayWeight: 700,
+    displayTracking: "-0.015em",
   },
   radius: { sm: 5, md: 7, lg: 10, xl: 12, shell: 10, sheet: 12 },
   shadow: {
@@ -332,11 +337,11 @@ export const mica: AppTheme = {
     sketch: "rgba(179, 166, 255, 0.16)",
   },
   fonts: {
-    sans: `"Manrope", ${FONT_STACK}`,
-    display: `"Manrope", ${FONT_STACK}`,
-    mono: `"Geist Mono", ${MONO_STACK}`,
-    displayWeight: 800,
-    displayTracking: "-0.03em",
+    sans: FONT_STACK,
+    display: FONT_STACK,
+    mono: MONO_STACK,
+    displayWeight: 700,
+    displayTracking: "-0.015em",
   },
   radius: { sm: 7, md: 9, lg: 14, xl: 18, shell: 16, sheet: 18 },
   shadow: {
@@ -369,5 +374,7 @@ export function resolveTheme(pref: ThemePreference | null | undefined, deviceDar
 }
 
 /** Google Fonts used by the themes and page styles, in one stylesheet. Files load only when used. */
+/** Only two fonts are downloaded, as stand-ins where the system has no match (Chrome and others
+ *  can't reach Apple's New York or SF Rounded): Source Serif 4 for Serif, Nunito for Round. */
 export const FONT_STYLESHEET =
-  "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&family=Nunito:wght@400;500;600;700;800&family=Onest:wght@400;500;600;700;800&display=swap";
+  "https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&family=Nunito:wght@400;500;600;700;800&display=swap";

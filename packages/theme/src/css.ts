@@ -79,7 +79,8 @@ export function themeVariables(t: AppTheme): Record<string, string> {
     "--d-filter-chrome": glass(t.blur.chrome),
     "--d-shell-gap": px(t.layout.gap),
     "--d-divider": t.layout.divider ? `1px solid ${c.line}` : "0 solid transparent",
-    "--d-label-font": t.layout.label === "mono" ? "var(--d-font-mono)" : "var(--d-font-sans)",
+    // Labels use the system font in every theme, like Craft's; "mono" themes keep small capitals.
+    "--d-label-font": "var(--d-font-sans)",
     "--d-label-transform": t.layout.label === "sentence" ? "none" : "uppercase",
     "--d-label-tracking": t.layout.label === "sentence" ? "0" : "0.07em",
     "--d-label-size": t.layout.label === "sentence" ? "0.78rem" : "0.68rem",
