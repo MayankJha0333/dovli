@@ -143,10 +143,6 @@ export default function PrivacyPage() {
           <li>Change your name (in the phone app, under Account), and stop sharing any page, at any time.</li>
           <li>Export your pages: a full backup, or every page as Markdown.</li>
           <li>
-            Use the phone app without an account. Your pages then stay on that phone only (pasted links and fonts still reach the services listed
-            above).
-          </li>
-          <li>
             Ask us for a copy of your data, or to correct or delete it, by emailing <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> from the
             address on your account.
           </li>

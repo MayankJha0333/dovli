@@ -21,22 +21,18 @@ import {
   type TextInputProps,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { startActivityAsync } from "expo-intent-launcher";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { space } from "@dovli/theme";
-import { BrandMark, Button, CodeInput, Icon, MARK_GRADIENT, Title, lift, tap, usePalette, type IconName } from "@/components/ui";
+import { BrandMark, Button, CodeInput, Icon, Title, lift, tap, usePalette, type IconName } from "@/components/ui";
 import { AuthError, phoneAuth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
 import { links, openLink } from "@/lib/links";
+import { Backdrop } from "./Backdrop";
 import { GoogleButton, googleConfigured } from "./GoogleButton";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Please try again.");
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
-function rgba(hex: string, a: number): string {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-}
 const looksLikeEmail = (s: string) => /^\S+@\S+\.\S+$/.test(s.trim());
 
 /** Opens the phone's email app at its inbox: Mail on iOS, the default email app on Android. */
@@ -281,19 +277,11 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     void send(params.email);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Light themes get a plain white screen, so the form reads crisply; dark themes keep their own background.
-  const screen = p.dark ? p.bg : p.raised;
   const footer = (children: ReactNode) => <Animated.View style={[styles.footer, enter(2), keyboard && styles.hidden]}>{children}</Animated.View>;
 
   return (
-    <View style={{ flex: 1, backgroundColor: screen }}>
-      <LinearGradient
-        pointerEvents="none"
-        // Fade to the same colour at zero opacity: "transparent" is transparent black, which leaves a grey band.
-        colors={[rgba(MARK_GRADIENT[0], p.dark ? 0.12 : 0.16), rgba(MARK_GRADIENT[1], p.dark ? 0.06 : 0.07), rgba(MARK_GRADIENT[1], 0)]}
-        locations={[0, 0.5, 1]}
-        style={styles.tint}
-      />
+    <View style={{ flex: 1 }}>
+      <Backdrop />
       <View style={[styles.topBar, { paddingTop: insets.top + space.xs }]}>
         <Pressable
           accessibilityRole="button"
@@ -331,7 +319,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             ) : step === "start" ? (
               <>
                 <View style={keyboard ? styles.gapSmall : styles.above} />
-                <Animated.View style={[styles.hero, enter(0)]}>
+                <Animated.View style={[styles.hero, enter(0)]} renderToHardwareTextureAndroid needsOffscreenAlphaCompositing>
                   {!keyboard && (
                     <HeroTile>
                       <BrandMark size={40} />
@@ -428,7 +416,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
             ) : (
               <>
                 <View style={keyboard ? styles.gapSmall : styles.above} />
-                <Animated.View style={[styles.hero, enter(0)]}>
+                <Animated.View style={[styles.hero, enter(0)]} renderToHardwareTextureAndroid needsOffscreenAlphaCompositing>
                   {!keyboard && (
                     <HeroTile>
                       <Icon name="mail-unread-outline" size={30} color={p.accent} />
@@ -515,7 +503,6 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 }
 
 const styles = StyleSheet.create({
-  tint: { position: "absolute", top: 0, left: 0, right: 0, height: 360 },
   topBar: { paddingHorizontal: space.sm, paddingBottom: space.xs },
   backButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   // One readable column, also on tablets.

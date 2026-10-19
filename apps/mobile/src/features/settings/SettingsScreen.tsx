@@ -8,7 +8,7 @@ import Constants from "expo-constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { timeAgo, trashRoots } from "@dovli/core";
 import { APP_THEMES, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, space, type AppTheme, type ThemePreference } from "@dovli/theme";
-import { Avatar, Button, Header, Icon, Label, Row, Section, lift, tap, usePalette } from "@/components/ui";
+import { Avatar, Header, Icon, Label, Row, Section, lift, tap, usePalette } from "@/components/ui";
 import { usePhoneAuth } from "@/lib/auth";
 import { themeStore, useThemePreference } from "@/lib/theme";
 import { useSyncStatus } from "@/lib/sync";
@@ -33,27 +33,7 @@ function Profile() {
   const p = usePalette();
   const a = usePhoneAuth();
   const sync = useSyncLine();
-  const signedIn = a.status === "signed-in";
   const dot = sync.tone === "ok" ? p.ok : sync.tone === "warn" ? p.warn : sync.tone === "accent" ? p.accent : p.ink4;
-
-  if (!signedIn) {
-    return (
-      <View style={[styles.profile, { backgroundColor: p.panel }, lift(p)]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: p.well, alignItems: "center", justifyContent: "center" }}>
-            <Icon name="phone-portrait-outline" size={24} color={p.ink3} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: p.ink, fontSize: 18, fontWeight: "700" }}>No account yet</Text>
-            <Text style={{ color: p.ink3, fontSize: 13.5, marginTop: 2 }}>Your pages are on this phone only.</Text>
-          </View>
-        </View>
-        {a.status === "signed-out" && (
-          <Button title="Sign in or create account" icon="person-circle-outline" onPress={() => router.push("/sign-in")} style={{ marginTop: space.lg }} />
-        )}
-      </View>
-    );
-  }
 
   return (
     <Pressable

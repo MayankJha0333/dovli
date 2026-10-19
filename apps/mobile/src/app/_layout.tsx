@@ -58,7 +58,7 @@ export default function RootLayout() {
           <Stack.Screen name="trash" />
           <Stack.Screen name="about" />
         </Stack.Protected>
-        <Stack.Protected guard={!signedIn && auth.status !== "local-only"}>
+        <Stack.Protected guard={!signedIn}>
           <Stack.Screen name="(auth)" options={{ animation: "fade" }} />
         </Stack.Protected>
       </Stack>

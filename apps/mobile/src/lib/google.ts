@@ -6,19 +6,25 @@
 //   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID  the iOS client for the app.dovli bundle
 // app.config.ts uses the iOS one to register the URL scheme Google returns to.
 
-import { Platform } from "react-native";
-import { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } from "@react-native-google-signin/google-signin";
+import { Platform, TurboModuleRegistry } from "react-native";
+
+type GoogleSigninLib = typeof import("@react-native-google-signin/google-signin");
+
+// Expo Go, and app builds made before Google sign-in was added, don't have its native module, and
+// importing the library there crashes the whole app. Load it only when the module is in the build.
+const lib: GoogleSigninLib | null =
+  Platform.OS !== "web" && TurboModuleRegistry.get("RNGoogleSignin") ? (require("@react-native-google-signin/google-signin") as GoogleSigninLib) : null;
 
 const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 
-export const googleConfigured = Boolean(webClientId && (Platform.OS !== "ios" || iosClientId)) && Platform.OS !== "web";
+export const googleConfigured = Boolean(lib && webClientId && (Platform.OS !== "ios" || iosClientId));
 
 let configured = false;
 function setup() {
   if (configured) return;
   configured = true;
-  GoogleSignin.configure({ webClientId, iosClientId, scopes: ["email", "profile"] });
+  lib!.GoogleSignin.configure({ webClientId, iosClientId, scopes: ["email", "profile"] });
 }
 
 export class GoogleError extends Error {
@@ -32,7 +38,8 @@ export class GoogleError extends Error {
 
 /** Opens Google's sign-in sheet. Returns the ID token and email, or null if the person closed it. */
 export async function googleIdToken(): Promise<{ idToken: string; email: string | null; name: string | null } | null> {
-  if (!googleConfigured) throw new GoogleError("Google sign-in isn't set up in this build of the app yet.", "not-configured");
+  if (!googleConfigured || !lib) throw new GoogleError("Google sign-in isn't set up in this build of the app yet.", "not-configured");
+  const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = lib;
   setup();
   try {
     if (Platform.OS === "android") await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -60,6 +67,6 @@ export async function googleIdToken(): Promise<{ idToken: string; email: string 
 
 /** Forget the Google session on this phone too, so the next sign-in shows the account picker. */
 export async function googleSignOut() {
-  if (!googleConfigured || !configured) return;
-  await GoogleSignin.signOut().catch(() => {});
+  if (!lib || !googleConfigured || !configured) return;
+  await lib.GoogleSignin.signOut().catch(() => {});
 }

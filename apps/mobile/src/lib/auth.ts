@@ -1,8 +1,7 @@
 // Accounts on the phone, with Firebase. Signing in and signing up both use a 6-digit email code:
 // the web app's server sends and checks the code (the same rules as on the web) and answers with a
 // one-time Firebase token, which signs this phone in. Firebase keeps the sign-in on the phone.
-//
-// Without an account, people can still use Dovli as a guest: pages stay on this phone.
+// Dovli needs an account: nothing past the welcome and sign-in screens opens without one.
 
 import { useSyncExternalStore } from "react";
 import {
@@ -17,7 +16,6 @@ import {
   type User,
 } from "firebase/auth";
 import { apiUrl, firebaseAuth, firebaseConfigured } from "./firebase";
-import { kv } from "./kv";
 import { GoogleError, googleIdToken, googleSignOut } from "./google";
 
 export interface PhoneAccount {
@@ -43,16 +41,11 @@ export type AuthStatus = "local-only" | "loading" | "signed-out" | "signed-in";
 export interface AuthState {
   status: AuthStatus;
   account: PhoneAccount | null;
-  /** Chose "Continue without an account" on the welcome screen. */
-  guest: boolean;
 }
-
-const GUEST = "dovli.guest.v1";
 
 let state: AuthState = {
   status: firebaseConfigured ? "loading" : "local-only",
   account: null,
-  guest: kv.get<boolean>(GUEST, false),
 };
 const listeners = new Set<() => void>();
 function set(patch: Partial<AuthState>) {
@@ -130,7 +123,6 @@ export const phoneAuth = {
       set({ account: toAccount(u) });
       void recordSignIn(u);
     }
-    phoneAuth.setGuest(false);
   },
 
   /**
@@ -166,7 +158,6 @@ export const phoneAuth = {
       set({ account: toAccount(u) });
       void recordSignIn(u);
     }
-    phoneAuth.setGuest(false);
     return true;
   },
 
@@ -181,12 +172,6 @@ export const phoneAuth = {
     const a = firebaseAuth();
     if (a) await signOut(a);
     await googleSignOut();
-    phoneAuth.setGuest(false);
-  },
-
-  setGuest(on: boolean) {
-    kv.set(GUEST, on);
-    set({ guest: on });
   },
 };
 
@@ -203,9 +188,9 @@ export function usePhoneAuth(): AuthState {
   return useSyncExternalStore(authStore.subscribe, authStore.get, authStore.get);
 }
 
-/** Home and pages are open to anyone signed in, using Dovli as a guest, or on a build without accounts. */
+/** Home and pages are only for someone signed in. A build without accounts set up stops at sign-in. */
 export function canUseApp(a: AuthState): boolean {
-  return a.status === "signed-in" || a.status === "local-only" || a.guest;
+  return a.status === "signed-in";
 }
 
 /** First name, for greetings. */
