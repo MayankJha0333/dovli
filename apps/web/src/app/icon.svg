@@ -1,4 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="16" fill="#5146D9"/>
-  <path d="M21 16h11.5C42.7 16 49 22.4 49 32s-6.3 16-16.5 16H21V16Zm8 7v18h3.2C38 41 41 37.6 41 32s-3-9-8.8-9H29Z" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-29.5 3.5 463.0 463.0">
+  <defs>
+    <linearGradient id="bowl" x1="90" y1="40" x2="340" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7DB4FF"/>
+      <stop offset="0.45" stop-color="#A592FF"/>
+      <stop offset="0.8" stop-color="#B57CF6"/>
+      <stop offset="1" stop-color="#E39AEC"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="222" y1="0" x2="300" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5A4BD6" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#5E4FD8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="sheet" x1="60" y1="60" x2="200" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9CC3FF"/>
+      <stop offset="0.38" stop-color="#D9DCFF"/>
+      <stop offset="0.72" stop-color="#EBD9FB"/>
+      <stop offset="1" stop-color="#F6B9EE"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="186" x2="0" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.6"/>
+    </linearGradient>
+    <clipPath id="bowlClip"><path d="M44 50C50 36 62 30 80 30L180 32C292 36 366 120 366 228C366 336 298 408 222 416L222 186C170 160 92 120 44 50Z"/></clipPath>
+  </defs>
+  <path fill="url(#bowl)" d="M44 50C50 36 62 30 80 30L180 32C292 36 366 120 366 228C366 336 298 408 222 416L222 186C170 160 92 120 44 50Z"/>
+  <path fill="url(#fold)" clip-path="url(#bowlClip)" d="M222 186C246 198 276 222 316 262V430H222Z"/>
+  <path fill="url(#sheet)" d="M40 66C40 58 41 53 44 50C92 120 170 160 222 186L222 440C214 424 197 411 172 403L92 378C60 368 40 346 40 316Z"/>
+  <path fill="none" stroke="url(#edge)" stroke-width="3" d="M222 188V438"/>
+  <path fill="none" stroke="#fff" stroke-opacity="0.7" stroke-width="2.5" stroke-linecap="round" d="M46 52C94 120 170 160 220 186"/>
 </svg>

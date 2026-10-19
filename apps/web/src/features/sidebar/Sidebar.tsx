@@ -4,7 +4,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { childrenOf, displayTitle, favoritePages, tagIndex, type Page } from "@dovli/core";
-import { Icon, IconButton, Kbd, SectionLabel, cn, modKey, type IconName } from "@dovli/ui";
+import { Icon, IconButton, Kbd, SectionLabel, cn, modKey, type IconName, DovliMark } from "@dovli/ui";
 import { settings } from "@/lib/settings";
 import { store, useStore } from "@/lib/store";
 import { keepSpaceSidebar, ui, useUI } from "@/lib/ui";
@@ -306,10 +306,8 @@ export function Sidebar() {
           onClick={() => (showPage ? ui.set({ sidebarMode: "space" }) : store.navigate({ name: "home" }))}
           className="-m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 hover:bg-hover"
         >
-          <span className="grid size-7 flex-none place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink" aria-hidden="true">
-            D
-          </span>
-          <span className="truncate font-display text-lg font-bold tracking-tight text-ink">Dovli</span>
+          <DovliMark size={26} />
+          <span className="truncate font-display text-lg font-bold tracking-[-0.025em] text-ink">Dovli</span>
           <span className="sr-only">{showPage ? ", show all pages in the sidebar" : ", go to all pages"}</span>
         </button>
         <IconButton

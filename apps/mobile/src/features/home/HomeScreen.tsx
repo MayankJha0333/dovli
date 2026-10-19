@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { displayTitle, favoritePages, recentPages, searchPages, timeAgo, type Page } from "@dovli/core";
@@ -60,9 +60,7 @@ export function HomeScreen() {
     <View style={{ flex: 1, backgroundColor: p.bg }}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + space.md, paddingBottom: 140, paddingHorizontal: space.lg }} keyboardShouldPersistTaps="handled">
         <View style={styles.brandRow}>
-          <View style={[styles.brandTile, { backgroundColor: p.brand, borderRadius: p.radius.sm }]}>
-            <Text style={{ color: p.brandInk, fontWeight: "800", fontSize: 16 }}>D</Text>
-          </View>
+          <Image source={require("../../../assets/images/mark.png")} style={styles.brandMark} accessibilityIgnoresInvertColors />
           <Text style={{ color: p.ink, fontWeight: "700", fontSize: 18, flex: 1 }}>Dovli</Text>
           <IconButton label="Settings" glyph="⚙︎" onPress={() => router.push("/settings")} />
         </View>
@@ -113,7 +111,7 @@ export function HomeScreen() {
 
 const styles = StyleSheet.create({
   brandRow: { flexDirection: "row", alignItems: "center", gap: space.sm + 2 },
-  brandTile: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  brandMark: { width: 26, height: 32 },
   title: { marginTop: 2, marginBottom: space.lg, fontSize: 34, letterSpacing: -1 },
   search: { minHeight: touchTarget, paddingHorizontal: space.lg, fontSize: 16 },
   section: { marginTop: space.xl, marginBottom: space.sm },

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { Icon } from "@dovli/ui";
+import { Icon, DovliLogo } from "@dovli/ui";
 import { LOGIN_PATH, SIGNUP_PATH, loginUrl } from "@/lib/authGate";
 import { auth, initAuth, useAuth } from "@/lib/auth";
 import { firebaseConfigured } from "@/lib/firebase";
@@ -68,12 +68,7 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
       </div>
 
       <header className="flex h-16 items-center px-5 sm:px-8">
-        <span className="flex items-center gap-2.5">
-          <span className="grid size-8 place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink" aria-hidden="true">
-            D
-          </span>
-          <span className="font-display text-lg font-bold tracking-tight">Dovli</span>
-        </span>
+        <DovliLogo size={34} tagline />
       </header>
 
       <main id="main" className="flex flex-1 items-start justify-center px-4 pb-12 pt-4 sm:items-center sm:pt-0">

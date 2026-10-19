@@ -24,3 +24,4 @@ export { Tooltip, TooltipProvider } from "./Tooltip";
 export { Kbd, modKey } from "./Kbd";
 export { Switch, Segmented, RadioCards, RadioCard, Spinner, Pill, EmptyState, SectionLabel } from "./Controls";
 export { toast, dismiss, Toaster } from "./Toast";
+export { DovliMark, DovliLogo, markSvg, MARK } from "./Logo";

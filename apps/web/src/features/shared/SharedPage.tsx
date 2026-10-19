@@ -4,7 +4,7 @@ import { connectEditor } from "@dovli/editor";
 import { PageIconGlyph, hasOwnIcon } from "@/features/page/PageIcon";
 import { displayTitle, fileIdFromUrl, type Page } from "@dovli/core";
 import { coverPreset, resolveLook } from "@dovli/theme";
-import { Button, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
+import { Button, DovliMark, Icon, Pill, Spinner, Toaster, TooltipProvider, cn, toast } from "@dovli/ui";
 import { auth, initAuth } from "@/lib/auth";
 import { applySettings } from "@/lib/settings";
 import { share } from "@/lib/share";
@@ -149,7 +149,7 @@ export default function SharedPage({ source }: { source: SharedSource }) {
       <div className={cn("min-h-dvh", style && "[background:var(--s-backdrop)]")} style={look.vars as any}>
         <header className="sticky top-0 z-20 flex h-14 items-center gap-2 px-4 surface-chip [border-radius:0]" data-print="hide">
           <a href="/" className="flex items-center gap-2 rounded-md px-1 py-1 text-ink no-underline hover:bg-hover">
-            <span className="grid size-7 place-items-center rounded-sm bg-brand font-display text-md font-bold text-brand-ink">D</span>
+            <DovliMark size={24} />
             <span className="font-display font-bold max-[420px]:sr-only">Dovli</span>
           </a>
           <Pill className="ml-1 max-[640px]:hidden">{`Shared by ${state.ownerName}`}</Pill>
