@@ -11,3 +11,10 @@ onlyBuiltDependencies:
 
 patchedDependencies:
   '@excalidraw/excalidraw@0.18.1': patches/@excalidraw__excalidraw@0.18.1.patch
+
+# firebase-admin 14 brings jwks-rsa 4, which loads the ES-module-only jose 6 with require().
+# That needs Node's require(esm), which Vercel's runtime turns off, so every server page that
+# checks the sign-in crashed there with ERR_REQUIRE_ESM. jwks-rsa 3 (what firebase-admin 13
+# used) has the same API that firebase-admin calls and uses jose 4, which still ships CommonJS.
+overrides:
+  jwks-rsa: 3.2.2
