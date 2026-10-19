@@ -3,12 +3,14 @@ import { store } from "@/lib/store";
 import { settings } from "@/lib/settings";
 import { ui } from "@/lib/ui";
 import { newPage } from "@/features/pages/actions";
+import { assistant } from "@/lib/assistant";
 
 /** App-wide keyboard shortcuts. Page-level ones (find, style) live in the page view. */
 export const SHORTCUTS: { keys: string; label: string }[] = [
   { keys: "⌘K", label: "Search and run commands" },
   { keys: "⌘⌥N", label: "New page" },
   { keys: "⌘F", label: "Find and replace in the page" },
+  { keys: "⌘J", label: "Open or close the assistant" },
   { keys: "⌘,", label: "Settings" },
   { keys: "⌘\\", label: "Show or hide the sidebar" },
   { keys: "⌘⇧I", label: "Open a page's Info panel" },
@@ -27,6 +29,9 @@ export function useShortcuts() {
       if (k === "k" && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         ui.set({ palette: !ui.get().palette });
+      } else if (k === "j" && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        assistant.toggle();
       } else if (k === "," && !e.shiftKey) {
         e.preventDefault();
         ui.set({ settings: "appearance" });

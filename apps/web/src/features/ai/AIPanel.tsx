@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { pageText, type Page } from "@dovli/core";
 import { Button, Dialog, Icon, Input, Spinner, cn, toast, type IconName } from "@dovli/ui";
-import { runAI, useAIUsage, type AIAction } from "@/lib/ai";
+import { aiLabel, runAI, useAIUsage, type AIAction } from "@/lib/ai";
 import { store } from "@/lib/store";
 import { getActiveEditor, ui, useUI } from "@/lib/ui";
 
@@ -139,9 +139,9 @@ export function AIPanel() {
       footer={
         <div className="mr-auto flex items-center gap-2 text-xs text-ink-3">
           <Icon name="sparkles" size={13} />
-          {usage.limit ? `${pct}% of this month's AI used` : "AI usage"}
+          {usage.provider !== "groq" ? `Using ${aiLabel(usage)}` : usage.limit ? `${pct}% of this month's Dovli AI used` : "Dovli AI"}
           <button type="button" className="text-accent hover:underline" onClick={() => ui.set({ ai: null, settings: "ai" })}>
-            Details
+            {usage.provider !== "groq" ? "Change" : "Details"}
           </button>
         </div>
       }

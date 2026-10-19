@@ -317,6 +317,7 @@ Indent any line by 2 spaces to put it inside the block above it.
 ![caption](https://…) picture
 <callout tone="note|tip|warning|danger" emoji="💡">text</callout> (or > [!TIP] text)
 <small>small grey text</small>
+\`\`\`mermaid with a flowchart (flowchart TD …) becomes a real, editable Dovli flowchart. Use it for any flowchart or diagram.
 <embed url="https://…"/> a link preview card (YouTube, a website…)
 [Page title](dovli:page/PAGE_ID) or [[Page title]] links to another Dovli page; <page id="PAGE_ID"/> shows a page inside this one as a card.
 <block id="…" type="…"/> stands for a block Markdown can't hold (a whiteboard sketch, a data table, a file). Leave these lines as they are when you write a page back, and the blocks are kept.`;

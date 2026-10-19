@@ -22,6 +22,10 @@ export interface Settings {
   /** Hide the sidebar on wide screens (⌘\\). It is a drawer on small screens either way. */
   sidebarHidden: boolean;
   spellcheck: boolean;
+  /** The assistant's mode: "suggest" shows changes to approve first, "edit" makes them straight away. */
+  assistantMode: "suggest" | "edit";
+  /** Standing instructions for the assistant ("Write in British English", "Keep it short"). */
+  assistantPrefs: string;
 }
 
 
@@ -31,6 +35,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   sidebarHidden: false,
   spellcheck: true,
+  assistantMode: "suggest",
+  assistantPrefs: "",
 };
 
 
@@ -42,6 +48,8 @@ function read(): Settings {
       ...raw,
       theme: isThemePreference(raw.theme) ? raw.theme : DEFAULT_SETTINGS.theme,
       textSize: raw.textSize in TEXT_SCALE ? raw.textSize : "default",
+      assistantMode: raw.assistantMode === "edit" ? "edit" : "suggest",
+      assistantPrefs: typeof raw.assistantPrefs === "string" ? raw.assistantPrefs.slice(0, 1000) : "",
     };
   } catch {
     return DEFAULT_SETTINGS;

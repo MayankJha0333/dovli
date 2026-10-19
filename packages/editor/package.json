@@ -24,6 +24,7 @@
     "@dovli/theme": "workspace:*",
     "@dovli/ui": "workspace:*",
     "@excalidraw/excalidraw": "^0.18.1",
+    "@excalidraw/mermaid-to-excalidraw": "2.2.2",
     "@mantine/core": "^9.7.2",
     "@mantine/hooks": "^9.7.2",
     "nanoid": "^6.0.2",

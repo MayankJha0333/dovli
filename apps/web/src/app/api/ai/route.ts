@@ -1,19 +1,20 @@
-// Dovli's AI writing help. Uses Anthropic's Messages API with the server's own key.
-// GET tells the app whether AI is set up and how much of this month's allowance is used.
-// POST runs one action (rewrite, shorten, fix, translate, summarise…) on a piece of text.
+// Dovli's AI writing help.
+// GET tells the app which AI is in use (Dovli AI, or the person's own Anthropic/OpenAI key), whether
+// it's ready, and how much of this month's Dovli AI allowance is used.
+// POST runs one action (rewrite, shorten, fix, translate, summarise, review…) on a piece of text.
+//
+// Which AI answers, and the monthly allowance, live in lib/server/aiEngine.ts.
 
 import { NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { adminDb, firebaseOnServer, userFromRequest } from "@/lib/server/firebaseAdmin";
+import { firebaseOnServer, userFromRequest } from "@/lib/server/firebaseAdmin";
+import { AIProviderError, callAI } from "@/lib/server/aiCore";
+import { canStoreKeys } from "@/lib/server/aiKeys";
+import { LIMIT, addUsage, builtIn, month, ownChoice, usedThisMonth } from "@/lib/server/aiEngine";
+import { noStore } from "@/lib/server/http";
 
 export const runtime = "nodejs";
 
-const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.AI_MODEL || "claude-haiku-5-5";
-const LIMIT = Number(process.env.AI_MONTHLY_TOKENS || 200_000);
 const MAX_INPUT = 24_000; // characters
-
-const month = () => new Date().toISOString().slice(0, 7);
 
 const SYSTEM = `You are the writing assistant inside Dovli, a notes app. You help with the user's own text.
 Rules:
@@ -54,38 +55,32 @@ const ACTIONS: Record<string, (o: { language?: string; instruction?: string; foc
   custom: (o) => `Do this with the text: ${String(o.instruction || "Improve it").slice(0, 400)}`,
 };
 
-// With accounts turned on, each person's monthly use is counted in Firestore: aiUsage/{uid}_{month}.
-const usageDoc = (userId: string) => adminDb()!.collection("aiUsage").doc(`${userId}_${month()}`);
-
-async function usedThisMonth(userId: string | null): Promise<number | null> {
-  if (!adminDb() || !userId) return null;
-  const snap = await usageDoc(userId).get();
-  return (snap.data()?.tokens as number) ?? 0;
-}
-
-async function addUsage(userId: string, tokens: number): Promise<number | null> {
-  if (!adminDb()) return null;
-  const ref = usageDoc(userId);
-  await ref.set({ userId, month: month(), tokens: FieldValue.increment(tokens), updatedAt: new Date() }, { merge: true });
-  return ((await ref.get()).data()?.tokens as number) ?? null;
-}
-
 export async function GET(req: Request) {
   const user = firebaseOnServer ? await userFromRequest(req) : null;
-  const used = await usedThisMonth(user?.id ?? null);
-  return NextResponse.json({
-    available: Boolean(API_KEY) && (!firebaseOnServer || !!user),
-    reason: !API_KEY ? "no-key" : firebaseOnServer && !user ? "sign-in" : null,
-    limit: LIMIT,
-    month: month(),
-    used: used ?? 0,
-    source: used === null ? "device" : "account",
-  });
+  const own = await ownChoice(req, user);
+  const used = own ? null : await usedThisMonth(user?.id ?? null);
+  const needsSignIn = firebaseOnServer && !user;
+  return NextResponse.json(
+    {
+      available: !needsSignIn && (!!own || !!builtIn),
+      reason: needsSignIn ? "sign-in" : !own && !builtIn ? "no-key" : null,
+      provider: own?.provider ?? "groq",
+      model: own?.model ?? builtIn?.model ?? null,
+      keyHint: own?.keyHint ?? null,
+      dovliAI: !!builtIn,
+      // Whether people can connect their own key here: with accounts, the server needs a secret to seal keys with.
+      canConnect: firebaseOnServer ? canStoreKeys() : true,
+      keyStorage: firebaseOnServer ? "account" : "device",
+      limit: LIMIT,
+      month: month(),
+      used: used ?? 0,
+      source: used === null ? "device" : "account",
+    },
+    { headers: noStore },
+  );
 }
 
 export async function POST(req: Request) {
-  if (!API_KEY) return NextResponse.json({ error: "AI is not set up on this server yet. Add ANTHROPIC_API_KEY to turn it on." }, { status: 503 });
-
   let body: { action?: string; text?: string; language?: string; instruction?: string; focus?: string };
   try {
     body = await req.json();
@@ -98,41 +93,46 @@ export async function POST(req: Request) {
   if (!text) return NextResponse.json({ error: "Select some text first." }, { status: 400 });
   if (text.length > MAX_INPUT) return NextResponse.json({ error: "That's too much text at once. Try a smaller part." }, { status: 413 });
 
-  // With accounts turned on, AI needs a signed-in person, so their allowance can be counted.
+  // With accounts turned on, AI needs a signed-in person, so their allowance (or key) can be found.
   const user = firebaseOnServer ? await userFromRequest(req) : null;
   if (firebaseOnServer && !user) return NextResponse.json({ error: "Sign in to use AI." }, { status: 401 });
-  const used = await usedThisMonth(user?.id ?? null);
-  if (used !== null && used >= LIMIT) return NextResponse.json({ error: "You've used this month's AI allowance. It resets on the 1st." }, { status: 429 });
 
-  let res: Response;
+  const own = await ownChoice(req, user);
+  const engine = own?.apiKey ? { provider: own.provider, apiKey: own.apiKey, model: own.model } : builtIn;
+  if (!engine) {
+    return NextResponse.json({ error: "AI isn't set up yet. Connect your own Anthropic or OpenAI key in Settings → AI." }, { status: 503 });
+  }
+
+  // Dovli AI has a monthly allowance; people's own keys don't.
+  const used = own ? null : await usedThisMonth(user?.id ?? null);
+  if (used !== null && used >= LIMIT) {
+    return NextResponse.json({ error: "You've used this month's Dovli AI allowance. It resets on the 1st, or connect your own key in Settings → AI." }, { status: 429 });
+  }
+
   try {
-    res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: body.action === "summarize" || body.action === "review" ? 900 : 2000,
-        system: body.action === "review" ? REVIEW_SYSTEM : SYSTEM,
-        messages: [{ role: "user", content: `${make(body)}\n\n<text>\n${text}\n</text>` }],
-      }),
+    const out = await callAI({
+      ...engine,
+      system: body.action === "review" ? REVIEW_SYSTEM : SYSTEM,
+      prompt: `${make(body)}\n\n<text>\n${text}\n</text>`,
+      maxTokens: body.action === "summarize" || body.action === "review" ? 900 : 2000,
     });
-  } catch {
-    return NextResponse.json({ error: "Couldn't reach the AI service. Check the connection and try again." }, { status: 502 });
+    const spent = out.inputTokens + out.outputTokens;
+    const total = user && !own ? await addUsage(user.id, spent).catch(() => null) : null;
+    return NextResponse.json({
+      text: out.text,
+      usage: { input_tokens: out.inputTokens, output_tokens: out.outputTokens },
+      own: !!own,
+      used: total ?? undefined,
+      limit: LIMIT,
+    });
+  } catch (e) {
+    if (e instanceof AIProviderError) {
+      if (e.kind !== "busy") console.error("[dovli] AI error", engine.provider, e.kind, e.message);
+      // A key that stopped working (revoked, expired) is fixed in Settings, so say where.
+      const where = own && e.kind === "key" ? " Change it in Settings → AI." : "";
+      return NextResponse.json({ error: e.message.replace(/ Check you copied all of it\.$/, "") + where, code: e.kind }, { status: e.status });
+    }
+    console.error("[dovli] AI failed", e);
+    return NextResponse.json({ error: "AI couldn't finish that. Please try again." }, { status: 502 });
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    console.error("[dovli] AI error", res.status, data?.error?.message);
-    return NextResponse.json({ error: res.status === 429 ? "AI is busy right now. Try again in a moment." : "AI couldn't finish that. Please try again." }, { status: 502 });
-  }
-
-  const out = (data.content ?? [])
-    .filter((c: any) => c.type === "text")
-    .map((c: any) => c.text)
-    .join("")
-    .trim();
-  const spent = (data.usage?.input_tokens ?? 0) + (data.usage?.output_tokens ?? 0);
-
-  const total = user ? await addUsage(user.id, spent).catch(() => null) : null;
-
-  return NextResponse.json({ text: out, usage: data.usage ?? null, used: total ?? undefined, limit: LIMIT });
 }

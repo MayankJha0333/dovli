@@ -19,3 +19,24 @@
   [data-print="shell"] { display: block !important; height: auto !important; padding: 0 !important; }
   .dovli-editor .bn-editor { padding-inline: 0; }
 }
+
+/* ---------- The assistant panel ---------- */
+@keyframes assistant-in {
+  from { opacity: 0; transform: translateX(12px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes assistant-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+@keyframes assistant-flash {
+  from { background-color: var(--d-accent-soft); }
+  to { background-color: transparent; }
+}
+.animate-assistant-in { animation: assistant-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.assistant-dot { animation: assistant-dot 1s ease-in-out infinite; }
+/* A block the assistant just changed glows for a moment, so it's easy to spot. */
+.dovli-assistant-flash { border-radius: 6px; animation: assistant-flash 1.6s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .animate-assistant-in, .assistant-dot, .dovli-assistant-flash { animation: none; }
+}

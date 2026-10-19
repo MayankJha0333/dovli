@@ -133,3 +133,11 @@ describe("the sample pages", async () => {
     }
   });
 });
+
+describe("mermaid flowcharts", () => {
+  it("turns a mermaid block into a flowchart, and leaves other code as code", () => {
+    const b = markdownToBlocks("```mermaid\nflowchart TD\n  A[Phone] -->|Feed?| B[Server]\n```\n\n```js\nlet a = 1\n```");
+    expect(b.map((x) => x.type)).toEqual(["flowchart", "codeBlock"]);
+    expect(JSON.parse(b[0].props.scene)).toEqual({ mermaid: "flowchart TD\n  A[Phone] -->|Feed?| B[Server]" });
+  });
+});

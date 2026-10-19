@@ -6,6 +6,7 @@
 //   # / ## / ###            headings          - item / 1. item     lists (indent 2 spaces to nest)
 //   - [ ] / - [x]           to-dos            + Toggle             a toggle (its children indented)
 //   > text                  quote             ```lang … ```        code
+//   ```mermaid flowchart TD …```  a flowchart (Dovli draws it as an editable flowchart block)
 //   ---                     divider           | a | b |            table
 //   ![caption](url)         picture           <callout tone="tip" emoji="💡">text</callout>
 //   > [!TIP] text           also a callout    <small>text</small>  small grey caption text
@@ -15,6 +16,9 @@
 //   [Title](dovli:page/ID) or [[Title]]   a link to another Dovli page            <br>  line break
 
 import { classify, toEmbedProps } from "./links";
+
+/** A flowchart block's scene that is still Mermaid text. The editor turns it into shapes the first time it shows. */
+export const mermaidScene = (code: string) => JSON.stringify({ mermaid: code.trim().slice(0, 20_000) });
 
 type Styles = Record<string, any>;
 export type Inline =
@@ -345,7 +349,10 @@ export function markdownToBlocks(markdown: string, opts: ToBlocksOptions = {}): 
       const body: string[] = [];
       let j = i + 1;
       for (; j < lines.length && !lines[j].text.startsWith(fence[1]); j++) body.push(raw[j].slice(Math.min(indent, raw[j].length - raw[j].trimStart().length)));
-      place({ id: newId(), type: "codeBlock", props: { language: fence[2] || "text" }, content: body.join("\n"), children: [] }, indent);
+      const code = body.join("\n");
+      // A Mermaid diagram becomes a real flowchart (drawn by the editor the first time it shows).
+      if (fence[2].toLowerCase() === "mermaid" && code.trim()) place({ id: newId(), type: "flowchart", props: { scene: mermaidScene(code) }, children: [] }, indent);
+      else place({ id: newId(), type: "codeBlock", props: { language: fence[2] || "text" }, content: code, children: [] }, indent);
       i = j;
       para = null;
       continue;

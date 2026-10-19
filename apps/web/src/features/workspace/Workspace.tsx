@@ -12,6 +12,7 @@ import { auth, initAuth, useAuth } from "@/lib/auth";
 import { authGateOn } from "@/lib/authGate";
 import { AIPanel } from "@/features/ai/AIPanel";
 import { AssistantButton } from "@/features/ai/AssistantButton";
+import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { SignInDialog } from "@/features/auth/SignInDialog";
 import { Home } from "@/features/home/Home";
 import { PageView } from "@/features/page/PageView";
@@ -43,6 +44,7 @@ export default function Workspace({ accountId }: { accountId?: string }) {
   const route = useStore((s) => s.route);
   const nav = useUI((s) => s.nav);
   const sidebarHidden = useSettings((s) => s.sidebarHidden);
+  const assistantOpen = useUI((s) => s.assistant);
 
   useEffect(() => {
     applySettings();
@@ -106,6 +108,8 @@ export default function Workspace({ accountId }: { accountId?: string }) {
         className={cn(
           "grid h-dvh gap-[var(--d-shell-gap)] p-[var(--d-shell-gap)] max-[860px]:grid-cols-1 max-[860px]:gap-0 max-[860px]:p-0",
           sidebarHidden ? "grid-cols-[minmax(0,1fr)]" : "grid-cols-[272px_minmax(0,1fr)]",
+          // The assistant takes a third column on wide screens; on narrower ones it floats over the page.
+          assistantOpen && (sidebarHidden ? "min-[1181px]:grid-cols-[minmax(0,1fr)_360px]" : "min-[1181px]:grid-cols-[272px_minmax(0,1fr)_360px]"),
         )}
       >
         <div className={cn("contents", sidebarHidden && "min-[861px]:hidden")}>
@@ -131,6 +135,7 @@ export default function Workspace({ accountId }: { accountId?: string }) {
           {route.name === "page" && <PageView key={route.id} id={route.id} />}
           <AssistantButton />
         </main>
+        <AssistantPanel />
       </div>
 
       <CommandPalette />

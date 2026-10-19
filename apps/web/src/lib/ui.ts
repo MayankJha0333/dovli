@@ -20,9 +20,11 @@ export interface UIState {
   presenting: string | null;
   /** What the sidebar shows: the workspace, or the open page (contents, to-dos, attachments, links). */
   sidebarMode: "space" | "page";
+  /** The assistant panel beside the page (⌘J). */
+  assistant: boolean;
 }
 
-let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space" };
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space", assistant: false };
 const listeners = new Set<() => void>();
 
 // A page made with "New page" should put the cursor in its title, ready to type.

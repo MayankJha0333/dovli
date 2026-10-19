@@ -260,13 +260,42 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
   const dark = useIsDark();
   const [svg, setSvg] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  /** Mermaid that couldn't be drawn: shown as text, so nothing is lost. */
+  const [broken, setBroken] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
+    setBroken(null);
     import("../excalidrawKit")
       .then(async (kit) => {
         if (!scene) {
           if (editor.isEditable) editor.updateBlock(block.id, { props: { scene: kit.starterScene() } });
+          return;
+        }
+        // Mermaid from the assistant (or an AI app through MCP): draw it as shapes once, and keep
+        // those, so it can be edited like any flowchart. Not an undo step of its own.
+        const code = kit.mermaidOf(scene);
+        if (code !== null) {
+          let drawn: string;
+          try {
+            drawn = await kit.sceneFromMermaid(code);
+          } catch {
+            if (alive) {
+              setBroken(code);
+              setSvg("");
+            }
+            return;
+          }
+          if (!alive) return;
+          if (editor.isEditable && editor.getBlock(block.id)) {
+            editor.transact((tr: any) => {
+              tr.setMeta("addToHistory", false);
+              editor.updateBlock(block.id, { props: { scene: drawn } });
+            });
+            return;
+          }
+          const out = await kit.renderSvg(drawn, dark);
+          if (alive) setSvg(out);
           return;
         }
         const out = await kit.renderSvg(scene, dark);
@@ -294,6 +323,11 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
           <span className="text-sm text-ink-3">Drawing flowchart</span>
         ) : svg ? (
           <div className="flex w-full justify-center [&_svg]:h-auto [&_svg]:max-h-[420px] [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: svg }} />
+        ) : broken ? (
+          <div className="flex w-full flex-col gap-2">
+            <span className="text-sm text-ink-3">Couldn't draw this diagram. Here is its text; click Edit to draw it by hand.</span>
+            <pre className="m-0 max-h-[240px] overflow-auto whitespace-pre-wrap rounded-md bg-panel p-3 font-mono text-xs text-ink-2">{broken}</pre>
+          </div>
         ) : (
           <span className="text-sm text-ink-3">Empty flowchart. Click Edit to draw.</span>
         )}

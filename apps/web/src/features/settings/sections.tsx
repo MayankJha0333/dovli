@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { timeAgo } from "@dovli/core";
 import { APP_THEMES, getTheme, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, type ThemePreference } from "@dovli/theme";
-import { Button, Field, Icon, Input, Kbd, Pill, RadioCard, RadioCards, Segmented, Spinner, Switch, cn, modKey, toast } from "@dovli/ui";
-import { refreshUsage, useAIUsage } from "@/lib/ai";
+import { Button, Field, Icon, Input, Kbd, Pill, RadioCard, RadioCards, Segmented, Spinner, Switch, cn, inputStyles, modKey, toast } from "@dovli/ui";
+import { PROVIDERS, connectProvider, disconnectProvider, refreshUsage, useAIUsage, type OwnProviderId, type ProviderId } from "@/lib/ai";
 import { auth, useAuth } from "@/lib/auth";
 import { backupFile, createBackup, listBackups, parseBackupFile, restoreBackup } from "@/lib/backups";
 import { clearDevice, deleteUnowned, moveUnownedIntoAccount, perAccountStorage, unownedPageCount, type Backup } from "@/lib/db";
@@ -460,66 +460,355 @@ export function Data() {
 /* AI                                                                  */
 /* ------------------------------------------------------------------ */
 
+/** Standing instructions for the assistant, like Craft's Assistant preferences. */
+function AssistantPrefs() {
+  const saved = useSettings((x) => x.assistantPrefs);
+  const mode = useSettings((x) => x.assistantMode);
+  const [text, setText] = useState(saved);
+  useEffect(() => setText(saved), [saved]);
+  const save = () => text.trim() !== saved && settings.set({ assistantPrefs: text.trim() });
+  return (
+    <Group title="Assistant" description={<>The assistant works beside your page. Open it with the Assistant button or {modKey()}J.</>}>
+      <Row label="Mode" hint={mode === "suggest" ? "Shows its changes first; you apply them." : "Makes changes straight away; you can undo them."}>
+        <Segmented
+          label="Assistant mode"
+          value={mode}
+          onValueChange={(v) => settings.set({ assistantMode: v })}
+          options={[
+            { value: "suggest", label: "Suggest" },
+            { value: "edit", label: "Edit" },
+          ]}
+        />
+      </Row>
+      <Field label="Preferences" hint="Followed in every conversation on this device. For example: “Write in British English. Keep answers short.”">
+        {(f) => (
+          <textarea
+            {...f}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onBlur={save}
+            maxLength={1000}
+            rows={3}
+            placeholder="How should the assistant write and work?"
+            className={cn(inputStyles, "h-auto resize-y py-2 leading-snug")}
+          />
+        )}
+      </Field>
+    </Group>
+  );
+}
+
 export function AI() {
   const u = useAIUsage();
   const a = useAuth((x) => x.status);
   useEffect(() => {
     void refreshUsage();
   }, [a]);
+  // The card that's open: starts on the AI in use.
+  const [choice, setChoice] = useState<ProviderId>(u.provider);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    if (u.loaded && !seen) {
+      setChoice(u.provider);
+      setSeen(true);
+    }
+  }, [u.loaded, u.provider, seen]);
+
   const pct = u.limit ? Math.min(100, Math.round((u.used / u.limit) * 100)) : 0;
   const resets = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString(undefined, { day: "numeric", month: "long" });
+
+  if (u.loaded && u.reason === "sign-in")
+    return (
+      <div className="flex flex-col gap-6">
+        <Group title="AI" description="Rewrite, shorten, fix, translate, summarise and review your writing.">
+          <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
+            <p className="m-0 font-semibold text-ink">Sign in to use AI</p>
+            <p className="m-0 mt-1">Dovli AI is free with every account, with a monthly allowance. You can also connect your own Anthropic or OpenAI key.</p>
+            <Button variant="primary" className="mt-3" onClick={() => ui.set({ settings: "account" })}>
+              Sign in
+            </Button>
+          </div>
+        </Group>
+      </div>
+    );
+
+  const cards: { id: ProviderId; mark: ReactNode; title: string; text: string }[] = [
+    { id: "groq", mark: <Icon name="sparkles" size={18} />, title: "Dovli AI", text: "Free with your account, with a monthly allowance." },
+    { id: "anthropic", mark: <span className="font-serif text-lg font-semibold">A</span>, title: "Anthropic", text: "Claude models, on your own API key." },
+    { id: "openai", mark: <span className="font-serif text-lg font-semibold">O</span>, title: "OpenAI", text: "GPT models, on your own API key." },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
-      <Group title="Writing help" description="Select text in a page and choose Ask AI to rewrite, shorten, fix, change the tone or translate it. For a summary or a review of a whole page, use the Assistant button at the bottom right of the page.">
-        {!u.available ? (
-          <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
-            {cloudConfigured && a !== "signed-in" ? (
-              <>
-                <p className="m-0 font-semibold text-ink">Sign in to use AI</p>
-                <p className="m-0 mt-1">AI is included with every account, with a monthly allowance.</p>
-                <Button variant="primary" className="mt-3" onClick={() => ui.set({ settings: "account" })}>
-                  Sign in
-                </Button>
-              </>
-            ) : (
-              <>
-                <p className="m-0 font-semibold text-ink">AI isn't set up on this copy of Dovli</p>
-                <p className="m-0 mt-1">
-                  Add <code className="font-mono text-xs">ANTHROPIC_API_KEY</code> to the server settings and restart. The README explains how.
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2 rounded-lg bg-well p-4">
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-base font-semibold text-ink">This month</span>
-              <span className="text-sm tabular-nums text-ink-2">
-                {pct}% used{u.source === "device" ? " on this device" : ""}
+      <Group
+        title="AI provider"
+        description="Choose which AI does the writing help. Dovli AI is ready to go. With your own key, the provider bills you directly and there's no monthly limit."
+      >
+        <RadioCards value={choice} onValueChange={(v) => setChoice(v as ProviderId)} label="AI provider" className="grid grid-cols-3 gap-2 max-[640px]:grid-cols-1">
+          {cards.map((c) => (
+            <RadioCard key={c.id} value={c.id} className="bg-well p-3.5">
+              <span className="grid size-9 place-items-center rounded-md bg-panel text-ink-2 shadow-sm" aria-hidden="true">
+                {c.mark}
               </span>
-            </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-line" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="AI allowance used">
-              <div className={cn("h-full rounded-full transition-[width]", pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warn" : "bg-accent")} style={{ width: `${pct}%` }} />
-            </div>
-            <p className="m-0 text-sm text-ink-3">
-              {Math.max(0, u.limit - u.used).toLocaleString()} of {u.limit.toLocaleString()} tokens left (a token is about ¾ of a word). Resets on {resets}.
-            </p>
-          </div>
-        )}
+              <span className="flex flex-col gap-0.5 pr-6">
+                <span className="text-base font-semibold text-ink">{c.title}</span>
+                <span className="text-sm leading-snug text-ink-3">{c.text}</span>
+              </span>
+              {u.loaded && u.provider === c.id && (u.provider !== "groq" || u.dovliAI) && <Pill tone="accent" className="self-start">In use</Pill>}
+            </RadioCard>
+          ))}
+        </RadioCards>
+
+        {choice === "groq" ? <DovliAIPanel pct={pct} resets={resets} /> : <OwnKeyPanel key={choice} provider={choice} />}
       </Group>
+
+      <AssistantPrefs />
+
       <Group title="Your notes and AI">
         <ul className="m-0 flex list-none flex-col gap-2 p-0 text-sm text-ink-2">
+          <li className="flex gap-2">
+            <Icon name="check" size={15} className="mt-0.5 flex-none text-ok" />
+            Only what you ask about is sent: the text you select, or the open page when you use the assistant.
+          </li>
           <li className="flex gap-2">
             <Icon name="check" size={15} className="mt-0.5 flex-none text-ok" />
             Dovli never uses your notes to train AI.
           </li>
           <li className="flex gap-2">
             <Icon name="check" size={15} className="mt-0.5 flex-none text-ok" />
-            Only the text you select (or the page you summarise) is sent, and only when you ask.
+            {u.keyStorage === "device" ? "Your own API key stays on this device." : "Your own API key is stored encrypted and is never shown again, not even to you."}
           </li>
         </ul>
       </Group>
     </div>
+  );
+}
+
+/** Dovli AI: this month's allowance, or a way back to it from your own key. */
+function DovliAIPanel({ pct, resets }: { pct: number; resets: string }) {
+  const u = useAIUsage();
+  const [busy, setBusy] = useState(false);
+  if (!u.loaded) return <Spinner />;
+  if (!u.dovliAI)
+    return (
+      <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
+        <p className="m-0 font-semibold text-ink">Dovli AI isn't set up on this server</p>
+        <p className="m-0 mt-1">
+          Add <code className="font-mono text-xs">GROQ_KEY</code> to the server settings to turn it on, or connect your own Anthropic or OpenAI key above.
+        </p>
+      </div>
+    );
+  if (u.provider !== "groq")
+    return (
+      <div className="flex flex-col items-start gap-3 rounded-lg bg-well p-4 text-sm text-ink-2">
+        <p className="m-0">
+          You're using your own {PROVIDERS[u.provider].name} key. Switching back removes the key from Dovli{u.keyStorage === "device" ? " on this device" : ""}.
+        </p>
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await disconnectProvider();
+              toast("Switched to Dovli AI");
+            } catch (e) {
+              toast(errText(e), { tone: "danger" });
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Switching…" : "Switch to Dovli AI"}
+        </Button>
+      </div>
+    );
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-well p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-base font-semibold text-ink">This month</span>
+        <span className="text-sm tabular-nums text-ink-2">
+          {pct}% used{u.source === "device" ? " on this device" : ""}
+        </span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-line" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Dovli AI allowance used">
+        <div className={cn("h-full rounded-full transition-[width]", pct >= 90 ? "bg-danger" : pct >= 70 ? "bg-warn" : "bg-accent")} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="m-0 text-sm text-ink-3">
+        {Math.max(0, u.limit - u.used).toLocaleString()} of {u.limit.toLocaleString()} tokens left (a token is about ¾ of a word). Resets on {resets}.
+      </p>
+    </div>
+  );
+}
+
+const selectStyles = cn(inputStyles, "appearance-none pr-8");
+
+function ModelSelect({ provider, value, onChange, disabled, id }: { provider: OwnProviderId; value: string; onChange: (v: string) => void; disabled?: boolean; id?: string }) {
+  const models = PROVIDERS[provider].models;
+  const known = models.some((m) => m.id === value);
+  return (
+    <div className="relative">
+      <select id={id} value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)} className={selectStyles}>
+        {models.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.label} ({m.hint.toLowerCase()})
+          </option>
+        ))}
+        {!known && <option value={value}>{value}</option>}
+      </select>
+      <Icon name="chevronDown" size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-3" />
+    </div>
+  );
+}
+
+/** Connect, change or remove your own Anthropic or OpenAI key. */
+function OwnKeyPanel({ provider }: { provider: OwnProviderId }) {
+  const u = useAIUsage();
+  const info = PROVIDERS[provider];
+  const connected = u.provider === provider;
+  const [model, setModel] = useState(connected && u.model ? u.model : info.defaultModel);
+  const [key, setKey] = useState("");
+  const [replacing, setReplacing] = useState(false);
+  const [busy, setBusy] = useState<"" | "connect" | "model" | "remove">("");
+  const [error, setError] = useState("");
+
+  if (!u.loaded) return <Spinner />;
+  if (!u.canConnect)
+    return (
+      <div className="rounded-lg bg-well p-4 text-sm text-ink-2">
+        <p className="m-0 font-semibold text-ink">Own keys aren't available on this server yet</p>
+        <p className="m-0 mt-1">
+          The server needs <code className="font-mono text-xs">AUTH_CODE_SECRET</code> (or <code className="font-mono text-xs">AI_KEYS_SECRET</code>) to store keys safely.
+        </p>
+      </div>
+    );
+
+  const connect = async () => {
+    setError("");
+    setBusy("connect");
+    try {
+      await connectProvider(provider, model, key);
+      setKey("");
+      setReplacing(false);
+      toast(`Connected to ${info.name}`);
+    } catch (e) {
+      setError(errText(e));
+    } finally {
+      setBusy("");
+    }
+  };
+
+  if (connected && !replacing)
+    return (
+      <div className="flex flex-col gap-4 rounded-lg bg-well p-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-8 place-items-center rounded-full bg-panel text-ok shadow-sm" aria-hidden="true">
+            <Icon name="check" size={15} />
+          </span>
+          <div className="min-w-0">
+            <p className="m-0 text-base font-semibold text-ink">Connected to {info.name}</p>
+            <p className="m-0 text-sm text-ink-3">Key ending in {u.keyHint ?? "····"}. Billed by {info.name}, no monthly limit in Dovli.</p>
+          </div>
+        </div>
+        <Field label="Model">
+          {(p) => (
+            <ModelSelect
+              {...p}
+              provider={provider}
+              value={u.model ?? info.defaultModel}
+              disabled={!!busy}
+              onChange={async (m) => {
+                setError("");
+                setBusy("model");
+                try {
+                  await connectProvider(provider, m, "");
+                  toast("Model changed");
+                } catch (e) {
+                  setError(errText(e));
+                } finally {
+                  setBusy("");
+                }
+              }}
+            />
+          )}
+        </Field>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" disabled={!!busy} onClick={() => setReplacing(true)}>
+            Replace key
+          </Button>
+          <Button
+            variant="dangerGhost"
+            disabled={!!busy}
+            onClick={async () => {
+              setBusy("remove");
+              try {
+                await disconnectProvider();
+                toast("Key removed. Using Dovli AI.");
+              } catch (e) {
+                setError(errText(e));
+              } finally {
+                setBusy("");
+              }
+            }}
+          >
+            {busy === "remove" ? "Removing…" : "Remove key"}
+          </Button>
+        </div>
+        <p role="alert" className="m-0 text-sm text-danger empty:hidden">
+          {error}
+        </p>
+      </div>
+    );
+
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-lg bg-well p-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void connect();
+      }}
+    >
+      <Field label="Model">{(p) => <ModelSelect {...p} provider={provider} value={model} onChange={setModel} disabled={!!busy} />}</Field>
+      <Field
+        label={`${info.name} API key`}
+        hint={
+          <>
+            Get one from{" "}
+            <a href={info.keysUrl} target="_blank" rel="noreferrer noopener" className="font-semibold text-accent underline-offset-2 hover:underline">
+              your {info.name} account
+            </a>
+            . We check it with one tiny request before saving{u.keyStorage === "device" ? ", and keep it on this device only" : ", then store it encrypted"}.
+          </>
+        }
+      >
+        {(p) => (
+          <Input
+            {...p}
+            type="password"
+            autoComplete="off"
+            spellCheck={false}
+            autoCapitalize="none"
+            placeholder={`${info.keyPrefix ?? ""}…`}
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            disabled={!!busy}
+          />
+        )}
+      </Field>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="submit" variant="primary" disabled={!!busy || !key.trim()}>
+          {busy === "connect" ? "Checking key…" : `Connect ${info.name}`}
+        </Button>
+        {replacing && (
+          <Button variant="ghost" disabled={!!busy} onClick={() => setReplacing(false)}>
+            Cancel
+          </Button>
+        )}
+      </div>
+      <p role="alert" className="m-0 text-sm text-danger empty:hidden">
+        {error}
+      </p>
+    </form>
   );
 }
 
