@@ -10,7 +10,6 @@ import { refreshUsage } from "@/lib/ai";
 import { ui, useUI } from "@/lib/ui";
 import { auth, initAuth, useAuth } from "@/lib/auth";
 import { authGateOn } from "@/lib/authGate";
-import { AIPanel } from "@/features/ai/AIPanel";
 import { AssistantButton } from "@/features/ai/AssistantButton";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { SignInDialog } from "@/features/auth/SignInDialog";
@@ -142,7 +141,6 @@ export default function Workspace({ accountId }: { accountId?: string }) {
       <SettingsDialog />
       <SignInDialog />
       <ShareDialog />
-      <AIPanel />
       <PagePicker />
       <StyleGallery />
       <Toaster />

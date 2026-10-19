@@ -15,6 +15,7 @@ import { scrollToBlock } from "../PageInfo";
 import { ActionRow, PanelTitle, Prop, Section } from "./kit";
 
 const REVIEWS: { id: ReviewFocus; label: string }[] = [
+  { id: "full", label: "Full review, with fixes" },
   { id: "grammar", label: "Check spelling and grammar" },
   { id: "structure", label: "Get feedback on structure" },
   { id: "tone", label: "Check tone of voice" },
@@ -180,7 +181,7 @@ export function InfoPanel({ page, onFind, onPresent, close }: { page: Page; onFi
                   </li>
                 ))}
               </ul>
-              <p className="m-0 mt-1.5 text-xs text-ink-3">AI reads the page and gives suggestions. Nothing changes unless you choose to.</p>
+              <p className="m-0 mt-1.5 text-xs text-ink-3">Opens in the assistant: what to fix first, with fixes you can pick and apply. Nothing changes until you do.</p>
             </Section>
           )}
         </>

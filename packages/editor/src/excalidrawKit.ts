@@ -1,6 +1,6 @@
 // Loaded on demand (it pulls in Excalidraw), so pages without flowcharts stay fast.
 import { exportToSvg, convertToExcalidrawElements } from "@excalidraw/excalidraw";
-import { flowchartStarter } from "@dovli/core";
+import { flowchartStarter, tidyMermaid } from "@dovli/core";
 
 try {
   // Excalidraw loads its fonts from <origin>/fonts/…, which the web app serves from public/.
@@ -30,7 +30,13 @@ export function mermaidOf(json: string): string | null {
  */
 export async function sceneFromMermaid(code: string): Promise<string> {
   const { parseMermaidToExcalidraw } = await import("@excalidraw/mermaid-to-excalidraw");
-  const { elements, files } = await parseMermaidToExcalidraw(code, { themeVariables: { fontSize: "16px" } });
+  const parse = (c: string) => parseMermaidToExcalidraw(c, { themeVariables: { fontSize: "16px" } });
+  // As written first; then with labels quoted (AI often puts brackets inside labels, which Mermaid rejects).
+  const { elements, files } = await parse(code).catch(() => {
+    const tidy = tidyMermaid(code);
+    if (tidy === code) throw new Error("Mermaid couldn't be read");
+    return parse(tidy);
+  });
   // Excalidraw's "Normal" font (2, the system sans-serif): always there to measure, so labels are
   // sized and wrapped to fit their boxes. A web font may not have loaded yet when this runs.
   const tidy = (e: any) => ({ ...e, roughness: 0, ...(e.label ? { label: { ...e.label, fontFamily: 2 } } : {}), ...(e.type === "text" ? { fontFamily: 2 } : {}) });

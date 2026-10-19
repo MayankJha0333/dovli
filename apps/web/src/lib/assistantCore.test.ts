@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { blocksToMarkdown, markdownToBlocks } from "@dovli/core";
-import { applyChanges, changeTargets, cleanMarkdown, describeChange, flowchartSummary, pageListing, parseReply, plainPreview, replyStream } from "./assistantCore";
+import { applyChanges, changeTargets, cleanMarkdown, describeChange, findLoose, findTextDiagrams, flowchartSummary, pageListing, parseReply, parseReview, plainPreview, replyStream, wantsChange, hideIds } from "./assistantCore";
 
 let n = 0;
 const page = () => {
@@ -170,5 +170,96 @@ describe("streaming the reply", () => {
     const s = replyStream();
     s.push("The page is ");
     expect(s.push("about a launch.").reply).toBe("The page is about a launch.");
+  });
+});
+
+describe("fixing words in place", () => {
+  it("applies several fixes to the same block, keeping its id", () => {
+    const blocks = markdownToBlocks("Their going to **ship** it on friday.", { newId: () => "p1" });
+    const out = applyChanges(
+      blocks,
+      [
+        { op: "replace_text", block_id: "b1", find: "Their going", replace: "They're going" },
+        { op: "replace_text", block_id: "b1", find: "friday", replace: "Friday" },
+      ],
+      { ids: ["p1"], truncated: false },
+    );
+    expect(blocksToMarkdown(out.blocks)).toBe("They're going to **ship** it on Friday.");
+    expect(out.blocks[0].id).toBe("p1");
+    expect(out.done).toEqual(["Fixed 2 places in the wording"]);
+  });
+  it("finds quotes that differ in quote marks, spaces or bold", () => {
+    expect(findLoose("We **really** can’t wait", "really can't  wait")).not.toBeNull();
+    expect(findLoose("Nothing here", "missing words")).toBeNull();
+  });
+  it("says so when the words aren't there any more", () => {
+    const out = applyChanges(markdownToBlocks("Hello", { newId: () => "p1" }), [{ op: "replace_text", block_id: "b1", find: "Goodbye", replace: "Hi" }], { ids: ["p1"], truncated: false });
+    expect(out.skipped[0]).toMatch(/Couldn't find “Goodbye”/);
+  });
+});
+
+describe("document review", () => {
+  it("reads findings, most serious first, with their fixes as changes", () => {
+    const raw = JSON.stringify({
+      reply: "Clear plan, but the goals are vague.",
+      score: 6,
+      findings: [
+        { severity: "low", title: "Inconsistent capitals", why: "Looks careless.", quote: "friday", fix: { op: "replace_text", block_id: "b2", find: "friday", replace: "Friday" } },
+        { severity: "high", title: "Goals can't be measured", why: "Nobody can tell when you're done.", quote: "Define clear objectives" },
+        { severity: "nope", why: "Missing owner for each phase." },
+      ],
+    });
+    const r = parseReview(raw, "full");
+    expect(r.reply).toBe("Clear plan, but the goals are vague.");
+    expect(r.review.score).toBe(6);
+    expect(r.review.findings.map((f) => f.severity)).toEqual(["high", "medium", "low"]);
+    expect(r.review.findings[2]).toMatchObject({ title: "Inconsistent capitals", change: 0 });
+    expect(r.changes).toEqual([{ op: "replace_text", block_id: "b2", find: "friday", replace: "Friday" }]);
+  });
+  it("falls back to a normal answer when it isn't a review", () => {
+    expect(parseReview("Looks good to me.", "grammar")).toMatchObject({ reply: "Looks good to me.", review: { findings: [] } });
+  });
+});
+
+describe("spotting text diagrams", () => {
+  const code = (content: string, language = "text") => ({ id: `c${content.length}`, type: "codeBlock", props: { language }, content: [{ type: "text", text: content, styles: {} }] });
+  it("spots a diagram drawn with arrows", () => {
+    const dns = "You type: swiggy.com\n     │\n     ▼\n1. Browser checks its own memory (cache)  ── found? → done\n     │ not found\n     ▼\n2. Asks your internet provider's DNS server";
+    expect(findTextDiagrams([code(dns)])).toEqual([{ id: `c${dns.length}`, kind: "text", code: dns }]);
+  });
+  it("spots Mermaid that isn't drawn yet", () => {
+    expect(findTextDiagrams([code("flowchart TD\n  A --> B", "text")])[0].kind).toBe("mermaid");
+  });
+  it("leaves real code and short snippets alone", () => {
+    expect(findTextDiagrams([code("const f = (a) => a + 1;\nconst g = (b) => b * 2;\nreturn f(g(1));", "js"), code("a -> b", "text")])).toEqual([]);
+  });
+});
+
+describe("question or change", () => {
+  it("answers questions in chat", () => {
+    for (const q of ["Explain this flowchart in plain words, step by step.", "Explain what this is about, in plain words.", "What does DNS do?", "Why is the server step needed?", "Is this correct?"])
+      expect(wantsChange(q), q).toBe(false);
+  });
+  it("changes the page when asked to", () => {
+    for (const q of [
+      "Make this into a flowchart and put it right after it",
+      "Summarise this in a few bullet points, right after it",
+      "Turn this into a to-do list",
+      "Add a step to this flowchart: retry",
+      "Fix the spelling and grammar in this. Change nothing else.",
+      "Translate this into Hindi",
+      "Yes please",
+      "go ahead",
+      "Summarise this page in a short callout at the top",
+    ])
+      expect(wantsChange(q), q).toBe(true);
+  });
+});
+
+describe("hiding block ids in replies", () => {
+  it("says 'that block' instead of the AI's ids, and leaves other text alone", () => {
+    expect(hideIds("Added an explanation right after block **b2**.")).toBe("Added an explanation right after that block.");
+    expect(hideIds("I'd merge blocks b4 and b5.")).toBe("I'd merge those blocks.");
+    expect(hideIds("[b3] Take vitamin b12 daily.")).toBe("Take vitamin b12 daily.");
   });
 });

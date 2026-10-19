@@ -262,6 +262,8 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
   const [editing, setEditing] = useState(false);
   /** Mermaid that couldn't be drawn: shown as text, so nothing is lost. */
   const [broken, setBroken] = useState<string | null>(null);
+  /** Mermaid drawn as shapes, for Edit to start from. */
+  const drawnRef = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -272,9 +274,11 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
           if (editor.isEditable) editor.updateBlock(block.id, { props: { scene: kit.starterScene() } });
           return;
         }
-        // Mermaid from the assistant (or an AI app through MCP): draw it as shapes once, and keep
-        // those, so it can be edited like any flowchart. Not an undo step of its own.
+        // Mermaid from the assistant (or an AI app through MCP): drawn as shapes to show it. It's
+        // only saved as shapes when someone edits it. Saving here, in every window that shows the
+        // page, could write an out-of-date copy of the page over newer changes.
         const code = kit.mermaidOf(scene);
+        drawnRef.current = null;
         if (code !== null) {
           let drawn: string;
           try {
@@ -287,13 +291,7 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
             return;
           }
           if (!alive) return;
-          if (editor.isEditable && editor.getBlock(block.id)) {
-            editor.transact((tr: any) => {
-              tr.setMeta("addToHistory", false);
-              editor.updateBlock(block.id, { props: { scene: drawn } });
-            });
-            return;
-          }
+          drawnRef.current = drawn;
           const out = await kit.renderSvg(drawn, dark);
           if (alive) setSvg(out);
           return;
@@ -347,7 +345,8 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
         createPortal(
           <Suspense fallback={<div className="fixed inset-0 z-[300] grid place-items-center bg-panel text-ink-3">Opening editor</div>}>
             <FlowchartEditor
-              scene={scene}
+              // Mermaid opens as its drawn shapes; Done saves them in its place.
+              scene={drawnRef.current ?? scene}
               onDone={(json) => {
                 setEditing(false);
                 if (json !== scene) editor.updateBlock(block.id, { props: { scene: json } });

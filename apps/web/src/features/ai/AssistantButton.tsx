@@ -6,14 +6,18 @@ import { Icon, modKey } from "@dovli/ui";
 import { assistant } from "@/lib/assistant";
 import { useStore } from "@/lib/store";
 import { useUI } from "@/lib/ui";
+import { DiagramHint, useTextDiagram } from "@/features/assistant/DiagramHint";
 
 export function AssistantButton() {
   const page = useStore((s) => (s.route.name === "page" ? s.pages[s.route.id] : undefined));
-  const hidden = useUI((s) => !!s.ai || !!s.presenting || s.assistant);
+  const hidden = useUI((s) => !!s.presenting || s.assistant);
+  const diagram = useTextDiagram(page);
   if (!page || page.kind !== "doc" || page.deletedAt || hidden) return null;
 
   return (
-    <div data-print="hide" className="pointer-events-none absolute bottom-4 right-4 z-30 max-[860px]:bottom-[calc(16px+env(safe-area-inset-bottom))]">
+    <div data-print="hide" className="pointer-events-none absolute bottom-4 right-4 z-30 flex flex-col items-end gap-2 max-[860px]:bottom-[calc(16px+env(safe-area-inset-bottom))]">
+      {/* A diagram drawn with text in this page: offer to make it a real flowchart. */}
+      {diagram && <DiagramHint key={diagram.id} diagram={diagram} />}
       <button
         type="button"
         onClick={() => assistant.toggle(true)}

@@ -8,12 +8,13 @@
 // The checking and applying itself is pure and tested (assistantCore.ts); this file does the I/O.
 
 import { useSyncExternalStore } from "react";
-import { childrenOf, displayTitle, livePages, type Page } from "@dovli/core";
-import { applyChanges, describeChange, pageListing, type Change } from "./assistantCore";
+import { blockToMarkdown, childrenOf, displayTitle, flattenBlocks, flowchartToMermaid, livePages, markdownToBlocks, mermaidScene, type Page } from "@dovli/core";
+import { REVIEWS, applyChanges, describeChange, findLoose, flowchartSummary, pageListing, type Change, type Review, type ReviewFocus, type TextDiagram } from "./assistantCore";
 import { aiHeaders, allowanceLeft, countUsage } from "./ai";
 import { settings } from "./settings";
 import { store } from "./store";
 import { getActiveEditor, ui } from "./ui";
+import { toast } from "@dovli/ui";
 
 export type AssistantMode = "suggest" | "edit";
 
@@ -41,13 +42,24 @@ export interface Turn {
   preparing?: number;
   /** The text the person had selected when they sent this (user turns). */
   quote?: string;
+  /** A document review: the findings, each with its fix (an index into changes). */
+  review?: Review;
+  /** What kind of request this answers, while it streams ("review" shows "Reviewing…"). */
+  task?: "review";
 }
 
 /** Text selected in the open page, shown above the message box and sent with the next message. */
 export interface PageSelection {
   pageId: string;
+  /** What's selected, for the AI: the text, or a whole block written out (a flowchart as Mermaid). */
   text: string;
   blockIds: string[];
+  /** Text, one whole block that isn't text (a flowchart, picture, table…), or several blocks. */
+  kind?: "text" | "flowchart" | "block" | "blocks";
+  /** For the chip: "Selected text · 12 words", "Selected flowchart". */
+  label?: string;
+  /** For the chip: a short, readable version of `text`. */
+  preview?: string;
 }
 
 export interface Chat {
@@ -119,7 +131,12 @@ interface Snapshot {
   blocks: any[] | null;
   title: string | null;
   created: string[];
+  /** The page's words right after the change, to tell whether it has been edited since. */
+  after?: string;
 }
+
+/** A page's words and block order, ignoring settings (a flowchart drawing itself isn't an edit). */
+const wordsOf = (blocks: any[]) => flattenBlocks(blocks).map(({ block }) => `${block.id}:${block.type}:${JSON.stringify(block.content ?? "")}`).join("|");
 const snapshots = new Map<string, Snapshot>();
 
 /* ---------------------------------------------------------------- reading */
@@ -144,7 +161,23 @@ export const assistant = {
   /** Open or close the panel. */
   toggle(open = !ui.get().assistant) {
     load();
-    ui.set({ assistant: open, ...(open ? { ai: null } : {}) });
+    ui.set({ assistant: open });
+  },
+  /** Open the drawer and send this message about the open page. */
+  ask(text: string) {
+    load();
+    ui.set({ assistant: true });
+    void send(text);
+  },
+  /** "Ask AI" over selected text: open the drawer with the selection attached, ready to type. */
+  askAboutSelection() {
+    load();
+    const page = openPage();
+    const editor = page ? editorFor(page.id) : null;
+    const sel = editor && page ? readSelection(editor, page.id) : null;
+    if (sel) set({ selection: sel }, false);
+    ui.set({ assistant: true });
+    window.dispatchEvent(new Event("dovli:assistant-focus"));
   },
   newChat() {
     set({ current: null, fresh: openPage()?.id ?? "" });
@@ -159,8 +192,12 @@ export const assistant = {
     });
   },
   canUndo: (turnId: string) => snapshots.has(turnId),
+  review: startReview,
+  keepReviewNote,
+  findQuote,
+  drawDiagram,
   setSelection(sel: PageSelection | null) {
-    const same = sel && state.selection && sel.pageId === state.selection.pageId && sel.text === state.selection.text;
+    const same = sel && state.selection && sel.pageId === state.selection.pageId && sel.text === state.selection.text && sel.blockIds.join() === state.selection.blockIds.join();
     if (!same && (sel || state.selection)) set({ selection: sel }, false);
   },
   send,
@@ -235,7 +272,7 @@ function asHistory(t: Turn): string {
   return JSON.stringify({ reply: t.text + what, changes: [] });
 }
 
-async function send(text: string) {
+async function send(text: string, opts: { review?: ReviewFocus } = {}) {
   load();
   const message = text.trim();
   if (!message || state.busy) return;
@@ -258,7 +295,7 @@ async function send(text: string) {
   }
   const chatId = chat.id;
   const selection = state.selection?.pageId === pageId ? state.selection : null;
-  const userTurn: Turn = { id: uid(), role: "user", text: message, at: Date.now(), ...(selection ? { quote: selection.text.slice(0, 400) } : {}) };
+  const userTurn: Turn = { id: uid(), role: "user", text: message, at: Date.now(), ...(selection ? { quote: (selection.preview ?? selection.text).slice(0, 400) } : {}) };
   update(chatId, (c) => ({ ...c, updatedAt: Date.now(), turns: [...c.turns, userTurn] }));
   set({ selection: null }, false);
 
@@ -297,6 +334,7 @@ async function send(text: string) {
       method: "POST",
       headers: await aiHeaders(),
       body: JSON.stringify({
+        ...(opts.review ? { task: { type: "review", focus: opts.review } } : {}),
         messages: history.map((t) => ({ role: t.role, content: asHistory(t) })),
         page: page
           ? {
@@ -327,7 +365,7 @@ async function send(text: string) {
   }
 
   // The answer arrives line by line: the reply as it's written, then the changes.
-  update(chatId, (c) => ({ ...c, updatedAt: Date.now(), turns: [...c.turns, { id: answerId, role: "assistant", text: "", at: Date.now(), streaming: true }] }), false);
+  update(chatId, (c) => ({ ...c, updatedAt: Date.now(), turns: [...c.turns, { id: answerId, role: "assistant", text: "", at: Date.now(), streaming: true, ...(opts.review ? { task: "review" as const } : {}) }] }), false);
   let final: any = null;
   try {
     const reader = res.body.getReader();
@@ -370,9 +408,106 @@ async function send(text: string) {
     ids: listing.ids,
     truncated: listing.truncated,
     status: changes.length ? "pending" : undefined,
+    ...(final.review && typeof final.review === "object" ? { review: final.review as Review } : {}),
   });
   set({ busy: false }, false);
-  if (changes.length && prefs.assistantMode === "edit") apply(answerId);
+  // Review fixes always wait for the person to pick them, even in Edit mode.
+  if (changes.length && prefs.assistantMode === "edit" && !opts.review) apply(answerId);
+}
+
+/** Words in a list of inline content (text, links, page links). */
+const inlineWords = (content: unknown): string =>
+  (Array.isArray(content) ? content : [])
+    .map((c: any) => (typeof c === "string" ? c : c.type === "text" ? c.text : c.type === "link" ? (c.content ?? []).map((x: any) => x.text).join("") : (c.props?.title ?? "")))
+    .join("")
+    .trim();
+
+const TEXT_TYPES = new Set(["paragraph", "heading", "bulletListItem", "numberedListItem", "checkListItem", "toggleListItem", "quote", "callout", "codeBlock", "small"]);
+const KIND_NAMES: Record<string, string> = {
+  flowchart: "flowchart",
+  table: "table",
+  codeBlock: "code block",
+  image: "picture",
+  video: "video",
+  audio: "audio clip",
+  file: "file",
+  pdf: "PDF",
+  embed: "link preview",
+  subpage: "page card",
+  dataTable: "data table",
+};
+
+/** One block written out for the AI (and a short version for the chip). */
+function describeBlock(b: any): { text: string; preview: string } {
+  if (TEXT_TYPES.has(b?.type)) {
+    const t = inlineWords(b.content);
+    return { text: t, preview: t };
+  }
+  if (b?.type === "flowchart") {
+    const mermaid = flowchartToMermaid(String(b.props?.scene ?? ""));
+    return mermaid
+      ? { text: `Flowchart (as Mermaid):\n\`\`\`mermaid\n${mermaid}\n\`\`\``, preview: `Flowchart: ${flowchartSummary(mermaid) || "boxes and arrows"}` }
+      : { text: "An empty flowchart", preview: "Empty flowchart" };
+  }
+  if (b?.type === "table") {
+    const rows: any[] = b.content?.rows ?? [];
+    const cell = (c: any) => inlineWords(Array.isArray(c) ? c : c?.content);
+    const t = rows.map((r) => (r.cells ?? []).map(cell).join(" | ")).join("\n");
+    return { text: `Table:\n${t}`, preview: t.replace(/\n/g, " · ") };
+  }
+  if (b?.type === "subpage") {
+    const p = store.get().pages[b.props?.pageId];
+    const t = `Page card: “${p ? displayTitle(p) : "a page"}”`;
+    return { text: t, preview: t };
+  }
+  const name = KIND_NAMES[b?.type] ?? "block";
+  const about = b?.props?.caption || b?.props?.name || b?.props?.title || b?.props?.url || "";
+  const t = `${name[0].toUpperCase()}${name.slice(1)}${about ? `: ${about}` : ""}`;
+  return { text: t, preview: t };
+}
+
+/**
+ * What's selected in a page's editor, or null when nothing is: selected text, or whole blocks
+ * (a flowchart or picture clicked on, blocks picked with their handle) written out for the AI.
+ */
+export function readSelection(editor: any, pageId: string): PageSelection | null {
+  try {
+    let picked: any[] = editor.getSelection()?.blocks ?? [];
+    // A whole block selected (clicking a flowchart or picture, or its handle): the editor reports
+    // no selection for these, so find the block from the selected node.
+    const sel = editor.prosemirrorView?.state.selection;
+    if (!picked.length && sel && "node" in sel && sel.node) {
+      const dom = editor.prosemirrorView.nodeDOM(sel.from) as HTMLElement | null;
+      const id = dom?.getAttribute?.("data-id") ?? dom?.closest?.("[data-id]")?.getAttribute("data-id");
+      const block = id ? editor.getBlock(id) : null;
+      if (block) picked = [block];
+    }
+    const typed = String(editor.getSelectedText() ?? "").trim();
+    const allText = picked.every((b) => TEXT_TYPES.has(b.type));
+    // Some text inside one text block.
+    if (typed && allText && picked.length <= 1) {
+      const blocks = picked.length ? picked : [editor.getTextCursorPosition().block];
+      const words = typed.split(/\s+/).filter(Boolean).length;
+      return { pageId, kind: "text", text: typed.slice(0, 4000), preview: typed, label: `Selected text · ${words} ${words === 1 ? "word" : "words"}`, blockIds: blocks.map((b: any) => b.id) };
+    }
+    if (!picked.length) return null;
+    // Whole blocks, one line (or section) each.
+    const parts = picked.map(describeBlock).filter((p) => p.text);
+    if (!parts.length) return null;
+    const text = parts.map((p) => p.text).join("\n");
+    const one = picked.length === 1 && !TEXT_TYPES.has(picked[0].type);
+    const words = text.split(/\s+/).filter(Boolean).length;
+    return {
+      pageId,
+      kind: one ? (picked[0].type === "flowchart" ? "flowchart" : "block") : allText ? "text" : "blocks",
+      text: text.slice(0, 6000),
+      preview: parts.map((p) => p.preview).join("\n"),
+      label: one ? `Selected ${KIND_NAMES[picked[0].type] ?? "block"}` : allText ? `Selected text · ${words} words` : `Selected · ${picked.length} blocks`,
+      blockIds: picked.map((b: any) => b.id),
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Scroll the page to a block and make it glow for a moment. */
@@ -463,6 +598,17 @@ function apply(turnId: string) {
     const changedBlocks = JSON.stringify(result.blocks) !== JSON.stringify(blocks);
     if (changedBlocks) writeBlocks(page.id, result.blocks);
     if (result.title && result.title !== page.title) store.updatePage(page.id, { title: result.title });
+    const now = store.get().pages[page.id];
+    if (now) snap.after = wordsOf(currentBlocks(now));
+    // Put the cursor in what changed, so nothing else is left selected.
+    const editor = editorFor(page.id);
+    if (editor && result.focus) {
+      try {
+        editor.setTextCursorPosition(result.focus, "end");
+      } catch {
+        /* a block without text (a flowchart): leave the cursor */
+      }
+    }
   } else if (!page && result.pages.length && snap.created[0]) {
     store.navigate({ name: "page", id: snap.created[0] });
   }
@@ -488,6 +634,11 @@ function undo(turnId: string) {
   const snap = snapshots.get(turnId);
   if (!found || !snap) return;
   const page = snap.pageId ? store.get().pages[snap.pageId] : null;
+  // Undo puts the whole page back as it was, so it would also lose anything written since.
+  if (page && snap.after && wordsOf(currentBlocks(page)) !== snap.after) {
+    toast("The page has changed since, so Undo here would lose your newer edits. Use ⌘Z in the page instead.");
+    return;
+  }
   if (page && snap.blocks) {
     if (JSON.stringify(currentBlocks(page)) !== JSON.stringify(snap.blocks)) writeBlocks(page.id, snap.blocks);
     if (snap.title !== null && page.title !== snap.title) store.updatePage(page.id, { title: snap.title });
@@ -498,3 +649,88 @@ function undo(turnId: string) {
 }
 
 export { describeChange };
+
+/* ---------------------------------------------------------------- reviews */
+
+/** Review the open page in the assistant panel. */
+function startReview(focus: ReviewFocus = "full") {
+  load();
+  if (!openPage()) return;
+  assistant.toggle(true);
+  set({ selection: null }, false);
+  void send(REVIEWS[focus].ask, { review: focus });
+}
+
+/** The block of the open page that holds these words, to show where a finding is. */
+function findQuote(quote: string): string | null {
+  const page = openPage();
+  if (!page || !quote.trim()) return null;
+  for (const { block } of flattenBlocks(currentBlocks(page))) {
+    if (findLoose(blockToMarkdown(block).join("\n"), quote)) return block.id;
+  }
+  return null;
+}
+
+/** Keep a review at the top of the page as a note: the verdict, then each finding. */
+function keepReviewNote(turnId: string) {
+  const found = findTurn(turnId);
+  const page = found?.chat.pageId ? store.get().pages[found.chat.pageId] : null;
+  if (!found?.turn.review || !page) return;
+  const { turn } = found;
+  const r = turn.review!;
+  const label = REVIEWS[r.focus]?.label ?? "Review";
+  const one = (t: string) => t.replace(/\s+/g, " ").trim();
+  const md = [
+    `<callout tone="note" emoji="📝">**${label}${r.score ? ` · ${r.score}/10` : ""}:** ${one(turn.text)}</callout>`,
+    ...r.findings.map((f) => `- [ ] **${one(f.title)}**${f.quote ? ` (“${one(f.quote).slice(0, 80)}”)` : ""}: ${one(f.why)}`),
+  ].join("\n");
+  const blocks = markdownToBlocks(md);
+  const editor = editorFor(page.id);
+  const first = editor?.document?.[0];
+  if (editor && first) editor.insertBlocks(blocks, first.id, "before");
+  else store.updatePage(page.id, { blocks: [...blocks, ...(page.blocks ?? [])] });
+  const id = blocks[0]?.id;
+  if (id) revealBlock(id);
+}
+
+/* ---------------------------------------------------------------- diagrams drawn as text */
+
+const DISMISSED = "dovli.diagramHints.dismissed.v1";
+
+export function dismissedDiagrams(): Set<string> {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(DISMISSED) ?? "[]"));
+  } catch {
+    return new Set();
+  }
+}
+
+export function dismissDiagram(id: string) {
+  try {
+    const all = [...dismissedDiagrams(), id].slice(-300);
+    localStorage.setItem(DISMISSED, JSON.stringify(all));
+  } catch {
+    /* private mode: it shows again next time */
+  }
+  window.dispatchEvent(new Event("dovli:diagram-hints"));
+}
+
+/**
+ * Turn a diagram written as text into a real flowchart. Mermaid is drawn straight away (no AI); a
+ * diagram made of arrows and lines goes to the assistant, which redraws it as Mermaid.
+ */
+function drawDiagram(d: TextDiagram): boolean {
+  const page = openPage();
+  if (!page) return false;
+  if (d.kind === "mermaid") {
+    const editor = editorFor(page.id);
+    const flow = { type: "flowchart", props: { scene: mermaidScene(d.code) } };
+    if (editor?.getBlock(d.id)) editor.replaceBlocks([d.id], [flow]);
+    else store.updatePage(page.id, { blocks: (page.blocks ?? []).map((b: any) => (b.id === d.id ? { ...flow, id: d.id, children: [] } : b)) });
+    return true;
+  }
+  assistant.toggle(true);
+  set({ selection: { pageId: page.id, text: d.code.slice(0, 4000), blockIds: [d.id] } }, false);
+  void send("Turn this text diagram into a real flowchart and put it in place of the text version. Keep every step, label and branch.");
+  return false;
+}

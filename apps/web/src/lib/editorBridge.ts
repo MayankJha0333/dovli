@@ -6,6 +6,7 @@ import { toast } from "@dovli/ui";
 import { store, useStore } from "./store";
 import { resolveFileUrl, saveFile } from "./files";
 import { ui } from "./ui";
+import { assistant } from "./assistant";
 
 connectEditor({
   usePages: (select) => useStore((s) => select(s.pages)),
@@ -27,7 +28,8 @@ connectEditor({
     const target = store.get().pages[pageId];
     if (target?.kind === "doc") store.updatePage(pageId, { blocks: [...(target.blocks ?? []), ...blocks] });
   },
-  openAI: (selection) => ui.set({ ai: { ...selection, mode: "edit" } }),
+  // "Ask AI" over selected text opens the assistant drawer, with the selection attached.
+  openAI: () => assistant.askAboutSelection(),
   openTag: (tag) => store.navigate({ name: "tag", tag }),
   notify: (message) => toast(message),
 });

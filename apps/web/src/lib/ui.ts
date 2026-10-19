@@ -2,7 +2,6 @@
 // part of the app, including the editor bridge, can open one.
 
 import { useSyncExternalStore } from "react";
-import type { AISelection } from "@dovli/editor";
 
 export type SettingsSection = "appearance" | "account" | "sync" | "data" | "ai" | "apps" | "privacy" | "shortcuts";
 
@@ -11,7 +10,6 @@ export interface UIState {
   settings: SettingsSection | null;
   signIn: boolean;
   share: string | null;
-  ai: (AISelection & { mode?: "edit" | "summary" | "review"; focus?: string; title?: string }) | null;
   picker: { title: string; exclude: string; resolve: (id: string | null) => void } | null;
   styleFor: string | null;
   /** The sidebar drawer on small screens. */
@@ -24,7 +22,7 @@ export interface UIState {
   assistant: boolean;
 }
 
-let state: UIState = { palette: false, settings: null, signIn: false, share: null, ai: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space", assistant: false };
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space", assistant: false };
 const listeners = new Set<() => void>();
 
 // A page made with "New page" should put the cursor in its title, ready to type.

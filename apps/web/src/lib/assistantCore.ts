@@ -10,6 +10,7 @@
 // Changes the AI can ask for (Craft's Assistant can do the same kinds of edit):
 //   insert        new Markdown at the start/end, or before/after/inside a block
 //   update        rewrite one block (and keep what's nested inside it unless the new text has its own)
+//   replace_text  swap some words inside one block (review fixes: several can touch the same block)
 //   delete        remove blocks
 //   move          reorder blocks
 //   replace_page  restructure the whole page (refused when the page was too long to read in full)
@@ -23,6 +24,7 @@ export type Position = "start" | "end" | "after" | "before" | "inside";
 export type Change =
   | { op: "insert"; position: Position; block_id?: string; markdown: string }
   | { op: "update"; block_id: string; markdown: string }
+  | { op: "replace_text"; block_id: string; find: string; replace: string }
   | { op: "delete"; block_ids: string[] }
   | { op: "move"; block_ids: string[]; position: Position; block_id?: string }
   | { op: "replace_page"; markdown: string }
@@ -103,6 +105,11 @@ function cleanChange(c: any): Change | null {
       const markdown = markdownOf(c.markdown);
       return block_id && markdown !== null ? { op: "update", block_id, markdown } : null;
     }
+    case "replace_text": {
+      const find = str(c.find, 2_000);
+      const replace = str(c.replace, 4_000);
+      return block_id && find?.trim() && replace !== null && find !== replace ? { op: "replace_text", block_id, find, replace } : null;
+    }
     case "delete": {
       const block_ids = idList(c.block_ids ?? c.blocks);
       return block_ids.length ? { op: "delete", block_ids } : null;
@@ -159,24 +166,36 @@ function collect(v: any): { reply: string; raw: any[] } | null {
   return reply || raw.length || "changes" in v ? { reply, raw } : null;
 }
 
-/** Pull { reply, changes } out of the AI's answer, however it was wrapped. */
-export function parseReply(raw: string): { reply: string; changes: Change[] } {
+/** Every way the AI's answer might hold JSON: as it is, inside a code fence, or with chatter around it. */
+function jsonCandidates(raw: string): unknown[] {
   const text = raw.trim();
-  const candidates = [text, text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")];
+  const tries = [text, text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "")];
   for (const [open, close] of [["{", "}"], ["[", "]"]]) {
     const first = text.indexOf(open);
     const last = text.lastIndexOf(close);
-    if (first >= 0 && last > first) candidates.push(text.slice(first, last + 1));
+    if (first >= 0 && last > first) tries.push(text.slice(first, last + 1));
   }
-  for (const c of candidates) {
+  const out: unknown[] = [];
+  for (const t of tries) {
     try {
-      const got = collect(JSON.parse(c));
+      out.push(JSON.parse(t));
+    } catch {
+      /* not this shape */
+    }
+  }
+  return out;
+}
+
+/** Pull { reply, changes } out of the AI's answer, however it was wrapped. */
+export function parseReply(raw: string): { reply: string; changes: Change[] } {
+  const text = raw.trim();
+  for (const value of jsonCandidates(text)) {
+    {
+      const got = collect(value);
       if (got) {
         const changes = got.raw.slice(0, MAX_CHANGES).map(cleanChange).filter((x: Change | null): x is Change => !!x);
         return { reply: got.reply || (changes.length ? "Done." : "I'm not sure how to help with that."), changes };
       }
-    } catch {
-      /* try the next shape */
     }
   }
   // Broken JSON: show its reply if one can be found, never the raw JSON, and change nothing.
@@ -208,6 +227,38 @@ export interface Applied {
   focus?: string;
 }
 
+const clipText = (t: string, n: number) => (t.length > n ? `${t.slice(0, n).trimEnd()}…` : t);
+
+/**
+ * Where `find` is in `text`, forgiving the small differences an AI makes when it quotes:
+ * curly vs straight quotes and apostrophes, dashes, extra spaces, and Markdown marks
+ * (**, *, _, ~~, ==, `) inside the quoted words.
+ */
+export function findLoose(text: string, find: string): { start: number; end: number } | null {
+  const exact = text.indexOf(find);
+  if (exact >= 0) return { start: exact, end: exact + find.length };
+  const marks = "(?:\\*\\*|\\*|__|_|~~|==|`)*"; // Markdown marks that may sit between the words
+  const pattern = find
+    .trim()
+    .replace(/\s+/g, " ")
+    .split("")
+    .map((ch) => {
+      if (ch === " ") return "\\s+";
+      if (/['‘’]/.test(ch)) return "['‘’]";
+      if (/["“”]/.test(ch)) return '["“”]';
+      if (/[-–—]/.test(ch)) return "[-–—]";
+      return ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join(marks);
+  if (!pattern) return null;
+  try {
+    const m = new RegExp(pattern).exec(text) ?? new RegExp(pattern, "i").exec(text);
+    return m ? { start: m.index, end: m.index + m[0].length } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Blocks Markdown can't hold. A full rewrite must never lose these; they're kept at the end if the AI left them out. */
 const KEEP_TYPES = new Set(["subpage", "flowchart", "dataTable", "image", "file", "video", "audio", "pdf", "excalidraw", "embed"]);
 
@@ -221,7 +272,7 @@ export function applyChanges(
 ): Applied {
   let doc: any[] = structuredClone(blocks ?? []);
   const result: Applied = { blocks: doc, pages: [], done: [], skipped: [] };
-  const counts = { added: 0, updated: 0, removed: 0, moved: 0 };
+  const counts = { added: 0, updated: 0, removed: 0, moved: 0, fixed: 0 };
 
   const realId = (id: string | undefined) => {
     if (!id) return undefined;
@@ -285,6 +336,24 @@ export function applyChanges(
         mark(first.id);
         break;
       }
+      case "replace_text": {
+        const t = locate(c.block_id);
+        const md = t ? blockToMarkdown(t.block).join("\n") : "";
+        const at = t ? findLoose(md, c.find) : null;
+        if (!t || !at) {
+          result.skipped.push(`Couldn't find “${clipText(c.find, 60)}” in the page any more.`);
+          break;
+        }
+        const items = toBlocks(md.slice(0, at.start) + c.replace + md.slice(at.end));
+        if (!items.length) break;
+        const [first, ...more] = items;
+        first.id = t.block.id;
+        if (!first.children?.length && t.block.children?.length) first.children = t.block.children;
+        t.list.splice(t.index, 1, first, ...more);
+        counts.fixed++;
+        mark(first.id);
+        break;
+      }
       case "delete": {
         let n = 0;
         for (const id of c.block_ids) {
@@ -341,6 +410,7 @@ export function applyChanges(
 
   if (counts.added) result.done.push(`Added ${plural(counts.added, "block")}`);
   if (counts.updated) result.done.push(`Changed ${plural(counts.updated, "block")}`);
+  if (counts.fixed) result.done.push(`Fixed ${plural(counts.fixed, "place")} in the wording`);
   if (counts.removed) result.done.push(`Removed ${plural(counts.removed, "block")}`);
   if (counts.moved) result.done.push(`Moved ${plural(counts.moved, "block")}`);
   result.blocks = doc;
@@ -403,6 +473,8 @@ export function describeChange(c: Change): { label: string; preview?: string; ki
     }
     case "update":
       return { label: hasFlowchart(c.markdown) ? "Turn a block into a flowchart" : "Rewrite a block", preview: preview(c.markdown), kind: hasFlowchart(c.markdown) ? "flowchart" : "edit" };
+    case "replace_text":
+      return { label: "Fix the wording", preview: `“${clipText(c.find, 70)}” → “${clipText(c.replace, 70)}”`, kind: "edit" };
     case "delete":
       return { label: `Remove ${plural(c.block_ids.length, "block")}`, kind: "remove" };
     case "move":
@@ -422,7 +494,7 @@ export function changeTargets(c: Change, ids: string[]): string[] {
     const m = id ? /^\[?b(\d+)\]?$/i.exec(id.trim()) : null;
     return m ? ids[Number(m[1]) - 1] : undefined;
   };
-  const list = c.op === "delete" || c.op === "move" ? c.block_ids : c.op === "update" || c.op === "insert" ? [c.block_id] : [];
+  const list = c.op === "delete" || c.op === "move" ? c.block_ids : c.op === "update" || c.op === "insert" || c.op === "replace_text" ? [c.block_id] : [];
   return list.map(real).filter((x): x is string => !!x);
 }
 
@@ -433,7 +505,9 @@ export function changeTargets(c: Change, ids: string[]): string[] {
  * JSON ({"reply": "...", "changes": [...]}): this reads the "reply" string before the JSON is
  * complete. An answer that isn't JSON at all is shown as it comes.
  */
-export function replyStream() {
+/** `count` names the key that starts each item being written: "op" for changes, "severity" for review findings. */
+export function replyStream(count = "op") {
+  const counter = new RegExp(`"${count}"\\s*:`, "g");
   let buf = "";
   let start = -1; // where the reply's text begins in buf
   let plain: boolean | null = null;
@@ -471,8 +545,146 @@ export function replyStream() {
           i += 1;
         }
       }
-      return { reply, changes: (buf.match(/"op"\s*:/g) ?? []).length };
+      return { reply, changes: (buf.match(counter) ?? []).length };
     },
   };
 }
 
+/* ---------------------------------------------------------------- question or change? */
+
+// Words that ask for the page to change. Anything without one is a question, answered in chat
+// with no changes card. "Yes" / "go ahead" count, so a follow-up to "Want me to add this?" works.
+const CHANGE_WORDS = new RegExp(
+  "\\b(" +
+    [
+      "add", "insert", "put", "write", "rewrite", "make", "create", "change", "update", "edit", "fix", "correct (?:the|this|that|it|these|my|any|all)",
+      "replace", "delete", "remove", "cut", "move", "rename", "retitle", "title it", "turn", "convert", "attach",
+      "shorten", "lengthen", "expand", "improve", "polish", "simplify", "translate", "format", "reformat",
+      "organi[sz]e", "restructure", "reorder", "sort", "split", "merge", "combine", "draft", "append", "prepend",
+      "clean", "tidy", "bold", "highlight", "indent", "outline", "fill", "draw", "redraw", "plan", "generate",
+      "paste", "save", "note it", "apply", "undo",
+      "yes", "yeah", "yep", "sure", "ok", "okay", "do it", "go ahead", "please do", "sounds good",
+      "here", "into", "in the page", "to the page", "on the page", "at the top", "at the end", "below", "above", "under", "after it", "before it",
+    ].join("|") +
+    ")\\b",
+  "i",
+);
+
+/** Takes the AI's internal block ids out of a reply: "after block **b3**" → "after that block". */
+export function hideIds(reply: string): string {
+  return reply
+    .replace(/\b(blocks?)\s+\*{0,2}\[?b\d{1,5}\]?\*{0,2}((?:\s*(?:,|and)\s*\*{0,2}\[?b\d{1,5}\]?\*{0,2})*)/gi, (_, w: string, more: string) =>
+      more || /s$/i.test(w) ? "those blocks" : "that block",
+    )
+    .replace(/\[b\d{1,5}\]\s?/g, "");
+}
+
+/** True when the person's message asks for the page to change; false for a plain question. */
+export function wantsChange(message: string): boolean {
+  return CHANGE_WORDS.test(message.replace(/\s+/g, " "));
+}
+
+/* ---------------------------------------------------------------- document review */
+
+export type Severity = "high" | "medium" | "low";
+export type ReviewFocus = "full" | "grammar" | "clarity" | "structure" | "tone";
+
+export interface Finding {
+  severity: Severity;
+  /** A few words: "Passive, vague opening". */
+  title: string;
+  /** Why it matters, in a sentence. */
+  why: string;
+  /** The exact words in the page it's about. */
+  quote?: string;
+  /** Its fix: an index into the turn's changes. Advice only has no fix. */
+  change?: number;
+}
+
+export interface Review {
+  focus: ReviewFocus;
+  /** 1–10, how ready the page is for its reader. */
+  score?: number;
+  findings: Finding[];
+}
+
+/** The kinds of review, with the message the person sees in the chat. */
+export const REVIEWS: Record<ReviewFocus, { label: string; ask: string }> = {
+  full: { label: "Document review", ask: "Review this page" },
+  grammar: { label: "Spelling and grammar", ask: "Check the spelling and grammar" },
+  clarity: { label: "Clarity", ask: "What's hard to follow in this page?" },
+  structure: { label: "Structure", ask: "Give me feedback on the structure" },
+  tone: { label: "Tone of voice", ask: "Check the tone of this page" },
+};
+
+const SEVERITIES: Severity[] = ["high", "medium", "low"];
+const MAX_FINDINGS = 20;
+
+/**
+ * Read a document review: { reply (the verdict), score, findings: [{ severity, title, why, quote, fix }] }.
+ * Each fix is a change like any other, so the person can tick the ones they want and apply them in
+ * one step. Findings are sorted most serious first. Falls back to a normal reply when it isn't a review.
+ */
+export function parseReview(raw: string, focus: ReviewFocus): { reply: string; changes: Change[]; review: Review } {
+  for (const v of jsonCandidates(raw)) {
+    const o: any = Array.isArray(v) ? v.find((x) => x && typeof x === "object" && Array.isArray(x.findings)) : v;
+    if (!o || typeof o !== "object" || !Array.isArray(o.findings)) continue;
+    const changes: Change[] = [];
+    const findings: Finding[] = [];
+    for (const f of o.findings.slice(0, MAX_FINDINGS)) {
+      if (!f || typeof f !== "object") continue;
+      const title = typeof f.title === "string" ? f.title.trim().slice(0, 120) : "";
+      const why = typeof f.why === "string" ? f.why.trim().slice(0, 400) : "";
+      if (!title && !why) continue;
+      const fix = cleanChange(f.fix ?? f.change);
+      const quote = typeof f.quote === "string" && f.quote.trim() ? f.quote.trim().slice(0, 300) : fix?.op === "replace_text" ? fix.find : undefined;
+      const finding: Finding = { severity: SEVERITIES.includes(f.severity) ? f.severity : "medium", title: title || clipText(why, 60), why, ...(quote ? { quote } : {}) };
+      if (fix) finding.change = changes.push(fix) - 1;
+      findings.push(finding);
+    }
+    findings.sort((a, b) => SEVERITIES.indexOf(a.severity) - SEVERITIES.indexOf(b.severity));
+    const n = Math.round(Number(o.score));
+    const reply = typeof o.reply === "string" && o.reply.trim() ? o.reply.trim() : findings.length ? "Here's what I'd improve." : "This page reads well. Nothing important to fix.";
+    return { reply, changes, review: { focus, ...(n >= 1 && n <= 10 ? { score: n } : {}), findings } };
+  }
+  const plain = parseReply(raw);
+  return { ...plain, review: { focus, findings: [] } };
+}
+
+/* ---------------------------------------------------------------- text diagrams */
+
+export interface TextDiagram {
+  /** The code block holding it. */
+  id: string;
+  /** mermaid: Dovli can draw it straight away. text: arrows drawn with characters; the AI redraws it. */
+  kind: "mermaid" | "text";
+  code: string;
+}
+
+const inlineText = (content: unknown): string =>
+  typeof content === "string" ? content : Array.isArray(content) ? content.map((c: any) => (typeof c?.text === "string" ? c.text : "")).join("") : "";
+
+const PLAIN_LANGS = new Set(["", "text", "plaintext", "plain", "txt", "ascii", "diagram", "flow", "flowchart", "none"]);
+const ARROW_LINE = /[▼▲►◄▶◀↓↑→←⇒⇓]|-->|->|=>|<-|──|^\s*[|│┃]\s*(\S.*)?$|^\s*v\s*$|[┌┐└┘├┤┬┴]/;
+const MERMAID_START = /^\s*(flowchart|graph)\s+(TD|TB|LR|RL|BT)\b|^\s*(sequenceDiagram|stateDiagram|classDiagram)\b/;
+
+/** Code blocks that hold a diagram drawn with text (arrows and boxes), or Mermaid that isn't drawn yet. */
+export function findTextDiagrams(blocks: any[] | undefined): TextDiagram[] {
+  const out: TextDiagram[] = [];
+  for (const { block } of flattenBlocks(blocks ?? [])) {
+    if (block?.type !== "codeBlock") continue;
+    const code = inlineText(block.content).replace(/\s+$/, "");
+    if (!code.trim()) continue;
+    const lang = String(block.props?.language ?? "").toLowerCase();
+    if (lang === "mermaid" || MERMAID_START.test(code)) {
+      out.push({ id: block.id, kind: "mermaid", code });
+      continue;
+    }
+    if (!PLAIN_LANGS.has(lang)) continue; // real code: an arrow there is just code
+    const lines = code.split("\n").filter((l) => l.trim());
+    const arrows = lines.filter((l) => ARROW_LINE.test(l)).length;
+    const words = lines.filter((l) => /[A-Za-zऀ-ॿ]{2,}/.test(l)).length;
+    if (lines.length >= 3 && arrows >= 2 && words >= 2) out.push({ id: block.id, kind: "text", code });
+  }
+  return out;
+}

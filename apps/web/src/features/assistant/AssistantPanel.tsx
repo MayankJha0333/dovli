@@ -6,8 +6,9 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { displayTitle, timeAgo } from "@dovli/core";
 import { Button, Icon, IconButton, Segmented, cn, modKey, type IconName } from "@dovli/ui";
-import { assistant, revealBlock, useAssistant, type Chat, type PageSelection, type Turn } from "@/lib/assistant";
-import { changeTargets, describeChange, type ChangeKind } from "@/lib/assistantCore";
+import { assistant, readSelection, revealBlock, useAssistant, type Chat, type PageSelection, type Turn } from "@/lib/assistant";
+import { REVIEWS, changeTargets, describeChange, type Change, type ChangeKind, type Finding, type Severity } from "@/lib/assistantCore";
+import { DiagramHint, drawDiagram, useTextDiagram } from "./DiagramHint";
 import { aiLabel, useAIUsage } from "@/lib/ai";
 import { settings, useSettings } from "@/lib/settings";
 import { store, useStore } from "@/lib/store";
@@ -128,14 +129,14 @@ function Tick({ on, label, onToggle }: { on: boolean; label: string; onToggle: (
 }
 
 /** While the AI is still writing its changes: one placeholder row per change so far. */
-function PreparingCard({ count }: { count: number }) {
+function PreparingCard({ count, review = false }: { count: number; review?: boolean }) {
   return (
     <div className="mt-3 overflow-hidden rounded-[14px] bg-panel shadow-sm" role="status">
       <div className="flex items-center gap-2.5 px-3.5 py-3">
         <span className="grid size-7 flex-none place-items-center rounded-[9px] bg-accent-soft text-accent">
           <Icon name="wand" size={14} />
         </span>
-        <span className="flex-1 text-sm font-semibold text-ink">Writing {plural(count, "change")}…</span>
+        <span className="flex-1 text-sm font-semibold text-ink">{review ? `Reviewing… ${plural(count, "finding")} so far` : `Writing ${plural(count, "change")}…`}</span>
       </div>
       <div className="flex flex-col gap-2 px-3.5 pb-3.5">
         {Array.from({ length: Math.min(count, 4) }, (_, i) => (
@@ -264,6 +265,171 @@ function ChangesCard({ turn }: { turn: Turn }) {
   );
 }
 
+/* ---------------------------------------------------------------- the review card */
+
+const SEVERITY: Record<Severity, { label: string; dot: string }> = {
+  high: { label: "Must fix", dot: "bg-danger" },
+  medium: { label: "Should fix", dot: "bg-warn" },
+  low: { label: "Polish", dot: "bg-ink-4" },
+};
+
+/** What a finding's fix will do, shown under it: old words → new words, or what gets added or moved. */
+function FixPreview({ change, quote }: { change?: Change; quote?: string }) {
+  if (change?.op === "replace_text")
+    return (
+      <span className="mt-1 flex flex-wrap items-center gap-1 text-xs leading-relaxed">
+        <span className="rounded-[5px] bg-danger-soft px-1.5 py-px text-danger line-through decoration-1">{change.find}</span>
+        <Icon name="arrowRight" size={11} className="flex-none text-ink-4" />
+        <span className="rounded-[5px] bg-accent-soft px-1.5 py-px font-medium text-ink">{change.replace}</span>
+      </span>
+    );
+  if (change) {
+    const d = describeChange(change);
+    return (
+      <span className="mt-1 block text-xs text-ink-2">
+        <span className="font-medium">{d.label}</span>
+        {d.preview ? `: ${d.preview}` : ""}
+      </span>
+    );
+  }
+  return quote ? <span className="mt-1 line-clamp-2 border-l-2 border-line-strong pl-2 text-xs italic text-ink-3">“{quote}”</span> : null;
+}
+
+function FindingRow({ turn, finding }: { turn: Turn; finding: Finding }) {
+  const pending = turn.status === "pending";
+  const change = finding.change !== undefined ? turn.changes?.[finding.change] : undefined;
+  const on = finding.change === undefined || !turn.off?.includes(finding.change);
+  const show = () => {
+    const id = (change && changeTargets(change, turn.ids ?? [])[0]) || (finding.quote ? assistant.findQuote(finding.quote) : null);
+    if (id) revealBlock(id);
+  };
+  return (
+    <li className={cn("group/finding flex items-start gap-2.5 rounded-[10px] px-2 py-2 transition-colors hover:bg-hover", !on && "opacity-55")}>
+      {pending && change ? (
+        <Tick on={on} label={`Apply the fix: ${finding.title}`} onToggle={() => assistant.toggleChange(turn.id, finding.change!)} />
+      ) : (
+        <span aria-hidden="true" className={cn("mt-[7px] size-2 flex-none rounded-full", SEVERITY[finding.severity].dot)} />
+      )}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex flex-wrap items-center gap-1.5">
+          <span className="text-sm font-medium leading-snug text-ink">{finding.title}</span>
+          {!change && <span className="rounded-full bg-well px-1.5 text-2xs font-semibold text-ink-3">Your call</span>}
+        </span>
+        <FixPreview change={change} quote={finding.quote} />
+        {finding.why && <span className="mt-1 text-xs leading-snug text-ink-3">{finding.why}</span>}
+      </span>
+      <IconButton
+        icon="eye"
+        label="Show in the page"
+        size="sm"
+        className="opacity-0 focus-visible:opacity-100 group-hover/finding:opacity-100 [@media(hover:none)]:opacity-100"
+        onClick={show}
+      />
+    </li>
+  );
+}
+
+function ReviewCard({ turn }: { turn: Turn }) {
+  const review = turn.review!;
+  const pending = turn.status === "pending";
+  const fixes = turn.changes?.length ?? 0;
+  const chosen = fixes - (turn.off?.length ?? 0);
+  const counts = (["high", "medium", "low"] as Severity[]).map((s) => [s, review.findings.filter((f) => f.severity === s).length] as const).filter(([, n]) => n);
+  const score = review.score;
+  const tone = score === undefined ? "" : score >= 8 ? "text-ok" : score >= 5 ? "text-warn" : "text-danger";
+  const canUndo = turn.status === "applied" && assistant.canUndo(turn.id);
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-[14px] bg-panel shadow-sm">
+      <div className="flex items-center gap-3 px-3.5 py-3">
+        {score !== undefined ? (
+          <span className={cn("grid size-11 flex-none place-items-center rounded-full [box-shadow:inset_0_0_0_2.5px_currentColor]", tone)} aria-label={`Score ${score} out of 10`}>
+            <span className="text-md font-bold leading-none">
+              {score}
+              <span className="text-2xs font-semibold opacity-70">/10</span>
+            </span>
+          </span>
+        ) : (
+          <span className="grid size-9 flex-none place-items-center rounded-[10px] bg-accent-soft text-accent">
+            <Icon name="check" size={16} />
+          </span>
+        )}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-sm font-semibold text-ink">{REVIEWS[review.focus]?.label ?? "Review"}</span>
+          <span className="text-xs text-ink-3">
+            {review.findings.length ? counts.map(([s, n]) => `${n} ${SEVERITY[s].label.toLowerCase()}`).join(" · ") : "Nothing important to fix"}
+          </span>
+        </span>
+        {turn.status === "applied" && (
+          <span className="flex items-center gap-1 text-xs font-semibold text-ok">
+            <Icon name="check" size={12} />
+            Applied
+          </span>
+        )}
+        {turn.status === "undone" && <span className="text-xs font-semibold text-ink-3">Undone</span>}
+      </div>
+
+      {(["high", "medium", "low"] as Severity[]).map((sev) => {
+        const list = review.findings.filter((f) => f.severity === sev);
+        if (!list.length) return null;
+        return (
+          <section key={sev} className="px-1.5 pb-1">
+            <h3 className="m-0 flex items-center gap-1.5 px-2 pb-0.5 pt-1.5 text-2xs font-semibold uppercase tracking-wide text-ink-3">
+              <span aria-hidden="true" className={cn("size-1.5 rounded-full", SEVERITY[sev].dot)} />
+              {SEVERITY[sev].label}
+            </h3>
+            <ul className="m-0 flex list-none flex-col p-0">
+              {list.map((f, i) => (
+                <FindingRow key={`${sev}${i}`} turn={turn} finding={f} />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {turn.status !== "pending" && (turn.done?.length || turn.skipped?.length) ? (
+        <ul className="m-0 flex list-none flex-col gap-1 px-3.5 pb-2 pt-1 text-xs">
+          {turn.done?.map((t, i) => (
+            <li key={`d${i}`} className="flex items-start gap-1.5 text-ink-2">
+              <Icon name="check" size={12} className="mt-0.5 flex-none text-ok" />
+              {t}
+            </li>
+          ))}
+          {turn.skipped?.map((t, i) => (
+            <li key={`s${i}`} className="flex items-start gap-1.5 text-warn">
+              <Icon name="alert" size={12} className="mt-0.5 flex-none" />
+              {t}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-line px-3.5 py-2.5">
+        {pending && (
+          <>
+            <Button size="sm" variant="accent" icon="check" disabled={!chosen} onClick={() => assistant.apply(turn.id)}>
+              {chosen === fixes ? `Apply ${plural(fixes, "fix", "fixes")}` : `Apply ${chosen} of ${fixes}`}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => assistant.discard(turn.id)}>
+              Skip fixes
+            </Button>
+          </>
+        )}
+        {canUndo && (
+          <Button size="sm" variant="secondary" icon="restore" onClick={() => assistant.undo(turn.id)}>
+            Undo
+          </Button>
+        )}
+        {review.findings.length > 0 && (
+          <Button size="sm" variant="ghost" icon="arrowDown" className="ml-auto" onClick={() => assistant.keepReviewNote(turn.id)}>
+            Save as note
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------------------------------------------------------------- messages */
 
 function Dots() {
@@ -300,7 +466,17 @@ function Message({ turn }: { turn: Turn }) {
       </span>
       <div className={cn("min-w-0 flex-1 break-words text-base leading-relaxed", turn.error ? "text-danger" : "text-ink-2")}>
         {turn.text ? <Rich text={turn.text} /> : turn.streaming ? <Dots /> : null}
-        {turn.streaming ? (turn.preparing ? <PreparingCard count={turn.preparing} /> : turn.text ? <Dots /> : null) : turn.changes?.length ? <ChangesCard turn={turn} /> : null}
+        {turn.streaming ? (
+          turn.preparing ? (
+            <PreparingCard count={turn.preparing} review={turn.task === "review"} />
+          ) : turn.text ? (
+            <Dots />
+          ) : null
+        ) : turn.review ? (
+          <ReviewCard turn={turn} />
+        ) : turn.changes?.length ? (
+          <ChangesCard turn={turn} />
+        ) : null}
       </div>
     </div>
   );
@@ -319,57 +495,62 @@ function Thinking() {
 
 /* ---------------------------------------------------------------- the selection */
 
-/** A block's words, without formatting. */
-const blockText = (b: any): string =>
-  (Array.isArray(b?.content) ? b.content : [])
-    .map((c: any) => (c.type === "text" ? c.text : c.type === "link" ? (c.content ?? []).map((x: any) => x.text).join("") : (c.props?.title ?? "")))
-    .join("")
-    .trim();
-
 /** Keep the assistant told about the text selected in the open page. */
 function useTrackSelection(open: boolean) {
   const { editor, pageId } = useActiveEditor<any>();
   useEffect(() => {
     if (!open || !editor || !pageId) return;
     const read = () => {
-      try {
-        const picked: any[] = editor.getSelection()?.blocks ?? [];
-        // Across several blocks, one line each (the editor would run them together).
-        const text = picked.length > 1 ? picked.map(blockText).filter(Boolean).join("\n") : String(editor.getSelectedText() ?? "").trim();
-        if (text) {
-          const blocks = picked.length ? picked : [editor.getTextCursorPosition().block];
-          assistant.setSelection({ pageId, text: text.slice(0, 4000), blockIds: blocks.map((b: any) => b.id) });
-        } else if (editor.isFocused?.()) {
-          assistant.setSelection(null); // clicked somewhere else in the page
-        }
-      } catch {
-        /* the editor is changing pages */
-      }
+      const sel = readSelection(editor, pageId);
+      if (sel) assistant.setSelection(sel);
+      else if (editor.isFocused?.()) assistant.setSelection(null); // clicked somewhere else in the page
     };
     read();
     return editor.onSelectionChange(read);
   }, [open, editor, pageId]);
 }
 
+// What the old "Ask AI" pop-up offered, plus the page-shaping ones. A trailing space means
+// "finish the sentence first" (the box is filled in, not sent).
 const FOR_SELECTION = [
-  { label: "Flowchart", icon: "board", text: "Make this into a flowchart and put it right after it" },
-  { label: "Rewrite", icon: "wand", text: "Rewrite this more clearly" },
+  { label: "Improve", icon: "wand", text: "Improve the writing of this. Keep the meaning and roughly the same length." },
+  { label: "Shorten", icon: "minus", text: "Make this shorter and more direct. Keep every key point." },
+  { label: "Fix grammar", icon: "check", text: "Fix the spelling and grammar in this. Change nothing else." },
+  { label: "Translate", icon: "translate", text: "Translate this into " },
   { label: "To-dos", icon: "checkbox", text: "Turn this into a to-do list" },
+  { label: "Flowchart", icon: "board", text: "Make this into a flowchart and put it right after it" },
   { label: "Summarise", icon: "summary", text: "Summarise this in a few bullet points, right after it" },
 ] as const;
 
+// Quick actions that fit what's selected. A trailing space fills in the box instead of sending.
+type QuickAction = { label: string; icon: IconName; text: string };
+const FOR_FLOWCHART: QuickAction[] = [
+  { label: "Explain it", icon: "info", text: "Explain this flowchart in plain words, step by step." },
+  { label: "Add a step", icon: "plus", text: "Add a step to this flowchart: " },
+  { label: "Simplify", icon: "minus", text: "Simplify this flowchart: fewer, clearer boxes, the same meaning." },
+  { label: "As a list", icon: "numberList", text: "Write this flowchart out as numbered steps right after it." },
+];
+const FOR_BLOCKS: QuickAction[] = [
+  { label: "Explain", icon: "info", text: "Explain what this is about, in plain words." },
+  { label: "Summarise", icon: "summary", text: "Summarise this in a few bullet points, right after it" },
+  { label: "Rewrite", icon: "wand", text: "Rewrite this more clearly" },
+];
+
 function SelectionChip({ selection, onAsk }: { selection: PageSelection; onAsk: (text: string) => void }) {
+  const actions: readonly QuickAction[] =
+    selection.kind === "flowchart" ? FOR_FLOWCHART : selection.kind === "block" || selection.kind === "blocks" ? FOR_BLOCKS : FOR_SELECTION;
+  const icon: IconName = selection.kind === "flowchart" ? "board" : selection.kind === "block" ? "page" : selection.kind === "blocks" ? "outline" : "alignLeft";
   const words = selection.text.split(/\s+/).filter(Boolean).length;
   return (
     <div className="mx-2 mt-2 rounded-[10px] bg-accent-soft px-2.5 pb-2 pt-1.5">
       <div className="flex items-center gap-1.5">
-        <Icon name="alignLeft" size={12} className="text-accent" />
-        <span className="flex-1 text-xs font-semibold text-accent">Selected text · {plural(words, "word")}</span>
+        <Icon name={icon} size={12} className="text-accent" />
+        <span className="flex-1 text-xs font-semibold text-accent">{selection.label ?? `Selected text · ${plural(words, "word")}`}</span>
         <IconButton icon="close" label="Don't use the selection" size="xs" onClick={() => assistant.setSelection(null)} />
       </div>
-      <p className="m-0 mt-0.5 line-clamp-2 whitespace-pre-wrap border-l-2 border-accent pl-2 text-xs text-ink-2">{selection.text}</p>
+      <p className="m-0 mt-0.5 line-clamp-2 whitespace-pre-wrap border-l-2 border-accent pl-2 text-xs text-ink-2">{selection.preview ?? selection.text}</p>
       <div className="mt-2 flex flex-wrap gap-1">
-        {FOR_SELECTION.map((a) => (
+        {actions.map((a) => (
           <button
             key={a.label}
             type="button"
@@ -387,16 +568,18 @@ function SelectionChip({ selection, onAsk }: { selection: PageSelection; onAsk: 
 
 /* ---------------------------------------------------------------- starting points */
 
-const FOR_TEXT = [
+type Suggestion = { icon: IconName; text: string; run?: () => void };
+
+const FOR_TEXT: Suggestion[] = [
+  { icon: "check", text: "Review this page and suggest fixes", run: () => assistant.review("full") },
   { icon: "summary", text: "Summarise this page at the top" },
   { icon: "outline", text: "Tidy up the structure with clear headings" },
-  { icon: "check", text: "Fix spelling and grammar" },
   { icon: "checkbox", text: "Pull out the action items as to-dos" },
   { icon: "minus", text: "Make it shorter and clearer" },
   { icon: "translate", text: "Translate this page to Hindi" },
-] as const;
+];
 
-const FOR_EMPTY = [
+const FOR_EMPTY: Suggestion[] = [
   { icon: "page", text: "Write a meeting notes template" },
   {
     icon: "outline",
@@ -404,12 +587,18 @@ const FOR_EMPTY = [
   },
   { icon: "checkbox", text: "Make a weekly planner with to-dos for each day" },
   { icon: "pencil", text: "Outline a blog post about " },
-] as const;
+];
 
 function Start({ onPick }: { onPick: (text: string) => void }) {
   const page = useStore((s) => (s.route.name === "page" ? s.pages[s.route.id] : undefined));
   const empty = !page?.blocks?.some((b: any) => (Array.isArray(b.content) ? b.content.length : b.type !== "paragraph"));
-  const list = !page || page.kind !== "doc" ? [] : empty ? FOR_EMPTY : FOR_TEXT;
+  const diagram = useTextDiagram(page);
+  const list: Suggestion[] =
+    !page || page.kind !== "doc"
+      ? []
+      : empty
+        ? FOR_EMPTY
+        : [...(diagram ? [{ icon: "board" as const, text: "Turn the text diagram into a real flowchart", run: () => drawDiagram(diagram) }] : []), ...FOR_TEXT];
   return (
     <div className="flex flex-col gap-5 px-1 pt-6">
       <div className="flex flex-col items-start gap-3">
@@ -433,7 +622,7 @@ function Start({ onPick }: { onPick: (text: string) => void }) {
             <li key={s.text}>
               <button
                 type="button"
-                onClick={() => onPick(s.text)}
+                onClick={() => (s.run ? s.run() : onPick(s.text))}
                 className="flex w-full items-center gap-2.5 rounded-md bg-panel px-3 py-2.5 text-left text-base text-ink shadow-sm transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-card"
               >
                 <Icon name={s.icon} size={15} className="flex-none text-accent" />
@@ -509,11 +698,19 @@ export function AssistantPanel() {
   const shown = useAssistant(() => assistant.chatFor(pageId));
   const turns = shown?.turns ?? [];
   const selection = useAssistant((s) => s.selection);
+  const diagram = useTextDiagram(page);
   const sel = selection && selection.pageId === pageId ? selection : null;
   useTrackSelection(open);
   const streaming = turns.some((t) => t.streaming);
   const tail = turns[turns.length - 1];
   const tailKey = tail ? `${tail.id}:${tail.text.length}:${tail.preparing ?? 0}:${tail.status ?? ""}` : "";
+
+  // "Ask AI" over selected text: focus the box even when the drawer is already open.
+  useEffect(() => {
+    const focus = () => requestAnimationFrame(() => input.current?.focus());
+    window.addEventListener("dovli:assistant-focus", focus);
+    return () => window.removeEventListener("dovli:assistant-focus", focus);
+  }, []);
 
   useEffect(() => {
     if (open) requestAnimationFrame(() => input.current?.focus());
@@ -637,7 +834,8 @@ export function AssistantPanel() {
           }}
           className="rounded-md bg-panel shadow-sm transition-shadow focus-within:shadow-[0_0_0_2px_var(--d-accent)]"
         >
-          {sel && <SelectionChip selection={sel} onAsk={(text) => send(text)} />}
+          {diagram && !sel && !busy && !turns.some((t) => t.status === "pending") && <DiagramHint key={diagram.id} diagram={diagram} compact />}
+          {sel && <SelectionChip selection={sel} onAsk={pick} />}
           <label htmlFor="assistant-input" className="sr-only">
             Message the assistant
           </label>
@@ -649,7 +847,7 @@ export function AssistantPanel() {
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={onKey}
             maxLength={4000}
-            placeholder={sel ? "Ask about the selected text…" : page?.kind === "doc" ? "Ask or tell it what to change…" : "Ask anything…"}
+            placeholder={sel ? (sel.kind === "flowchart" ? "Ask about this flowchart, or what to change…" : sel.kind === "text" ? "Ask about the selected text…" : "Ask about the selection…") : page?.kind === "doc" ? "Ask or tell it what to change…" : "Ask anything…"}
             className="block max-h-[180px] w-full resize-none border-0 bg-transparent px-3 pb-1 pt-2.5 text-base text-ink outline-none placeholder:text-ink-4"
           />
           <div className="flex items-center gap-2 px-2 pb-2">

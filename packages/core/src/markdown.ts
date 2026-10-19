@@ -20,6 +20,114 @@ import { classify, toEmbedProps } from "./links";
 /** A flowchart block's scene that is still Mermaid text. The editor turns it into shapes the first time it shows. */
 export const mermaidScene = (code: string) => JSON.stringify({ mermaid: code.trim().slice(0, 20_000) });
 
+/**
+ * A flowchart block's drawing written back as Mermaid, so an AI can read it and redraw it changed:
+ * boxes, diamonds and ovals with their labels, and the arrows between them (with their labels).
+ * Mermaid that hasn't been drawn yet comes back as it is. Null when there's nothing to read.
+ */
+export function flowchartToMermaid(scene: string): string | null {
+  let s: any;
+  try {
+    s = JSON.parse(scene);
+  } catch {
+    return null;
+  }
+  if (typeof s?.mermaid === "string") return s.mermaid;
+  const els: any[] = (Array.isArray(s?.elements) ? s.elements : []).filter((e: any) => e && !e.isDeleted);
+  const textOf = new Map<string, string>();
+  for (const e of els) if (e.type === "text" && e.containerId) textOf.set(e.containerId, String(e.originalText ?? e.text ?? "").replace(/\s+/g, " ").trim());
+  const shapes = els.filter((e) => e.type === "rectangle" || e.type === "diamond" || e.type === "ellipse");
+  if (!shapes.length) return null;
+  const ids = new Map(shapes.map((e, i) => [e.id, `n${i + 1}`]));
+  const q = (t: string) => `"${t.replace(/"/g, "#quot;")}"`;
+  const node = (e: any) => {
+    const label = q(textOf.get(e.id) || " ");
+    return `${ids.get(e.id)}${e.type === "diamond" ? `{${label}}` : e.type === "ellipse" ? `([${label}])` : `[${label}]`}`;
+  };
+  // Wider than tall: left to right.
+  const xs = shapes.map((e) => e.x ?? 0);
+  const ys = shapes.map((e) => e.y ?? 0);
+  const wide = Math.max(...xs) - Math.min(...xs) > (Math.max(...ys) - Math.min(...ys)) * 1.3;
+  const lines = [`flowchart ${wide ? "LR" : "TD"}`, ...shapes.map((e) => `  ${node(e)}`)];
+  for (const a of els) {
+    if (a.type !== "arrow") continue;
+    const from = ids.get(a.startBinding?.elementId);
+    const to = ids.get(a.endBinding?.elementId);
+    if (!from || !to) continue;
+    const label = textOf.get(a.id);
+    lines.push(`  ${from} -->${label ? `|${q(label)}|` : ""} ${to}`);
+  }
+  return lines.join("\n");
+}
+
+const OPENERS: [string, string][] = [
+  ["[[", "]]"], ["[(", ")]"], ["([", "])"], ["((", "))"], ["{{", "}}"], ["[/", "/]"], ["[\\", "\\]"], ["[", "]"], ["(", ")"], ["{", "}"], [">", "]"],
+];
+// What may follow a node's closing bracket: the end of the line, an arrow, "&", ";" or a class.
+const AFTER_NODE = /^\s*($|-->|---|-\.|==>|--|<--|&|;|:::|~~~)/;
+const SPECIAL = /[()[\]{}<>"#;:|]/;
+
+/**
+ * Make AI-written Mermaid flowcharts parse. The usual mistake is brackets or other symbols inside
+ * a label, like A[Check memory (cache)], which Mermaid only accepts in quotes: A["Check memory (cache)"].
+ * Other diagram types are returned as they are.
+ */
+export function tidyMermaid(code: string): string {
+  const lines = code.split("\n");
+  if (!/^\s*(flowchart|graph)\b/.test(lines.find((l) => l.trim()) ?? "")) return code;
+  const quote = (t: string) => `"${t.trim().replace(/"/g, "#quot;")}"`;
+  return lines
+    .map((line) => {
+      if (/^\s*(%%|classDef|class |style |linkStyle|click |subgraph|end\b|direction|flowchart|graph)/.test(line)) return line;
+      let out = "";
+      let i = 0;
+      while (i < line.length) {
+        // Edge label: -->|text|
+        if (line[i] === "|") {
+          const close = line.indexOf("|", i + 1);
+          if (close > i) {
+            const label = line.slice(i + 1, close);
+            out += `|${SPECIAL.test(label) && !/^\s*".*"\s*$/.test(label) ? quote(label) : label}|`;
+            i = close + 1;
+            continue;
+          }
+        }
+        // Node: an id followed by its shape and label.
+        const id = /^[A-Za-z0-9_][\w-]*/.exec(line.slice(i));
+        const before = i === 0 ? "" : line[i - 1];
+        if (id && !/[\w-]/.test(before)) {
+          const j = i + id[0].length;
+          const shape = OPENERS.find(([o]) => line.startsWith(o, j));
+          if (shape) {
+            const [open, close] = shape;
+            const start = j + open.length;
+            let end = -1;
+            for (let k = line.indexOf(close, start); k >= 0; k = line.indexOf(close, k + 1)) {
+              if (AFTER_NODE.test(line.slice(k + close.length))) {
+                end = k;
+                break;
+              }
+            }
+            if (end >= 0) {
+              const label = line.slice(start, end);
+              const fixed = SPECIAL.test(label) && !/^\s*".*"\s*$/.test(label) ? quote(label) : label;
+              out += id[0] + open + fixed + close;
+              i = end + close.length;
+              continue;
+            }
+          }
+          out += id[0];
+          i = j;
+          continue;
+        }
+        out += line[i];
+        i++;
+      }
+      return out;
+    })
+    .join("\n");
+}
+
 type Styles = Record<string, any>;
 export type Inline =
   | { type: "text"; text: string; styles: Styles }
