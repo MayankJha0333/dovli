@@ -8,3 +8,4 @@ export * from "./links";
 export * from "./blocks";
 export * from "./templates";
 export { seedPages } from "./seed";
+export * from "./markdown";

@@ -4,7 +4,7 @@
 import { useSyncExternalStore } from "react";
 import type { AISelection } from "@dovli/editor";
 
-export type SettingsSection = "appearance" | "account" | "sync" | "data" | "ai" | "privacy" | "shortcuts";
+export type SettingsSection = "appearance" | "account" | "sync" | "data" | "ai" | "apps" | "privacy" | "shortcuts";
 
 export interface UIState {
   palette: boolean;

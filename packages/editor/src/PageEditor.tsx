@@ -276,6 +276,43 @@ export default function PageEditor({
     saved.current = JSON.stringify(editor.document);
   }, [editor]);
 
+  // The page changed somewhere else (another device, or an AI app through Dovli's MCP server)
+  // while it is open here: show the new version at once, keeping the cursor in the same block.
+  // Our own saves come back the same way; those match what the editor already shows.
+  const incoming = useMemo(() => JSON.stringify(page.blocks ?? []), [page.blocks]);
+  const seen = useRef(incoming);
+  const applying = useRef(false);
+  /** When the last change typed here was saved. An older copy coming back from the cloud (the
+   *  answer to our own save, while typing went on) must never replace newer typing. */
+  const typedAt = useRef(0);
+  useEffect(() => {
+    if (incoming === seen.current) return;
+    seen.current = incoming;
+    if (incoming === saved.current || incoming === JSON.stringify(editor.document)) return;
+    if ((page.updatedAt ?? 0) <= typedAt.current) return;
+    let at: string | undefined;
+    try {
+      at = editor.getTextCursorPosition().block.id;
+    } catch {
+      at = undefined;
+    }
+    const focused = !!editor.domElement?.contains(document.activeElement);
+    applying.current = true;
+    try {
+      editor.replaceBlocks(editor.document, page.blocks?.length ? (page.blocks as any) : [{ type: "paragraph" }]);
+    } finally {
+      applying.current = false;
+    }
+    saved.current = JSON.stringify(editor.document);
+    if (focused && at && editor.getBlock(at)) {
+      try {
+        editor.setTextCursorPosition(at, "end");
+      } catch {
+        /* the block can't hold a cursor any more */
+      }
+    }
+  }, [incoming, editor]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Dragged blocks land above or below a block by height (see dropPosition.ts).
   useEffect(() => {
     let undo = () => {};
@@ -361,11 +398,16 @@ export default function PageEditor({
         formattingToolbar={false}
         onChange={() => {
           if (readOnly) return;
+          if (applying.current) {
+            saved.current = JSON.stringify(editor.document);
+            return;
+          }
           // The editor also reports changes it makes itself (tidying the page as it loads).
           // Only save when the content is really different, so opening a page isn't an edit.
           const json = JSON.stringify(editor.document);
           if (json === saved.current) return;
           saved.current = json;
+          typedAt.current = Date.now();
           bridge.saveBlocks(page.id, editor.document as any[]);
         }}
         className="dovli-editor"

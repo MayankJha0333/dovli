@@ -1,6 +1,7 @@
 import { Dialog, Icon, cn, type IconName } from "@dovli/ui";
 import { ui, useUI, type SettingsSection } from "@/lib/ui";
 import { Account, AI, Appearance, Data, Privacy, Shortcuts, SyncBackups } from "./sections";
+import { AIApps } from "./AIApps";
 
 const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: "appearance", label: "Appearance", icon: "palette" },
@@ -8,6 +9,7 @@ const SECTIONS: { id: SettingsSection; label: string; icon: IconName }[] = [
   { id: "sync", label: "Sync & backups", icon: "cloud" },
   { id: "data", label: "Import & export", icon: "importIcon" },
   { id: "ai", label: "AI", icon: "sparkles" },
+  { id: "apps", label: "AI apps", icon: "plug" },
   { id: "privacy", label: "Privacy & data", icon: "shield" },
   { id: "shortcuts", label: "Shortcuts", icon: "keyboard" },
 ];
@@ -42,6 +44,7 @@ export function SettingsDialog() {
           {current.id === "sync" && <SyncBackups />}
           {current.id === "data" && <Data />}
           {current.id === "ai" && <AI />}
+          {current.id === "apps" && <AIApps />}
           {current.id === "privacy" && <Privacy />}
           {current.id === "shortcuts" && <Shortcuts />}
         </div>
