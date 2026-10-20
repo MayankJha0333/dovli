@@ -307,6 +307,17 @@ export function createCloud(deps: { store: CloudStore; now?: () => Date }) {
     });
   }
 
+  /** The newest revision in the person's workspace: where a client starts following changes from. */
+  async function latest(uid: string, workspaceId?: unknown): Promise<number> {
+    checkUid(uid);
+    const wsId = await workspaceFor(uid, workspaceId);
+    return store.transaction(async (tx) => {
+      const ws = await tx.get(wsPath(wsId));
+      roleIn(ws, uid, "read");
+      return (ws?.syncRev as number) ?? 0;
+    });
+  }
+
   /** Everything kept for a person: their record and devices, and their personal workspace. */
   async function deleteUser(uid: string) {
     checkUid(uid);
@@ -315,7 +326,7 @@ export function createCloud(deps: { store: CloudStore; now?: () => Date }) {
     await store.deleteTree(userPath(uid));
   }
 
-  return { upsertUser, ensurePersonal, checkIn, pull, push, deleteUser };
+  return { upsertUser, ensurePersonal, checkIn, pull, push, latest, deleteUser };
 }
 
 /** The stored record of a page: readable details, plus the full page as JSON text in `data`. */

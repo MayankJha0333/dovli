@@ -1,0 +1,10 @@
+{
+  "name": "@dovli/extension",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "zip": "rm -f dovli-extension.zip && zip -r dovli-extension.zip manifest.json *.html *.css icons.svg icons src -x 'src/*.test.js'"
+  }
+}

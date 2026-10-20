@@ -97,7 +97,7 @@ describe("reading", () => {
     expect(out.person.name).toBe("Asha Rao");
     expect(out.counts).toMatchObject({ pages: 3, whiteboards: 0 });
     expect(out.pages.find((p: any) => p.id === "trip").inside[0]).toMatchObject({ id: "food", title: "Food list" });
-    expect(out.favorites).toEqual([{ id: "trip", title: "Japan trip" }]);
+    expect(out.favorites).toEqual([{ id: "trip", title: "Japan trip", icon: "🗾" }]);
   });
 
   it("search finds words and returns matching block ids", async () => {
@@ -208,5 +208,27 @@ describe("writing", () => {
     const [c] = await mcp.list("u1");
     expect(c).toMatchObject({ lastTool: "search", calls: 1 });
     expect(c.lastUsedAt).toBeGreaterThan(0);
+  });
+});
+
+describe("for the browser extension", () => {
+  it("gives a new page the style it's asked for, and ignores styles that don't exist", async () => {
+    const styled = await tool(edit, "create_page", { title: "Pancakes", style: "cafe" });
+    expect((await get(styled.out.page_id)).style).toBe("cafe");
+    const odd = await tool(edit, "create_page", { title: "Odd", style: "no-such-style" });
+    expect((await get(odd.out.page_id)).style).toBeUndefined();
+  });
+  it("follows one page cheaply: changed only when that page was saved", async () => {
+    const start = await mcp.follow(edit, "trip", null);
+    expect(start.changed).toBe(false);
+    expect((await mcp.follow(edit, "trip", start.cursor)).changed).toBe(false);
+
+    await tool(edit, "add_blocks", { page_id: "work", markdown: "Another line" });
+    const other = await mcp.follow(edit, "trip", start.cursor);
+    expect(other).toMatchObject({ changed: false });
+    expect(other.cursor).toBeGreaterThan(start.cursor);
+
+    await tool(edit, "add_blocks", { page_id: "trip", markdown: "Book the hotel" });
+    expect((await mcp.follow(edit, "trip", other.cursor)).changed).toBe(true);
   });
 });

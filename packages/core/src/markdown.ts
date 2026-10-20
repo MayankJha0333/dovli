@@ -361,8 +361,11 @@ export function blockToMarkdown(b: any, n = 1): string[] {
       return [`<callout tone="${attr(p.tone || "note")}"${p.emoji ? ` emoji="${attr(p.emoji)}"` : ""}>${text}</callout>`];
     case "caption":
       return [`<small>${text}</small>`];
-    case "embed":
-      return p.url ? [`<embed url="${attr(p.url)}"${p.title ? ` title="${attr(p.title)}"` : ""}/>`] : [];
+    case "embed": {
+      // Embed blocks keep their address in `link` (see toEmbedProps).
+      const href = p.link || p.url;
+      return href ? [`<embed url="${attr(href)}"${p.title ? ` title="${attr(p.title)}"` : ""}/>`] : [];
+    }
     case "subpage":
       return [`<page id="${attr(p.pageId)}"/>`];
     case "paragraph":

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Welcome to Dovli for Chrome</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="welcome.css" />
+  </head>
+  <body class="welcome">
+    <main>
+      <header class="hero">
+        <img src="icons/128.png" alt="" width="64" height="64" />
+        <h1>Dovli is in your browser</h1>
+        <p>Two quick steps, and anything you read can go straight into your notes.</p>
+      </header>
+
+      <ol class="steps">
+        <li id="step-pin" class="step">
+          <span class="num" aria-hidden="true"><span>1</span><svg class="i"><use href="icons.svg#check" /></svg></span>
+          <div class="step-body">
+            <h2>Pin Dovli to your toolbar</h2>
+            <p>Click the puzzle piece at the top right of Chrome, then the pin next to Dovli. Its icon stays in the bar, one click away.</p>
+            <div class="toolbar" aria-hidden="true">
+              <span class="omnibox"></span>
+              <span class="tb-btn hot"><svg class="i"><use href="icons.svg#puzzle" /></svg></span>
+              <svg class="i arrow"><use href="icons.svg#chevron-down" /></svg>
+              <span class="tb-menu">
+                <img src="icons/16.png" alt="" width="16" height="16" />
+                <span>Dovli</span>
+                <span class="tb-pin"><svg class="i i-sm"><use href="icons.svg#pin" /></svg></span>
+              </span>
+            </div>
+            <p id="pin-state" class="state" role="status">Not pinned yet</p>
+          </div>
+        </li>
+        <li id="step-connect" class="step">
+          <span class="num" aria-hidden="true"><span>2</span><svg class="i"><use href="icons.svg#check" /></svg></span>
+          <div class="step-body">
+            <h2>Connect your Dovli account</h2>
+            <p>Dovli opens in a new tab. Sign in if it asks, then click Connect. You can switch the connection off any time in Dovli → Settings → AI apps.</p>
+            <button id="connect" type="button" class="btn primary lg">
+              <svg class="i" aria-hidden="true"><use href="icons.svg#plug" /></svg>
+              Connect to Dovli
+            </button>
+            <p id="connect-state" class="state" role="status"></p>
+          </div>
+        </li>
+      </ol>
+
+      <section class="uses" aria-labelledby="uses-title">
+        <h2 id="uses-title">Three ways to use it</h2>
+        <ul class="use-list">
+          <li class="use">
+            <span class="tile accent"><svg class="i" aria-hidden="true"><use href="icons.svg#sparkles" /></svg></span>
+            <div>
+              <h3>Click the icon to clip</h3>
+              <p>Save the article, the whole page, your selection or a bookmark, or have AI write notes. Pick where it goes, add tags and a remark, and highlight the parts that matter first.</p>
+            </div>
+            <kbd data-command="_execute_action"></kbd>
+          </li>
+          <li class="use">
+            <span class="tile"><svg class="i" aria-hidden="true"><use href="icons.svg#drawer" /></svg></span>
+            <div>
+              <h3>Open the drawer to write beside a site</h3>
+              <p>A Dovli page next to what you're reading: write, edit, tick to-dos. Changes from your other devices show up on their own. Also on the icon's right-click menu.</p>
+            </div>
+            <kbd data-command="open-drawer"></kbd>
+          </li>
+          <li class="use">
+            <span class="tile"><svg class="i" aria-hidden="true"><use href="icons.svg#right-click" /></svg></span>
+            <div>
+              <h3>Right-click to add or highlight</h3>
+              <p>Selected text, a picture or a link on any website: right-click it and choose Add to Dovli, or Highlight with Dovli.</p>
+            </div>
+          </li>
+        </ul>
+        <p class="foot">Change the shortcuts at <span class="mono">chrome://extensions/shortcuts</span>.</p>
+      </section>
+    </main>
+    <script type="module" src="src/welcome.js"></script>
+  </body>
+</html>

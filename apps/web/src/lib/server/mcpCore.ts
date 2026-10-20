@@ -29,6 +29,7 @@ import {
   todoItems,
   type Page,
 } from "@dovli/core";
+import { getStyle } from "@dovli/theme";
 import { CloudError, isId, type CloudStore, type Doc, type createCloud } from "./cloudCore";
 
 type Cloud = ReturnType<typeof createCloud>;
@@ -185,6 +186,7 @@ export const TOOLS: Tool[] = [
         markdown: str("The page content, in Dovli Markdown (see the server instructions). Optional."),
         parent_id: str("Put the new page inside this page. Leave out for the top level."),
         icon: str("An emoji for the page icon, e.g. '🚀'. Optional."),
+        style: str("A page style id (paper, cafe, graphite, notebook…). Optional."),
       },
       required: ["title"],
       additionalProperties: false,
@@ -558,8 +560,8 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
           connection: { name: c.name, can: c.permission === "edit" ? "read and edit" : "read only", reaches: c.scope === "all" ? "all pages" : `${roots.length} chosen page(s) and the pages inside them` },
           counts: { pages: live.filter((p) => p.kind === "doc").length, whiteboards: live.filter((p) => p.kind === "board").length, in_trash: mine.filter((p) => p.deletedAt).length },
           pages: roots.slice(0, 60).map((p) => tree(p, 0)),
-          favorites: live.filter((p) => p.favorite).slice(0, 20).map((p) => ({ id: p.id, title: displayTitle(p) })),
-          recently_edited: [...live].sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 10).map((p) => ({ id: p.id, title: displayTitle(p), updated_at: new Date(p.updatedAt).toISOString() })),
+          favorites: live.filter((p) => p.favorite).slice(0, 20).map((p) => ({ id: p.id, title: displayTitle(p), icon: p.mark })),
+          recently_edited: [...live].sort((x, y) => y.updatedAt - x.updatedAt).slice(0, 10).map((p) => ({ id: p.id, title: displayTitle(p), icon: p.mark, updated_at: new Date(p.updatedAt).toISOString() })),
           tip: "Use read_page with a page id to read one. Dovli Markdown is described in the server instructions.",
         };
       }
@@ -644,6 +646,7 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
           kind: "doc",
           title: a.title.trim().slice(0, 200),
           mark: typeof a.icon === "string" && a.icon.trim() ? [...a.icon.trim()].slice(0, 2).join("") : "¶",
+          ...(typeof a.style === "string" && getStyle(a.style) ? { style: a.style } : {}),
           blocks,
           createdAt: t,
           updatedAt: t,
@@ -889,7 +892,25 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
     }
   }
 
-  return { list, create, update, rotate, remove, removeAll, resolve, handle, call, tools: toolList };
+  /**
+   * Whether a page changed after revision `cursor`, for a client that keeps one page open (the
+   * browser extension). One small query, instead of reading every page again. With no cursor, it
+   * only says where to start from.
+   */
+  async function follow(c: Connection, pageId: string, cursor: number | null): Promise<{ cursor: number; changed: boolean }> {
+    if (cursor === null || cursor < 0) return { cursor: await cloud.latest(c.uid), changed: false };
+    const rows = await cloud.pull(c.uid, { cursor, limit: 200 });
+    const next = rows.reduce((m, r) => Math.max(m, r.rev), cursor);
+    // More than one page of changes: say it changed, to be safe.
+    return { cursor: next, changed: rows.length >= 200 || rows.some((r) => r.id === pageId) };
+  }
+
+  /** A page as it's stored, if this connection reaches it: for clients that draw pages themselves. */
+  async function getPage(c: Connection, pageId: string): Promise<Page> {
+    return page(c, await load(c.uid), pageId);
+  }
+
+  return { list, create, update, rotate, remove, removeAll, resolve, handle, call, follow, getPage, tools: toolList };
 }
 
 /** A problem with a tool call that the AI app should see and can fix (wrong id, empty title…). */

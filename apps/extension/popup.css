@@ -1,0 +1,421 @@
+/* The toolbar popup. Tokens and controls come from base.css. */
+
+body.popup {
+  width: 360px;
+  background: var(--panel);
+}
+.popup main {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+/* Not connected */
+.connect {
+  align-items: center;
+  gap: 10px;
+  padding: 28px 24px 24px !important;
+  text-align: center;
+}
+.connect img {
+  margin-bottom: 4px;
+}
+.connect h1 {
+  margin: 0;
+  font-size: var(--t-h3);
+  letter-spacing: -0.015em;
+}
+.connect p {
+  margin: 0;
+  color: var(--ink-3);
+  text-wrap: pretty;
+}
+.connect .btn {
+  margin-top: 8px;
+}
+.connect .note {
+  min-height: 1.5em;
+  font-size: var(--t-caption);
+}
+
+/* Header */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 8px 6px;
+}
+.brand {
+  font-size: var(--t-body);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.who {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--ink-4);
+  font-size: var(--t-caption);
+}
+
+/* ---------- The clipper ---------- */
+
+.clipper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.clipper.busy > :not(.actions) {
+  opacity: 0.6;
+}
+
+/* The new page's title, editable, above where it comes from */
+.title-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow var(--fast) var(--ease);
+}
+.title-box:focus-within {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.favicon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 1px;
+  border-radius: 6px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink-3);
+}
+.favicon img {
+  border-radius: 3px;
+}
+.title-text {
+  flex: 1;
+  min-width: 0;
+}
+.title-field {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-weight: 650;
+  text-overflow: ellipsis;
+}
+.title-field:focus {
+  outline: none;
+}
+.title-field:disabled {
+  color: var(--ink-3);
+}
+.host {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-4);
+  font-size: var(--t-caption);
+}
+
+/* Clip as: one row of choices, arrow keys move between them */
+.types {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.type {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 9px 2px 8px;
+  border-radius: 10px;
+  color: var(--ink-2);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background var(--fast) var(--ease),
+    color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease);
+}
+.type input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.type .i {
+  width: 18px;
+  height: 18px;
+}
+.type:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.type:has(input:checked) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.type:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.type:has(input:disabled) {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+  color: var(--ink-2);
+}
+
+/* What the chosen kind does, and its own controls */
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 2px;
+}
+.about {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-caption);
+  text-wrap: pretty;
+}
+.area {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 32px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.area-words {
+  flex: 1;
+  color: var(--ink-2);
+  font-size: var(--t-caption);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.icon-btn.sm {
+  width: 26px;
+  height: 26px;
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  background: none;
+}
+.detail .field {
+  height: 30px;
+  font-size: var(--t-caption);
+}
+.sel-preview {
+  display: -webkit-box;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: hidden;
+  border-radius: var(--r-sm);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--ink-2);
+  font: var(--t-small) / 1.45 var(--serif);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* Save in, tags, remark */
+.organize {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.line {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+.line.top {
+  align-items: start;
+}
+.line.top .line-label {
+  padding-top: 6px;
+}
+.line-label {
+  color: var(--ink-3);
+  font-size: var(--t-caption);
+  font-weight: 600;
+}
+.organize .field {
+  min-height: 30px;
+  height: auto;
+  font-size: var(--t-caption);
+}
+.organize select.field {
+  height: 30px;
+}
+.organize textarea.field {
+  padding: 6px 10px;
+  resize: none;
+  line-height: 1.45;
+}
+.hint {
+  margin: -2px 0 2px 66px;
+  color: var(--ink-4);
+  font-size: var(--t-caption);
+  line-height: 1.35;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  cursor: text;
+}
+.tags:focus-within {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+.tags input {
+  flex: 1;
+  min-width: 70px;
+  height: 22px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+}
+.tags input:focus {
+  outline: none;
+}
+.tags input::placeholder {
+  color: var(--ink-4);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 22px;
+  padding: 0 2px 0 7px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+.chip button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.chip button:hover {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.chip .i {
+  width: 12px;
+  height: 12px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+.actions .btn {
+  height: 36px;
+}
+.actions .primary {
+  flex: 1;
+}
+.btn.on {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
+}
+.btn .spinner {
+  width: 13px;
+  height: 13px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* After a clip */
+.result {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  margin: 8px 0 2px;
+  padding: 12px;
+  border-radius: var(--r-md);
+  background: var(--ok-soft);
+  animation: toast-in var(--base) var(--ease);
+}
+.result-icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--ok);
+  color: var(--panel);
+}
+.result-icon .i {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2;
+}
+.result p {
+  margin: 1px 0 10px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.result-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Messages sit in the flow here: there is nothing under them to cover. */
+.status {
+  margin-top: 8px;
+}
+.status .toast {
+  box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--well);
+  animation: none;
+}
+
+.foot {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}

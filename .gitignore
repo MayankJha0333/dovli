@@ -67,3 +67,6 @@ apps/web/public/excalidraw/
 *-firebase-adminsdk-*.json
 .sync/
 firebase-debug.log
+
+# Packed browser extension for the Chrome Web Store (pnpm --filter @dovli/extension zip)
+apps/extension/dovli-extension.zip

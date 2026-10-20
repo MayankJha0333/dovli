@@ -62,6 +62,11 @@ describe("Markdown → blocks", () => {
 });
 
 describe("blocks → Markdown", () => {
+  it("keeps a link preview's address when it goes back to Markdown", () => {
+    const md = '<embed url="https://example.com/a?b=1"/>';
+    expect(blocksToMarkdown(markdownToBlocks(md, ids))).toBe(md);
+  });
+
   it("writes every kind of block, and reads back the same", () => {
     const md = [
       "# Plan",

@@ -1,0 +1,252 @@
+/* The welcome tab, shown once on install. Tokens and controls come from base.css. */
+
+body.welcome {
+  min-height: 100vh;
+  font-size: var(--t-body);
+}
+.welcome main {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 64px 24px 72px;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+.hero img {
+  margin-bottom: 6px;
+}
+.hero h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+.hero p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--ink-2);
+  text-wrap: balance;
+}
+
+/* ---------- The two steps, in one panel ---------- */
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+.step {
+  display: flex;
+  gap: 16px;
+  padding: 22px;
+}
+.step + .step {
+  border-top: 1px solid var(--line);
+}
+.num {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: var(--t-small);
+  font-weight: 700;
+  transition:
+    background var(--base) var(--ease),
+    color var(--base) var(--ease);
+}
+.num .i {
+  position: absolute;
+  opacity: 0;
+  stroke-width: 2;
+  transform: scale(0.6);
+  transition:
+    opacity var(--base) var(--ease),
+    transform var(--base) var(--ease);
+}
+.step.done .num {
+  background: var(--ok);
+  color: var(--panel);
+}
+.step.done .num > span {
+  opacity: 0;
+}
+.step.done .num .i {
+  opacity: 1;
+  transform: none;
+}
+.step-body {
+  flex: 1;
+  min-width: 0;
+}
+.step h2 {
+  margin: 3px 0 4px;
+  font-size: var(--t-h3);
+  letter-spacing: -0.01em;
+}
+.step p {
+  max-width: 60ch;
+  margin: 0 0 14px;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+.state {
+  margin: 12px 0 0 !important;
+  color: var(--ink-3) !important;
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.state:empty {
+  display: none;
+}
+.step.done .state {
+  color: var(--ok) !important;
+}
+.step.done .btn {
+  display: none;
+}
+
+/* A small drawing of Chrome's toolbar: where the puzzle piece and the pin are. */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 420px;
+  padding: 8px 10px;
+  border-radius: var(--r-md);
+  background: var(--well);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.omnibox {
+  flex: 1;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: var(--shadow-sm);
+}
+.tb-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ink-2);
+}
+.tb-btn.hot {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.toolbar .arrow {
+  color: var(--ink-4);
+  transform: rotate(-90deg);
+}
+.tb-menu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--r-sm);
+  background: var(--raised);
+  box-shadow: var(--shadow-pop);
+  font-size: var(--t-small);
+  font-weight: 600;
+}
+.tb-pin {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+/* ---------- Three ways to use it ---------- */
+
+.uses h2 {
+  margin: 0 0 12px 4px;
+  font-size: var(--t-h3);
+  letter-spacing: -0.01em;
+}
+.use-list {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+.use {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 14px;
+  padding: 14px 14px 14px 12px;
+}
+.use + .use {
+  border-top: 1px solid var(--line);
+}
+.use .tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.use h3 {
+  margin: 2px 0 2px;
+  font-size: var(--t-body);
+  font-weight: 650;
+}
+.use p {
+  max-width: 58ch;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+  text-wrap: pretty;
+}
+.use kbd {
+  margin-top: 4px;
+}
+.foot {
+  margin: 12px 4px 0;
+  color: var(--ink-3);
+  font-size: var(--t-small);
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+@media (max-width: 520px) {
+  .welcome main {
+    padding: 40px 16px 56px;
+  }
+  .step {
+    padding: 18px 16px;
+  }
+  .use {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+  .use kbd {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 0;
+  }
+}

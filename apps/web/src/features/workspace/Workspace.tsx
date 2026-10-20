@@ -13,6 +13,7 @@ import { authGateOn } from "@/lib/authGate";
 import { AssistantButton } from "@/features/ai/AssistantButton";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { SignInDialog } from "@/features/auth/SignInDialog";
+import { ConnectExtensionDialog, takeConnectRequest } from "@/features/extension/ConnectExtension";
 import { Home } from "@/features/home/Home";
 import { LinkNotesDialog } from "@/features/link-notes/LinkNotesDialog";
 import { PageView } from "@/features/page/PageView";
@@ -51,6 +52,7 @@ export default function Workspace({ accountId }: { accountId?: string }) {
     void initStore().then(() => void autoBackup());
     initAuth();
     startSync();
+    takeConnectRequest();
   }, []);
 
   // Back/forward buttons and links like #p-abc123 inside pages.
@@ -148,6 +150,7 @@ export default function Workspace({ accountId }: { accountId?: string }) {
       <SignInDialog />
       <ShareDialog />
       <LinkNotesDialog />
+      <ConnectExtensionDialog />
       <PagePicker />
       <StyleGallery />
       <Toaster />

@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dovli</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body class="popup">
+    <!-- Not connected yet -->
+    <main id="connect-view" class="connect" hidden>
+      <img src="icons/128.png" alt="" width="56" height="56" />
+      <h1>Save the web to Dovli</h1>
+      <p>Clip pages, make AI notes and write beside any website, straight into your notes.</p>
+      <button id="connect" type="button" class="btn primary lg">Connect to Dovli</button>
+      <p id="connect-note" class="note" role="status"></p>
+    </main>
+
+    <!-- Connected: the clipper -->
+    <main id="app-view" hidden>
+      <header class="head">
+        <img src="icons/32.png" alt="" width="20" height="20" />
+        <span class="brand">Dovli</span>
+        <span id="who" class="who"></span>
+        <a id="open-app" class="icon-btn" target="_blank" rel="noopener" title="Open Dovli" aria-label="Open Dovli">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#external" /></svg>
+        </a>
+      </header>
+
+      <form id="clipper" class="clipper" novalidate>
+        <div class="title-box">
+          <span class="favicon">
+            <img id="fav" alt="" width="16" height="16" hidden />
+            <svg id="fav-fallback" class="i i-sm" aria-hidden="true"><use href="icons.svg#page" /></svg>
+          </span>
+          <div class="title-text">
+            <input id="title" class="title-field" type="text" maxlength="200" autocomplete="off" aria-label="Title of the new page" />
+            <div id="tab-host" class="host"></div>
+          </div>
+        </div>
+
+        <fieldset class="types">
+          <legend class="sr-only">Clip as</legend>
+          <label class="type">
+            <input type="radio" name="mode" value="notes" />
+            <svg class="i" aria-hidden="true"><use href="icons.svg#sparkles" /></svg>
+            <span>AI notes</span>
+          </label>
+          <label class="type">
+            <input type="radio" name="mode" value="article" />
+            <svg class="i" aria-hidden="true"><use href="icons.svg#page" /></svg>
+            <span>Article</span>
+          </label>
+          <label class="type">
+            <input type="radio" name="mode" value="page" />
+            <svg class="i" aria-hidden="true"><use href="icons.svg#browser" /></svg>
+            <span>Full page</span>
+          </label>
+          <label class="type">
+            <input type="radio" name="mode" value="selection" />
+            <svg class="i" aria-hidden="true"><use href="icons.svg#selection" /></svg>
+            <span>Selection</span>
+          </label>
+          <label class="type">
+            <input type="radio" name="mode" value="bookmark" />
+            <svg class="i" aria-hidden="true"><use href="icons.svg#bookmark" /></svg>
+            <span>Bookmark</span>
+          </label>
+        </fieldset>
+
+        <div class="detail">
+          <p id="about" class="about"></p>
+          <div id="area" class="area" hidden>
+            <span id="area-words" class="area-words" aria-live="polite"></span>
+            <button id="shrink" type="button" class="icon-btn sm" title="Take a smaller part of the page" aria-label="Smaller part">
+              <svg class="i i-sm" aria-hidden="true"><use href="icons.svg#minus" /></svg>
+            </button>
+            <button id="grow" type="button" class="icon-btn sm" title="Take a bigger part of the page" aria-label="Bigger part">
+              <svg class="i i-sm" aria-hidden="true"><use href="icons.svg#plus" /></svg>
+            </button>
+          </div>
+          <input id="focus" class="field" type="text" maxlength="300" placeholder="Optional: what should the notes focus on?" aria-label="What the AI notes should focus on" hidden />
+          <blockquote id="sel-preview" class="sel-preview" hidden></blockquote>
+        </div>
+
+        <div class="organize">
+          <label class="line">
+            <span class="line-label">Save in</span>
+            <select id="where" class="field"></select>
+          </label>
+          <p id="where-hint" class="hint"></p>
+          <div class="line">
+            <label class="line-label" for="tag-input">Tags</label>
+            <div id="tags" class="field tags">
+              <input id="tag-input" type="text" maxlength="40" placeholder="Add tags" autocomplete="off" />
+            </div>
+          </div>
+          <label class="line top">
+            <span class="line-label">Remark</span>
+            <textarea id="remark" class="field" rows="2" maxlength="2000" placeholder="Add a remark"></textarea>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="highlight" type="button" class="btn" title="Highlight text on the page; highlights are kept in the clip">
+            <svg class="i" aria-hidden="true"><use href="icons.svg#highlighter" /></svg>
+            <span id="highlight-label">Highlight</span>
+          </button>
+          <button id="save" type="submit" class="btn primary">Save</button>
+        </div>
+      </form>
+
+      <div id="result" class="result" role="status" hidden>
+        <span class="result-icon"><svg class="i" aria-hidden="true"><use href="icons.svg#check" /></svg></span>
+        <div class="result-body">
+          <p id="result-text"></p>
+          <div class="result-actions">
+            <button id="result-drawer" type="button" class="btn sm primary">
+              <svg class="i i-sm" aria-hidden="true"><use href="icons.svg#drawer" /></svg>
+              Open in drawer
+            </button>
+            <a id="result-app" class="btn sm" target="_blank" rel="noopener">
+              Open in Dovli
+              <svg class="i i-sm" aria-hidden="true"><use href="icons.svg#external" /></svg>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div id="status" class="status" hidden></div>
+
+      <footer class="foot">
+        <button id="drawer" type="button" class="row">
+          <span class="tile"><svg class="i" aria-hidden="true"><use href="icons.svg#drawer" /></svg></span>
+          <span class="row-text">
+            <span class="row-title">Open notes drawer</span>
+            <span class="row-sub">Write in a page beside this site</span>
+          </span>
+          <kbd id="drawer-key"></kbd>
+        </button>
+      </footer>
+    </main>
+
+    <script type="module" src="src/popup.js"></script>
+  </body>
+</html>

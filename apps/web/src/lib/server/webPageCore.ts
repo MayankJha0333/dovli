@@ -409,6 +409,17 @@ function table(el: Node, ctx: Ctx, indent: string, out: string[]) {
   flushHoisted(ctx, indent, out);
 }
 
+/** Plain text as Dovli Markdown paragraphs, escaped so nothing in it reads as Markdown. */
+export function textToMarkdown(body: string): string {
+  return body
+    .replace(/\r\n?/g, "\n")
+    .split(/\n{2,}/)
+    .map((p) => text(p).trim())
+    .filter(Boolean)
+    .map((p) => (LOOKS_LIKE_SYNTAX.test(p) ? `\\${p}` : p))
+    .join("\n\n");
+}
+
 /** HTML (a whole page or a part of one) as Dovli Markdown. */
 export function htmlToMarkdown(html: string, pageUrl: string): string {
   const { document } = parseHTML(`<!doctype html><html><body>${html}</body></html>`);
@@ -447,13 +458,13 @@ export function cleanTitle(title: string, siteName: string, host = ""): string {
 /**
  * The main text of a page (no menus, ads, comments or footers) as Dovli Markdown, with its title
  * and details. Null when the page has no readable text, like an app that draws itself with JavaScript.
+ * `whole` keeps everything in the body instead: a full-page clip, or the part of a page someone chose.
  */
-export function readArticle(body: string, pageUrl: string, kind: "html" | "text" = "html"): Article | null {
+export function readArticle(body: string, pageUrl: string, kind: "html" | "text" = "html", { whole = false } = {}): Article | null {
   const host = new URL(pageUrl).hostname.replace(/^www\./, "");
   if (kind === "text") {
-    const paras = body.replace(/\r\n?/g, "\n").split(/\n{2,}/).map((p) => text(p).trim()).filter(Boolean);
-    if (!paras.length) return null;
-    const markdown = paras.map((p) => (LOOKS_LIKE_SYNTAX.test(p) ? `\\${p}` : p)).join("\n\n");
+    const markdown = textToMarkdown(body);
+    if (!markdown) return null;
     const { pathname } = new URL(pageUrl);
     const name = decodeURIComponent(pathname.split("/").pop() || "");
     const style = pickStyle({ host, path: pathname, title: name, about: "", types: [], headings: "", body: markdown.slice(0, 8000), codeBlocks: 0, themeColor: "" });
@@ -486,7 +497,9 @@ export function readArticle(body: string, pageUrl: string, kind: "html" | "text"
   }
 
   // Readability changes the document as it works, so the details above are read first.
-  const read = new Readability(document as any, { charThreshold: 200, keepClasses: true }).parse();
+  const read = whole
+    ? { content: document.body?.innerHTML ?? "", title: "", byline: "", publishedTime: "", textContent: document.body?.textContent ?? "" }
+    : new Readability(document as any, { charThreshold: 200, keepClasses: true }).parse();
   if (!read?.content) return null;
   const markdown = htmlToMarkdown(read.content, base);
   const count = words(read.textContent ?? "").trim().split(" ").filter(Boolean).length;

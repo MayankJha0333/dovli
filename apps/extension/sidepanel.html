@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dovli</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body class="drawer">
+    <!-- Not connected yet -->
+    <main id="connect-view" class="connect" hidden>
+      <img src="icons/128.png" alt="" width="56" height="56" />
+      <h1>Your notes, beside every website</h1>
+      <p>Connect your Dovli account to clip pages, make AI notes and write while you read.</p>
+      <button id="connect" type="button" class="btn primary lg">Connect to Dovli</button>
+      <p id="connect-note" class="note" role="status"></p>
+      <button id="connect-settings" type="button" class="link">Use another Dovli address</button>
+    </main>
+
+    <!-- Connected -->
+    <main id="app-view" hidden>
+      <header class="bar">
+        <button id="pick" type="button" class="picker" aria-haspopup="dialog" aria-expanded="false" title="Choose a page">
+          <span id="page-icon" class="mark">¶</span>
+          <span id="page-title">Choose a page</span>
+          <svg class="i i-sm" aria-hidden="true"><use href="icons.svg#chevron-down" /></svg>
+        </button>
+        <a id="open" class="icon-btn" target="_blank" rel="noopener" title="Open in Dovli" aria-label="Open in Dovli">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#external" /></svg>
+        </a>
+        <button id="more" type="button" class="icon-btn" title="Settings" aria-label="Settings">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#more" /></svg>
+        </button>
+      </header>
+
+      <nav class="tools" aria-label="From this tab">
+        <button id="notes" type="button" class="tool accent" title="Have AI write notes from this tab, as a new page">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#sparkles" /></svg>AI notes
+        </button>
+        <button id="clip" type="button" class="tool" title="Save this tab's article as a new page">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#page" /></svg>Article
+        </button>
+        <button id="add-selection" type="button" class="tool" title="Add the text you selected on the website to this page">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#selection" /></svg>Add selection
+        </button>
+      </nav>
+
+      <div id="permission" class="notice" hidden>
+        <svg class="i" aria-hidden="true"><use href="icons.svg#alert" /></svg>
+        <div>
+          <p>To clip from the drawer after switching tabs, Dovli needs permission to read the pages you choose to clip. It reads a page only when you click a button.</p>
+          <button id="allow" type="button" class="btn sm primary">Allow</button>
+        </div>
+      </div>
+
+      <div id="canvas" class="canvas">
+        <article id="page" class="paper">
+          <h1 id="paper-title" class="paper-title" hidden></h1>
+          <div id="blocks" class="blocks" aria-live="polite"></div>
+        </article>
+      </div>
+
+      <form id="composer" class="composer">
+        <textarea id="note" rows="1" placeholder="Write a note…  Markdown works" aria-label="Write a note (Enter adds it, Shift+Enter for a new line)"></textarea>
+        <button id="send" class="send" type="submit" title="Add to the page (Enter)" aria-label="Add to the page" disabled>
+          <svg class="i" aria-hidden="true"><use href="icons.svg#arrow-up" /></svg>
+        </button>
+      </form>
+      <div id="status" class="status" hidden></div>
+    </main>
+
+    <!-- Choose a page -->
+    <div id="picker" class="sheet" role="dialog" aria-modal="true" aria-label="Choose a page" hidden>
+      <div class="sheet-box">
+        <div class="search">
+          <svg class="i" aria-hidden="true"><use href="icons.svg#search" /></svg>
+          <input id="search" type="search" placeholder="Search pages, or name a new one" autocomplete="off" aria-label="Search pages" />
+          <button id="picker-close" type="button" class="icon-btn" aria-label="Close">
+            <svg class="i" aria-hidden="true"><use href="icons.svg#close" /></svg>
+          </button>
+        </div>
+        <div id="results" class="results"></div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="settings" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settings-title" hidden>
+      <div class="sheet-box">
+        <div class="sheet-head">
+          <h2 id="settings-title">Settings</h2>
+          <button id="settings-close" type="button" class="icon-btn" aria-label="Close">
+            <svg class="i" aria-hidden="true"><use href="icons.svg#close" /></svg>
+          </button>
+        </div>
+        <div class="account">
+          <img src="icons/48.png" alt="" width="32" height="32" />
+          <div>
+            <div id="who-name" class="account-name">Dovli</div>
+            <div id="who" class="muted"></div>
+          </div>
+        </div>
+        <label for="server" class="label">Dovli address</label>
+        <div class="inline">
+          <input id="server" class="field" type="url" placeholder="https://dovli.in" />
+          <button id="save-server" type="button" class="btn">Save</button>
+        </div>
+        <p class="help">Only change this if you run your own copy of Dovli.</p>
+        <button id="disconnect" type="button" class="row danger-row">
+          <span class="tile"><svg class="i" aria-hidden="true"><use href="icons.svg#logout" /></svg></span>
+          <span class="row-text">
+            <span class="row-title">Disconnect</span>
+            <span class="row-sub wrap">Signs this extension out. To remove its access completely, delete “Dovli for Chrome” in Dovli → Settings → AI apps.</span>
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <script type="module" src="src/sidepanel.js"></script>
+  </body>
+</html>
