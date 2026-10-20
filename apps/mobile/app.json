@@ -2,6 +2,7 @@
   "expo": {
     "name": "Dovli",
     "slug": "dovli",
+    "owner": "luffylabs-team",
     "scheme": "dovli",
     "version": "0.1.0",
     "orientation": "portrait",
@@ -40,6 +41,17 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "18381e67-e259-4c6b-8814-c41ded9f1fd6"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/18381e67-e259-4c6b-8814-c41ded9f1fd6"
     }
   }
 }

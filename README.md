@@ -68,9 +68,46 @@ To run a command in one app only: `pnpm --filter @dovli/web <command>`.
 
 The phone app's editor is the web editor running inside the app (an Expo "DOM component").
 If Expo Go can't open it, make a development build once with
-`pnpm --filter @dovli/mobile exec expo run:ios` (or `run:android`). For over-the-air update
-bundles use `pnpm --filter @dovli/mobile export`: it bundles the editor as one file, because
-Expo's split bundles break DOM components when exported.
+`pnpm --filter @dovli/mobile exec expo run:ios` (or `run:android`). Bundles for the web or for
+updates must be made with bundle splitting off (`pnpm --filter @dovli/mobile export`, and the
+`update:*` scripts below do it): Expo's split bundles break DOM components when exported.
+
+## Phone builds and releases (EAS)
+
+The phone app is built in the cloud by EAS, as the Expo project
+[@luffylabs-team/dovli](https://expo.dev/accounts/luffylabs-team/projects/dovli). Run these from
+`apps/mobile` (or with `pnpm --filter @dovli/mobile`); log in once with `npx eas-cli login`.
+
+| Command | What it makes |
+|---|---|
+| `pnpm build:dev:android` / `build:dev:ios` / `build:dev:ios-sim` | A development build that loads JavaScript from `pnpm dev:mobile` |
+| `pnpm build:preview:android` | An APK to install on any Android phone, pointing at https://dovli.in |
+| `pnpm build:release:android` | The Play Store release (an app bundle); its version code goes up by itself |
+| `pnpm submit:android` | Sends the latest release build to Google Play's internal testing track, as a draft |
+| `pnpm update:preview` / `update:production` | Sends JavaScript and design changes to installed apps, no store release |
+
+- **Settings for cloud builds** (Firebase, Google client IDs, the server address) are EAS
+  environment variables, one set per profile: development, preview, production. `apps/mobile/.env`
+  is only for your own machine. Change them with `npx eas-cli env:update` (or on expo.dev), then
+  rebuild.
+- **Version code** is kept by EAS (`appVersionSource: remote`). The version people see is
+  `version` in `apps/mobile/app.json`.
+- **Updates reach only compatible builds.** Each build has a runtime version made from a
+  fingerprint of its native code, so an update never lands on a build that lacks a native module
+  it needs. Adding or upgrading a native package means a new store build.
+- **App signing**: EAS made and keeps the Android upload keystore (expo.dev → the project →
+  Credentials). Don't make another one, or Play will refuse the next upload.
+- **Google sign-in on Android** only works for builds whose signing certificate Google knows
+  ("DEVELOPER_ERROR" otherwise). Add each SHA-1 fingerprint to the Firebase Android app "Dovli
+  Android" (`app.dovli`, Project settings → Your apps → Add fingerprint). No `google-services.json`
+  is needed: the app signs in with the Web client ID. The fingerprints: EAS's keystore (expo.dev →
+  the project → Credentials → Android), your Mac's debug keystore for `expo run:android`, and,
+  once the app is on Google Play, Play's app signing key (Play Console → Test and release → App
+  integrity).
+- **The first Play Store upload is by hand**: Google requires it. Make a release build, download
+  the `.aab` from expo.dev and upload it in Play Console. After that, `pnpm submit:android` works
+  once a Google Play service account key is added to EAS (`npx eas-cli credentials` → Android →
+  Google Service Account).
 
 ## Themes and styling
 
