@@ -62,12 +62,12 @@ export const rivals: Rival[] = [
     ],
     move: [
       "In Notion, open Settings and choose Export all workspace content, as Markdown & CSV or HTML.",
-      "In Dovli, open Settings, then Data, and drop the .zip file in.",
+      "In Dovli, open Settings, then Import & export, and drop the .zip file in.",
       "Your page tree, pictures and files come along. Check a few pages, then keep writing.",
     ],
     faqs: [
       { q: "Is Dovli a free alternative to Notion?", a: "Yes. Dovli is free on the web and on Android. You get pages, to-dos, tables, whiteboards, templates and sharing without paying." },
-      { q: "Can I move my Notion pages to Dovli?", a: "Yes. Export your Notion workspace as Markdown & CSV or HTML, then drop the .zip into Dovli's Settings, under Data. Your page tree, pictures and files come along." },
+      { q: "Can I move my Notion pages to Dovli?", a: "Yes. Export your Notion workspace as Markdown & CSV or HTML, then drop the .zip into Dovli's Settings, under Import & export. Your page tree, pictures and files come along." },
       { q: "Does Dovli have databases like Notion?", a: "Dovli has simple tables, not full Notion-style databases with views and formulas. If your work depends on databases, Notion is the better fit." },
       { q: "Does Dovli work offline?", a: "Yes. Pages save on your device first and sync when you are back online, on the web and in the Android app." },
     ],
@@ -103,12 +103,12 @@ export const rivals: Rival[] = [
     ],
     move: [
       "In Craft, export a document or a folder as Markdown or TextBundle.",
-      "In Dovli, open Settings, then Data, and drop the files or the .zip in.",
+      "In Dovli, open Settings, then Import & export, and drop the files or the .zip in.",
       "Folders become pages, so your structure stays. Pictures come along.",
     ],
     faqs: [
       { q: "Is there a free alternative to Craft?", a: "Dovli is a free alternative to Craft for notes, docs and whiteboards. It runs on the web and Android, with page styles, templates and an AI assistant." },
-      { q: "Can I import my Craft documents into Dovli?", a: "Yes. Export from Craft as Markdown or TextBundle, then drop the files or the .zip into Dovli's Settings, under Data. Folders become pages, and pictures come along." },
+      { q: "Can I import my Craft documents into Dovli?", a: "Yes. Export from Craft as Markdown or TextBundle, then drop the files or the .zip into Dovli's Settings, under Import & export. Folders become pages, and pictures come along." },
       { q: "Does Dovli work on Windows?", a: "Yes, in the browser: open dovli.in in Chrome, Edge or Firefox on any computer. There is also an Android app on Google Play." },
     ],
   },
@@ -144,12 +144,12 @@ export const rivals: Rival[] = [
     ],
     move: [
       "In Evernote, select a notebook (or some notes), choose Export, and pick ENEX (.enex).",
-      "In Dovli, open Settings, then Data, and drop one or more .enex files in.",
+      "In Dovli, open Settings, then Import & export, and drop one or more .enex files in.",
       "Each notebook becomes a page holding its notes. Pictures come along, and links between notes still work.",
     ],
     faqs: [
       { q: "What is a free alternative to Evernote?", a: "Dovli is a free Evernote alternative with no note or notebook limit. It works on the web and Android, offline too, and imports your Evernote notebooks." },
-      { q: "How do I move my notes from Evernote to Dovli?", a: "Export each notebook from Evernote as an .enex file, then drop the files into Dovli's Settings, under Data. Each notebook becomes a page with its notes, pictures included." },
+      { q: "How do I move my notes from Evernote to Dovli?", a: "Export each notebook from Evernote as an .enex file, then drop the files into Dovli's Settings, under Import & export. Each notebook becomes a page with its notes, pictures included." },
       { q: "Does Dovli have a web clipper like Evernote?", a: "Dovli for Chrome, a browser extension to save what you read on the web, is coming soon." },
     ],
   },
@@ -169,5 +169,5 @@ export const overview: { label: string; dovli: string; notion: string; craft: st
 export const overviewFaqs: Faq[] = [
   { q: "Which is better, Notion, Craft or Evernote?", a: "It depends on the job. Notion is best for team databases and wikis, Craft for beautiful documents on Apple devices, and Evernote for saving and finding everything. Dovli is a free, calm place for your own notes, docs and whiteboards on the web and Android." },
   { q: "What is the best free note-taking app?", a: "If you want docs, to-dos and whiteboards in one place with no note limit, Dovli is free on the web and Android and imports from Notion, Evernote and Craft." },
-  { q: "Can I switch from Notion, Craft or Evernote to Dovli?", a: "Yes. Dovli imports a Notion export, Craft Markdown or TextBundle files, and Evernote .enex files. Open Settings, then Data, and drop the files in." },
+  { q: "Can I switch from Notion, Craft or Evernote to Dovli?", a: "Yes. Dovli imports a Notion export, Craft Markdown or TextBundle files, and Evernote .enex files. Open Settings, then Import & export, and drop the files in." },
 ];
