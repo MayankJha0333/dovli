@@ -84,6 +84,7 @@ The phone app is built in the cloud by EAS, as the Expo project
 | `pnpm build:preview:android` | An APK to install on any Android phone, pointing at https://dovli.in |
 | `pnpm build:release:android` | The Play Store release (an app bundle); its version code goes up by itself |
 | `pnpm submit:android` | Sends the latest release build to Google Play's internal testing track, as a draft |
+| `pnpm submit:android:closed` / `submit:android:production` | The same, to Closed testing or Production |
 | `pnpm update:preview` / `update:production` | Sends JavaScript and design changes to installed apps, no store release |
 
 - **Settings for cloud builds** (Firebase, Google client IDs, the server address) are EAS
@@ -108,6 +109,12 @@ The phone app is built in the cloud by EAS, as the Expo project
   the `.aab` from expo.dev and upload it in Play Console. After that, `pnpm submit:android` works
   once a Google Play service account key is added to EAS (`npx eas-cli credentials` → Android →
   Google Service Account).
+- **Releases from GitHub** (`.github/workflows/mobile-release.yml`): every merge to `main` that
+  touches the phone app or the shared packages builds a release and sends it to Internal testing.
+  To release to Closed testing or Production, open Actions → Mobile release → Run workflow and pick
+  the track (Production only from `main`). It needs the `EXPO_TOKEN` secret in GitHub and the
+  service account key above. Releases arrive in Play Console as drafts until the app has been
+  published once; then set `releaseStatus` to `"completed"` in `apps/mobile/eas.json`.
 
 ## Themes and styling
 

@@ -1,0 +1,95 @@
+# Builds the Android app on EAS and sends it to Google Play.
+#
+# - A merge to main that can affect the app: a new build goes to Internal testing.
+# - Run by hand (Actions → Mobile release → Run workflow): pick Internal testing, Closed testing or
+#   Production. Production only runs from main.
+#
+# EAS does the build (eas.json build "production": an .aab, versionCode bumped on EAS's side) and
+# then the upload (eas.json submit "internal", "closed" or "production"). Every release arrives in
+# Play Console as a draft, since Google allows nothing else until the app has been published once.
+# After that, set "releaseStatus" to "completed" in eas.json for a track to go out by itself.
+#
+# One-time setup, outside this repo:
+#   1. EXPO_TOKEN: an access token from expo.dev (the luffylabs-team account), saved as a GitHub
+#      Actions secret.
+#   2. A Google Play service account key, uploaded to EAS with `eas credentials -p android`
+#      (production → Google Service Account). The key never goes in the repo. In Play Console the
+#      account needs "Release to production" as well as the testing-track permissions to use
+#      the Production choice.
+
+name: Mobile release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/mobile/**"
+      # The app is built from the shared packages too (core, editor, sync, theme, ui).
+      - "packages/**"
+      - "patches/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/mobile-release.yml"
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Google Play track
+        type: choice
+        options:
+          - internal
+          - closed
+          - production
+        default: internal
+
+# One release at a time, in order; a newer one waits instead of cancelling a build that's already
+# uploading.
+concurrency:
+  group: mobile-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build and submit Android (${{ inputs.track || 'internal' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      # A merge has no inputs, so it goes to Internal testing.
+      TRACK: ${{ inputs.track || 'internal' }}
+    steps:
+      - name: Production releases come only from main
+        if: env.TRACK == 'production' && github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Production releases can only be run from main (this run is on ${GITHUB_REF_NAME})."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      # Uses the pnpm version pinned in the root package.json ("packageManager").
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Catch type errors here, before spending an EAS build on them.
+      - run: pnpm --filter @dovli/mobile typecheck
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Waits for the build so a failed build fails this run too. The submission starts on EAS
+      # once the build is done.
+      - name: Build on EAS and submit to Google Play
+        working-directory: apps/mobile
+        run: >-
+          eas build --platform android --profile production --non-interactive
+          --auto-submit-with-profile "$TRACK"
+          --message "${GITHUB_REF_NAME} ${GITHUB_SHA::7} → ${TRACK}"

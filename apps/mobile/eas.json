@@ -40,9 +40,21 @@
     }
   },
   "submit": {
-    "production": {
+    "internal": {
       "android": {
         "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
+    "closed": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "draft"
+      }
+    },
+    "production": {
+      "android": {
+        "track": "production",
         "releaseStatus": "draft"
       }
     }
