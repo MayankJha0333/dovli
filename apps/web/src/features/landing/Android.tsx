@@ -8,9 +8,10 @@ import type { CSSProperties } from "react";
 import { Icon, cn, type IconName } from "@dovli/ui";
 import { trackEvent } from "@/lib/analytics";
 import { Status, container, h2Class, leadClass } from "./Sections";
+import { PLAY_STORE_URL } from "./playStore";
 import { tone, type Tone } from "./tones";
 
-export const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=app.dovli";
+export { PLAY_STORE_URL };
 
 type Screen = { src: string; width: number; height: number; alt: string };
 

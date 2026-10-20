@@ -2,22 +2,30 @@ import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { Landing } from "@/features/landing/Landing";
 import { authGateOn } from "@/lib/authGate";
+import { HOME_DESCRIPTION, HOME_TITLE, SHARE_IMAGE, homeJsonLd, ldJson } from "@/lib/seo";
 
-const title = "Dovli · A calm place to write, plan and sketch";
-const description = "Notes, docs and whiteboards in one calm place, on the web and on Android. Templates, an AI assistant beside every page, and MCP for the AI apps you already use.";
-const shareImage = { url: "/landing/og.jpg", width: 1200, height: 630, alt: "Dovli: a calm place to write, plan and sketch." };
+// The words people search for come first ("free note-taking app"), then what makes Dovli different.
+const title = { absolute: HOME_TITLE };
+const description = HOME_DESCRIPTION;
+const shareImage = SHARE_IMAGE;
 
 export const metadata: Metadata = {
   title,
   description,
   // Replaces the layout's openGraph as a whole, so its fields are repeated here.
-  openGraph: { type: "website", url: "/", siteName: "Dovli", title, description, images: [shareImage] },
-  twitter: { card: "summary_large_image", title, description, images: [shareImage] },
+  openGraph: { type: "website", url: "/", siteName: "Dovli", title: HOME_TITLE, description, images: [shareImage] },
+  twitter: { card: "summary_large_image", title: HOME_TITLE, description, images: [shareImage] },
 };
 
 /** The landing page, for everyone. Signed-in people get a way straight into the app. */
 export default async function HomePage() {
-  return <Landing accounts={authGateOn} signedIn={await isSignedIn()} />;
+  return (
+    <>
+      {/* Who makes Dovli, and the web and Android apps, for search engines (see lib/seo.ts). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(homeJsonLd()) }} />
+      <Landing accounts={authGateOn} signedIn={await isSignedIn()} />
+    </>
+  );
 }
 
 /**

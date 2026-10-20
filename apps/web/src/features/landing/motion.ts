@@ -53,3 +53,27 @@ export function useInView<T extends HTMLElement>(threshold = 0.35) {
   };
   return { ref, seen, replay };
 }
+
+/**
+ * Runs the page's scroll and pointer motion (scrollMotion.ts) once the page is up. GSAP loads in its
+ * own chunk, so the first paint never waits for it, and not at all with less motion.
+ */
+export function useScrollMotion<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  useEffect(() => {
+    const root = ref.current;
+    if (!root || prefersLessMotion()) return;
+    let stop: (() => void) | undefined;
+    let gone = false;
+    import("./scrollMotion")
+      .then((m) => {
+        if (!gone) stop = m.start(root);
+      })
+      .catch((e) => console.warn("Landing page: the scroll motion didn't start", e));
+    return () => {
+      gone = true;
+      stop?.();
+    };
+  }, []);
+  return ref;
+}

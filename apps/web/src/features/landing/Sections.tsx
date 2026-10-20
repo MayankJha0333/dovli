@@ -13,6 +13,7 @@ import { BlocksPicture, BoardPicture, FindPicture, LooksPicture, NestedPicture }
 import { SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { prefersLessMotion, useInView } from "./motion";
+import { Scene } from "./Scene";
 import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
 
@@ -440,8 +441,9 @@ export function Ai() {
   const { ref } = useInView<HTMLDivElement>(0.2);
   return (
     <section id="mcp" aria-labelledby="ai-title" className="px-2 sm:px-4">
-      <div className="lp-starlight overflow-hidden rounded-[28px] sm:rounded-[44px]">
-        <div ref={ref} className={cn(container, "py-16 sm:py-24")}>
+      <div className="lp-starlight relative isolate overflow-hidden rounded-[28px] sm:rounded-[44px]">
+        <Scene kind="stars" />
+        <div ref={ref} className={cn(container, "relative py-16 sm:py-24")}>
           <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
             <div>
               <span className="inline-flex h-7 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold text-white ring-1 ring-white/15">

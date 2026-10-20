@@ -81,7 +81,7 @@
   transform: scaleX(0);
 }
 @supports (animation-timeline: scroll()) {
-  .lp-progress { animation: lp-progress linear both; animation-timeline: scroll(root); }
+  :root:not([data-gsap]) .lp-progress { animation: lp-progress linear both; animation-timeline: scroll(root); }
 }
 @keyframes lp-progress { to { transform: scaleX(1); } }
 
@@ -177,11 +177,16 @@
 @media (min-width: 640px) { .lp-fan { --c-w: 250px; --s-w: 200px; --spread: 162px; --drop: 30px; } }
 @media (min-width: 1024px) { .lp-fan { --c-w: 290px; --s-w: 236px; --spread: 188px; --drop: 36px; } }
 @media (min-width: 1280px) { .lp-fan { --c-w: 316px; --s-w: 240px; --spread: 196px; --drop: 38px; --mid: 54%; } }
-/* The side phones sit a little lower than they tilt, so their cut bottom edge never shows. */
+/* The side phones sit a little lower than they tilt, so their cut bottom edge never shows.
+   --fan runs from 0 (stacked behind the middle phone) to 1 (fanned out); scrollMotion.ts scrolls it. */
 .lp-fan-phone { position: absolute; bottom: -2px; left: var(--mid); transform-origin: 50% 100%; }
-.lp-fan-c { z-index: 2; width: var(--c-w); transform: translateX(-50%); }
-.lp-fan-l { width: var(--s-w); transform: translateX(calc(-50% - var(--spread))) translateY(var(--drop)) rotate(-7deg); }
-.lp-fan-r { width: var(--s-w); transform: translateX(calc(-50% + var(--spread))) translateY(var(--drop)) rotate(7deg); }
+.lp-fan-c { z-index: 2; width: var(--c-w); transform: translateX(-50%) translateY(calc((1 - var(--fan, 1)) * 56px)); }
+.lp-fan-l { width: var(--s-w); transform: translateX(calc(-50% - var(--spread) * var(--fan, 1))) translateY(calc(var(--drop) + (1 - var(--fan, 1)) * 90px)) rotate(calc(-7deg * var(--fan, 1))); }
+.lp-fan-r { width: var(--s-w); transform: translateX(calc(-50% + var(--spread) * var(--fan, 1))) translateY(calc(var(--drop) + (1 - var(--fan, 1)) * 90px)) rotate(calc(7deg * var(--fan, 1))); }
+
+/* ---------- 3D scenes (Scene.tsx): they fade in over the painted background once they're drawing ---------- */
+.lp-scene { opacity: 0; transition: opacity 1.6s var(--lp-ease); }
+.lp-scene[data-ready] { opacity: 1; }
 
 /* ---------- Features (wider screens): pick one, and its picture shows beside the list ---------- */
 .lp-acc { transition: background-color 0.3s var(--lp-ease), box-shadow 0.3s var(--lp-ease); }
@@ -299,9 +304,9 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
     [data-inview="true"] .lp-clip-btn { animation: lp-press 0.3s var(--lp-ease) 2.6s both; }
   }
 
-  /* Scroll-driven parts, where the browser can tie animation to scrolling. */
+  /* Scroll-driven parts, where the browser can tie animation to scrolling (and GSAP isn't doing it). */
   @supports (animation-timeline: view()) {
-    :root:not([data-reduce-motion="true"]) {
+    :root:not([data-reduce-motion="true"]):not([data-gsap]) {
       .lp-tilt {
         animation: lp-tilt linear both;
         animation-timeline: view();
@@ -336,6 +341,9 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
     }
   }
 }
+
+/* GSAP moves the template rows instead, so they can react to scrolling. */
+:root[data-gsap] .lp-marquee-track { animation: none; }
 
 [data-reset] * { transition: none !important; animation: none !important; }
 

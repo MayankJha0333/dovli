@@ -1,21 +1,25 @@
 import type { Metadata, Viewport } from "next";
 import { APP_THEMES, DEFAULT_THEME, FONT_STYLESHEET, getTheme, themeStylesheet } from "@dovli/theme";
 import { VercelAnalytics } from "@/components/VercelAnalytics";
+import { HOME_DESCRIPTION, SHARE_IMAGE, SITE } from "@/lib/seo";
 import { themeBootScript } from "@/lib/themeBoot";
 import "@/styles/globals.css";
-
-/** Dovli's home address. APP_URL wins (a test copy of Dovli sets its own); otherwise dovli.in. */
-const SITE = (process.env.APP_URL || "https://dovli.in").replace(/\/$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE),
   title: "Dovli",
-  description: "A calm place to write, plan and sketch.",
+  description: HOME_DESCRIPTION,
   applicationName: "Dovli",
   alternates: { canonical: "/" },
   // How a dovli.in link looks when it's shared in chats and social apps.
-  openGraph: { type: "website", url: "/", siteName: "Dovli", title: "Dovli", description: "A calm place to write, plan and sketch." },
-  twitter: { card: "summary", title: "Dovli", description: "A calm place to write, plan and sketch." },
+  openGraph: { type: "website", url: "/", siteName: "Dovli", title: "Dovli", description: HOME_DESCRIPTION, images: [SHARE_IMAGE] },
+  twitter: { card: "summary_large_image", title: "Dovli", description: HOME_DESCRIPTION, images: [SHARE_IMAGE] },
+  // Proves to Google Search Console and Bing Webmaster Tools that dovli.in is ours. Set the codes
+  // they give you as GOOGLE_SITE_VERIFICATION and BING_SITE_VERIFICATION in Vercel.
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : undefined,
+  },
 };
 
 export const viewport: Viewport = {

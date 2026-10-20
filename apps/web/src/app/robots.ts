@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 
+import { SITE } from "@/lib/seo";
+
 // What search engines may look at: the public pages, never someone's workspace or the API.
-const SITE = (process.env.APP_URL || "https://dovli.in").replace(/\/$/, "");
 
 export default function robots(): MetadataRoute.Robots {
   return {

@@ -14,9 +14,10 @@ import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
 import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL } from "./Android";
-import { prefersLessMotion } from "./motion";
+import { prefersLessMotion, useScrollMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
 import { Platforms } from "./Platforms";
+import { Scene } from "./Scene";
 import { Ai, Coming, Features, Templates, container, leadClass } from "./Sections";
 import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
@@ -40,9 +41,10 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
   useEffect(() => {
     if (window.location.hash.startsWith("#p-")) window.location.replace(APP_PATH + window.location.hash);
   }, []);
+  const motionRoot = useScrollMotion<HTMLDivElement>();
 
   return (
-    <div className="lp-root relative isolate min-h-dvh overflow-x-clip bg-bg text-ink">
+    <div ref={motionRoot} className="lp-root relative isolate min-h-dvh overflow-x-clip bg-bg text-ink">
       <Glow />
       <Header showSignIn={showSignIn} start={start} />
       <main id="main">
@@ -348,6 +350,7 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
       {/* Sky and ruled paper behind the headline. */}
       <div aria-hidden="true" className="lp-sky absolute inset-x-2 top-2 -z-10 h-[min(1020px,116vh)] overflow-hidden rounded-[28px] sm:inset-x-4 sm:top-4 sm:rounded-[44px]">
         <div className="lp-ruled absolute inset-0" />
+        <Scene kind="paper" />
       </div>
       <div className={cn(container, "flex flex-col items-center pt-24 text-center sm:pt-28")}>
         <a
@@ -441,6 +444,7 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
       {/* The hero's sky again, so the page ends where it began. */}
       <div className="lp-sky relative overflow-hidden rounded-[28px] sm:rounded-[44px]">
         <div aria-hidden="true" className="lp-ruled absolute inset-0" />
+        <Scene kind="paper" count={10} />
         <div className={cn(container, "relative py-10 sm:py-16")}>
           <Sheet fold={72} sheetClassName="rounded-[32px] bg-panel">
             <div className="grid grid-cols-1 gap-12 px-6 py-10 sm:px-14 sm:py-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-14">
@@ -573,7 +577,7 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <GooglePlayBadge place="footer" className="h-10" />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-4">
               <FooterColumn title="Product">
                 <FooterLink href="#features">Features</FooterLink>
                 <FooterLink href="#templates">Templates</FooterLink>
@@ -587,6 +591,12 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <FooterLink href="#coming" tag="Soon" onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
                   Browser extension
                 </FooterLink>
+              </FooterColumn>
+              <FooterColumn title="Compare">
+                <FooterLink href="/vs/notion">Dovli vs Notion</FooterLink>
+                <FooterLink href="/vs/craft">Dovli vs Craft</FooterLink>
+                <FooterLink href="/vs/evernote">Dovli vs Evernote</FooterLink>
+                <FooterLink href="/compare">All side by side</FooterLink>
               </FooterColumn>
               <FooterColumn title="Account">
                 {showSignIn && <FooterLink href={LOGIN_PATH}>Sign in</FooterLink>}
@@ -622,7 +632,7 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
         {/* The name in the mark's colours, rising out of the panel's bottom edge. */}
         <div aria-hidden="true" className="lp-giant mt-6 select-none text-center font-display text-[29vw] font-bold leading-[0.74] tracking-[-0.06em] lg:text-[320px]">
           <span
-            className="inline-block translate-y-[16%] bg-clip-text text-transparent"
+            className="inline-block translate-y-[16%] bg-clip-text pr-[0.07em] text-transparent"
             style={{ backgroundImage: "linear-gradient(100deg, #7DB4FF 0%, #A592FF 35%, #B57CF6 62%, #E39AEC 85%, #F6B9EE 100%)" }}
           >
             Dovli

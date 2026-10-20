@@ -4,14 +4,16 @@ import { LOGIN_PATH, SESSION_COOKIE, SIGNUP_PATH, authGateOn, loginUrl, sessionL
 // Sends people who aren't signed in to the sign-in page. This is the quick check (it only reads the
 // cookie); the app's page checks the cookie's signature on the server too. See lib/authGate.ts.
 
-const PUBLIC_PATHS = new Set(["/", "/welcome", "/privacy", "/delete-account"]);
+const PUBLIC_PATHS = new Set(["/", "/welcome", "/privacy", "/delete-account", "/compare"]);
+/** Pages under these are public too: Dovli vs Notion, Craft and Evernote. */
+const PUBLIC_PREFIXES = ["/vs/"];
 
 export function proxy(req: NextRequest) {
   if (!authGateOn) return NextResponse.next();
   const { pathname, search } = req.nextUrl;
-  // The sign-in pages, the landing page ("/", for everyone; "/welcome" is an old address for it), and
-  // the legal pages, which the app stores and the apps link to.
-  if (pathname === LOGIN_PATH || pathname === SIGNUP_PATH || PUBLIC_PATHS.has(pathname)) return NextResponse.next();
+  // The sign-in pages, the landing page ("/", for everyone; "/welcome" is an old address for it), the
+  // legal pages, which the app stores and the apps link to, and the comparison pages.
+  if (pathname === LOGIN_PATH || pathname === SIGNUP_PATH || PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) return NextResponse.next();
   if (sessionLooksLive(req.cookies.get(SESSION_COOKIE)?.value)) return NextResponse.next();
   const res = NextResponse.redirect(new URL(loginUrl(pathname + search), req.url));
   res.headers.set("cache-control", "no-store");
