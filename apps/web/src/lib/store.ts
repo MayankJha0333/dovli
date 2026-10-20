@@ -17,6 +17,7 @@ import {
   type Route,
   type SaveStatus,
 } from "@dovli/core";
+import { DEFAULT_PAGE_STYLE } from "@dovli/theme";
 import { db, getMeta, loadAllPages, perAccountStorage, setMeta, writePages } from "./db";
 
 export interface State {
@@ -226,7 +227,8 @@ export const store = {
       kind,
       title: input.title ?? "",
       mark: input.mark ?? (kind === "board" ? "◇" : "¶"),
-      style: input.style,
+      // A caller that passes style (even none, as a duplicate of a plain page does) gets exactly that.
+      style: "style" in input ? input.style : kind === "doc" ? DEFAULT_PAGE_STYLE : undefined,
       blocks: kind === "doc" ? withBlockIds(input.blocks, id) : undefined,
       board: kind === "board" ? (input.board ?? { elements: [] }) : undefined,
       createdAt: now,

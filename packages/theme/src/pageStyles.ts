@@ -172,6 +172,9 @@ const folds = (() => {
   return svg(`${body}<g fill='none' stroke='#fff' stroke-opacity='.55' stroke-width='1.2'>${tris.map((t) => `<path d='M${t.split("").map((c) => pts[c].join(" ")).join("L")}z'/>`).join("")}</g>`, 400, 400, "preserveAspectRatio='none'");
 })();
 
+/** The style a new document page starts in. Pages with no style (picked as "None") stay that way. */
+export const DEFAULT_PAGE_STYLE = "paper";
+
 export const PAGE_STYLES: PageStyle[] = [
   {
     id: "paper",

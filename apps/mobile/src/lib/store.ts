@@ -3,6 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 import { childrenOf, descendantIds, pageWithBlockIds, seedPages, withBlockIds, type BoardData, type Page, type PageKind } from "@dovli/core";
+import { DEFAULT_PAGE_STYLE } from "@dovli/theme";
 import { kv } from "./kv";
 
 const PAGES = "dovli.pages.v1";
@@ -69,7 +70,8 @@ export const store = {
       kind,
       title: input.title ?? "",
       mark: input.mark ?? (kind === "board" ? "◇" : "¶"),
-      style: input.style,
+      // A caller that passes style (even none, as a duplicate of a plain page does) gets exactly that.
+      style: "style" in input ? input.style : kind === "doc" ? DEFAULT_PAGE_STYLE : undefined,
       blocks: kind === "board" ? undefined : (withBlockIds(input.blocks, id) ?? []),
       board: kind === "board" ? (input.board ?? { elements: [] }) : undefined,
       createdAt: now,
