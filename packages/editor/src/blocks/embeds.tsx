@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { createReactBlockSpec } from "@blocknote/react";
 import { classify, isLikelyUrl, normalizeUrl, unfurl, toEmbedProps, type EmbedKind } from "@dovli/core";
 import { Button, Icon, cn } from "@dovli/ui";
-import { useIsDark } from "../useIsDark";
+import { usePageDark } from "../useIsDark";
 import { stopEditorKeys } from "./shared";
 
 const FlowchartEditor = lazy(() => import("../FlowchartEditor"));
@@ -257,7 +257,7 @@ export const embedBlock = createReactBlockSpec(
 
 function FlowchartView({ block, editor }: { block: any; editor: any }) {
   const scene: string = block.props.scene;
-  const dark = useIsDark();
+  const dark = usePageDark();
   const [svg, setSvg] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   /** Mermaid that couldn't be drawn: shown as text, so nothing is lost. */

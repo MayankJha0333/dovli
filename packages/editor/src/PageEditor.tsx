@@ -26,7 +26,7 @@ import { getStyle } from "@dovli/theme";
 import { Icon, type IconName } from "@dovli/ui";
 import { schema, type DovliEditor } from "./schema";
 import { useBridge, type EditorBridge } from "./bridge";
-import { useIsDark } from "./useIsDark";
+import { PageDarkContext, useIsDark } from "./useIsDark";
 import { newTable } from "./blocks/dataTable";
 import { tagFromEvent, tagsExtension } from "./tags";
 import { handleTopEdgeKey } from "./topEdge";
@@ -379,75 +379,77 @@ export default function PageEditor({
   );
 
   return (
-    <div
-      onKeyDownCapture={(e) => {
-        if (onExitTop && !readOnly) handleTopEdgeKey(editor, e, onExitTop);
-      }}
-      onClick={(e) => {
-        // ⌘/Ctrl-click a #tag to see every page with it.
-        if (!(e.metaKey || e.ctrlKey) || !bridge.openTag) return;
-        const tag = tagFromEvent(e);
-        if (tag) {
-          e.preventDefault();
-          bridge.openTag(tag);
-        }
-      }}
-    >
-      <BlockNoteView
-        editor={editor}
-        editable={!readOnly}
-        theme={dark ? "dark" : "light"}
-        slashMenu={false}
-        sideMenu={false}
-        formattingToolbar={false}
-        onChange={() => {
-          if (readOnly) return;
-          if (applying.current) {
-            saved.current = JSON.stringify(editor.document);
-            return;
-          }
-          // The editor also reports changes it makes itself (tidying the page as it loads).
-          // Only save when the content is really different, so opening a page isn't an edit.
-          const json = JSON.stringify(editor.document);
-          if (json === saved.current) return;
-          saved.current = json;
-          typedAt.current = Date.now();
-          bridge.saveBlocks(page.id, editor.document as any[]);
+    <PageDarkContext.Provider value={dark}>
+      <div
+        onKeyDownCapture={(e) => {
+          if (onExitTop && !readOnly) handleTopEdgeKey(editor, e, onExitTop);
         }}
-        className="dovli-editor"
+        onClick={(e) => {
+          // ⌘/Ctrl-click a #tag to see every page with it.
+          if (!(e.metaKey || e.ctrlKey) || !bridge.openTag) return;
+          const tag = tagFromEvent(e);
+          if (tag) {
+            e.preventDefault();
+            bridge.openTag(tag);
+          }
+        }}
       >
-        <SuggestionMenuController
-          triggerCharacter="/"
-          getItems={async (query) => filterSuggestionItems(groupTogether([...getDefaultReactSlashMenuItems(editor), ...dovliItems(editor, page, bridge)]), query)}
-          suggestionMenuComponent={SlashMenu}
-        />
-        <SuggestionMenuController triggerCharacter="[[" getItems={async (query) => linkItems(query)} suggestionMenuComponent={SlashMenu} />
-        {!touch && <SideMenuController sideMenu={(props) => <SideMenu {...props} dragHandleMenu={() => <BlockMenu pageId={page.id} />} />} />}
-        {!touch && (
-          <FormattingToolbarController
-            formattingToolbar={() => (
-              <FormattingToolbar>
-                <AIButton key="ai" />
-                {getFormattingToolbarItems()}
-              </FormattingToolbar>
-            )}
+        <BlockNoteView
+          editor={editor}
+          editable={!readOnly}
+          theme={dark ? "dark" : "light"}
+          slashMenu={false}
+          sideMenu={false}
+          formattingToolbar={false}
+          onChange={() => {
+            if (readOnly) return;
+            if (applying.current) {
+              saved.current = JSON.stringify(editor.document);
+              return;
+            }
+            // The editor also reports changes it makes itself (tidying the page as it loads).
+            // Only save when the content is really different, so opening a page isn't an edit.
+            const json = JSON.stringify(editor.document);
+            if (json === saved.current) return;
+            saved.current = json;
+            typedAt.current = Date.now();
+            bridge.saveBlocks(page.id, editor.document as any[]);
+          }}
+          className="dovli-editor"
+        >
+          <SuggestionMenuController
+            triggerCharacter="/"
+            getItems={async (query) => filterSuggestionItems(groupTogether([...getDefaultReactSlashMenuItems(editor), ...dovliItems(editor, page, bridge)]), query)}
+            suggestionMenuComponent={SlashMenu}
+          />
+          <SuggestionMenuController triggerCharacter="[[" getItems={async (query) => linkItems(query)} suggestionMenuComponent={SlashMenu} />
+          {!touch && <SideMenuController sideMenu={(props) => <SideMenu {...props} dragHandleMenu={() => <BlockMenu pageId={page.id} />} />} />}
+          {!touch && (
+            <FormattingToolbarController
+              formattingToolbar={() => (
+                <FormattingToolbar>
+                  <AIButton key="ai" />
+                  {getFormattingToolbarItems()}
+                </FormattingToolbar>
+              )}
+            />
+          )}
+        </BlockNoteView>
+        {!readOnly && (
+          // The empty space under the last block: clicking it carries on writing at the end,
+          // with a fresh line when the page ends in a picture, table or other non-text block.
+          <div
+            aria-hidden="true"
+            data-print="hide"
+            className="min-h-[30vh] cursor-text"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              continueAtEnd(editor);
+            }}
           />
         )}
-      </BlockNoteView>
-      {!readOnly && (
-        // The empty space under the last block: clicking it carries on writing at the end,
-        // with a fresh line when the page ends in a picture, table or other non-text block.
-        <div
-          aria-hidden="true"
-          data-print="hide"
-          className="min-h-[30vh] cursor-text"
-          onMouseDown={(e) => {
-            e.preventDefault();
-            continueAtEnd(editor);
-          }}
-        />
-      )}
-    </div>
+      </div>
+    </PageDarkContext.Provider>
   );
 }
 

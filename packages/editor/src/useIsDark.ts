@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 /**
  * Dark when the app's theme is dark (<html data-scheme="dark">), or when no theme is set and the
@@ -29,4 +29,13 @@ export function useIsDark(): boolean {
     };
   }, []);
   return dark;
+}
+
+/** Whether the open page's paper is dark. Set by PageEditor; null outside a page. */
+export const PageDarkContext = createContext<boolean | null>(null);
+
+/** Dark for drawings inside a page: follows a styled page's paper, else the app theme. */
+export function usePageDark(): boolean {
+  const app = useIsDark();
+  return useContext(PageDarkContext) ?? app;
 }

@@ -303,12 +303,12 @@ export function Sidebar() {
       <div className="mb-1 flex h-10 items-center gap-2 px-1.5">
         <button
           type="button"
-          onClick={() => (showPage ? ui.set({ sidebarMode: "space" }) : store.navigate({ name: "home" }))}
+          onClick={() => store.navigate({ name: "home" })}
           className="-m-1 flex min-w-0 items-center gap-2.5 rounded-md p-1 hover:bg-hover"
         >
           <DovliMark size={26} />
           <span className="truncate font-display text-lg font-bold tracking-[-0.025em] text-ink">Dovli</span>
-          <span className="sr-only">{showPage ? ", show all pages in the sidebar" : ", go to all pages"}</span>
+          <span className="sr-only">, go to all pages</span>
         </button>
         <IconButton
           icon="panelLeft"
