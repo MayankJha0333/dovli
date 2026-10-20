@@ -3,7 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 import {
-  DEFAULT_THEME,
+  DEFAULT_THEME_PREFERENCE,
   getTheme,
   isThemePreference,
   resolveTheme,
@@ -30,7 +30,7 @@ export interface Settings {
 
 
 export const DEFAULT_SETTINGS: Settings = {
-  theme: DEFAULT_THEME,
+  theme: DEFAULT_THEME_PREFERENCE,
   textSize: "default",
   reduceMotion: false,
   sidebarHidden: false,

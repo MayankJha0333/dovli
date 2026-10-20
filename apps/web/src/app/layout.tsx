@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { APP_THEMES, DEFAULT_THEME, FONT_STYLESHEET, getTheme, themeStylesheet } from "@dovli/theme";
+import { APP_THEMES, DEFAULT_THEME, FONT_STYLESHEET, SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme, themeStylesheet } from "@dovli/theme";
 import { VercelAnalytics } from "@/components/VercelAnalytics";
 import { HOME_DESCRIPTION, SHARE_IMAGE, SITE } from "@/lib/seo";
 import { themeBootScript } from "@/lib/themeBoot";
@@ -29,7 +29,11 @@ export const viewport: Viewport = {
   // When the phone keyboard opens, shrink the page instead of covering it, so the editor's
   // menus and toolbar stay above the keyboard.
   interactiveWidget: "resizes-content",
-  themeColor: getTheme(DEFAULT_THEME).colors.bg,
+  // The browser bar follows the device's mode, like the default "Auto" theme.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: getTheme(SYSTEM_LIGHT_THEME).colors.bg },
+    { media: "(prefers-color-scheme: dark)", color: getTheme(SYSTEM_DARK_THEME).colors.bg },
+  ],
 };
 
 // Every theme's colours as CSS variables, plus a tiny script that picks the saved theme before the

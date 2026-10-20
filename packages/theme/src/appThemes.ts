@@ -9,6 +9,9 @@ export type ThemeId = "soft-studio" | "frost" | "night-desk" | "mica";
 /** What people pick in Settings. "system" follows the device: Soft Studio by day, Night Desk at night. */
 export type ThemePreference = ThemeId | "system";
 
+/** The choice new people start with: follow the device's light or dark mode. */
+export const DEFAULT_THEME_PREFERENCE: ThemePreference = "system";
+/** The theme to fall back on before the device's mode is known (server-rendered HTML, a bad saved value). */
 export const DEFAULT_THEME: ThemeId = "soft-studio";
 export const SYSTEM_LIGHT_THEME: ThemeId = "soft-studio";
 export const SYSTEM_DARK_THEME: ThemeId = "night-desk";

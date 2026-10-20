@@ -1,16 +1,16 @@
 // The phone app's theme: the same four app themes as the web app, read straight from @dovli/theme.
-// Soft Studio is the default; "Match device" follows the phone's light or dark mode.
+// "Match device" is the default: it follows the phone's light or dark mode.
 
 import { useSyncExternalStore } from "react";
 import { useColorScheme } from "react-native";
-import { DEFAULT_THEME, getTheme, isThemePreference, resolveTheme, type AppTheme, type ThemePreference } from "@dovli/theme";
+import { DEFAULT_THEME_PREFERENCE, getTheme, isThemePreference, resolveTheme, type AppTheme, type ThemePreference } from "@dovli/theme";
 import { kv } from "./kv";
 
 const KEY = "dovli.theme.v1";
 
 let pref: ThemePreference = (() => {
-  const saved = kv.get<string>(KEY, DEFAULT_THEME);
-  return isThemePreference(saved) ? saved : DEFAULT_THEME;
+  const saved = kv.get<string>(KEY, DEFAULT_THEME_PREFERENCE);
+  return isThemePreference(saved) ? saved : DEFAULT_THEME_PREFERENCE;
 })();
 const listeners = new Set<() => void>();
 

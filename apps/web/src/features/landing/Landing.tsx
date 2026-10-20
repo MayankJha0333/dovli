@@ -8,7 +8,7 @@
 
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
-import { DEFAULT_THEME, type ThemePreference } from "@dovli/theme";
+import { DEFAULT_THEME_PREFERENCE, type ThemePreference } from "@dovli/theme";
 import { DovliLogo, DovliMark, Icon, Kbd, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
@@ -503,7 +503,7 @@ const themeChoices = [
 
 /** Light, dark or follow the device: the same setting as in the app, so the choice carries over. */
 function ThemeSwitch() {
-  const theme = useSyncExternalStore(settings.subscribe, () => settings.get().theme, () => DEFAULT_THEME);
+  const theme = useSyncExternalStore(settings.subscribe, () => settings.get().theme, () => DEFAULT_THEME_PREFERENCE);
   return (
     <Segmented
       label="Colour theme"
