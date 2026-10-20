@@ -3,9 +3,16 @@ import { unstable_rethrow } from "next/navigation";
 import { Landing } from "@/features/landing/Landing";
 import { authGateOn } from "@/lib/authGate";
 
+const title = "Dovli · A calm place to write, plan and sketch";
+const description = "Notes, docs and whiteboards in one calm place, on the web and on Android. Templates, an AI assistant beside every page, and MCP for the AI apps you already use.";
+const shareImage = { url: "/landing/og.jpg", width: 1200, height: 630, alt: "Dovli: a calm place to write, plan and sketch." };
+
 export const metadata: Metadata = {
-  title: "Dovli · A calm place to write, plan and sketch",
-  description: "Notes, docs and whiteboards in one calm place. Templates, MCP for your AI apps, a web clipper and an Android app on the way.",
+  title,
+  description,
+  // Replaces the layout's openGraph as a whole, so its fields are repeated here.
+  openGraph: { type: "website", url: "/", siteName: "Dovli", title, description, images: [shareImage] },
+  twitter: { card: "summary_large_image", title, description, images: [shareImage] },
 };
 
 /** The landing page, for everyone. Signed-in people get a way straight into the app. */

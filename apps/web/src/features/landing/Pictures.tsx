@@ -4,7 +4,8 @@
 // theme) instead of screenshots. Most are announced as a single picture with a short
 // description; the hero's to-dos are real buttons you can tick.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { COVER_PRESETS, getStyle, styleVars } from "@dovli/theme";
 import { Icon, cn, type IconName } from "@dovli/ui";
 import { prefersLessMotion } from "./motion";
 import { Sheet } from "./Sheet";
@@ -28,6 +29,15 @@ const slashItems: { label: string; icon: IconName; hint: string }[] = [
 ];
 
 const todos = ["Write the welcome email", "Record a one-minute demo", "Invite the first 200 people"];
+
+// The hero page's style and cover, from the app's own sets. Its paper is light whatever the app
+// theme around it, so the two colours .page-styled doesn't set again are pinned for light paper.
+const heroLook = {
+  ...styleVars(getStyle("starlight")!),
+  "--d-accent-ink": "#ffffff",
+  "--d-shadow-pop": "0 0 0 1px color-mix(in srgb, var(--s-ink) 8%, transparent), 0 14px 34px color-mix(in srgb, var(--s-ink) 16%, transparent)",
+} as CSSProperties;
+const heroCover = COVER_PRESETS.find((c) => c.id === "dawn")!.css;
 
 function CheckBox({ done }: { done: boolean }) {
   return (
@@ -97,60 +107,63 @@ export function HeroPicture() {
           ))}
         </div>
 
-        {/* The page */}
-        <div className="relative min-w-0 flex-1 px-6 pt-6 sm:px-12 sm:pt-10 lg:px-16">
-          <div aria-hidden="true" className="flex items-center gap-1.5 text-xs text-ink-3">
-            <Icon name="page" size={13} />
-            Launch plan
-          </div>
-          <p className="m-0 mt-5 text-[26px] font-bold leading-tight tracking-tight text-ink sm:text-[32px]">Launch plan</p>
-          <p className="m-0 mt-3 max-w-[520px] text-[15px] leading-relaxed text-ink-2">
-            Public beta opens on 14 November. Keep the first week quiet, talk to people, and fix what they trip over.
-          </p>
-          <ul className="m-0 mt-4 flex list-none flex-col gap-1 p-0 text-[15px] text-ink">
-            {todos.map((t, i) => (
-              <li key={t}>
-                <button
-                  type="button"
-                  aria-pressed={done[i]}
-                  onClick={() => setDone((d) => d.map((v, j) => (j === i ? !v : v)))}
-                  className="group -mx-1.5 flex items-start gap-2.5 rounded-sm px-1.5 py-0.5 text-left hover:bg-hover"
-                >
-                  <CheckBox done={!!done[i]} />
-                  <span className={cn("transition-colors duration-200", done[i] && "text-ink-3 line-through decoration-line-strong")}>{t}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div aria-hidden="true" className="mt-5 flex max-w-[320px] items-center gap-3 rounded-lg bg-well px-3.5 py-3 shadow-sm">
-            <span className="grid size-8 flex-none place-items-center rounded-md bg-accent-soft text-accent">
-              <Icon name="page" size={15} />
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold text-ink">Press kit</span>
-              <span className="block text-xs text-ink-3">4 pages inside</span>
-            </span>
-          </div>
-          <div aria-hidden="true" className="relative mt-5 flex h-6 items-center text-[15px] text-ink">
-            /<span className="lp-caret ml-px inline-block h-[18px] w-[1.5px] bg-accent" />
-            <div
-              className="lp-fade absolute left-0 top-8 z-10 w-[248px] rounded-lg p-1.5 surface-raised"
-              style={{ "--d": "1.2s" } as React.CSSProperties}
-              onPointerEnter={() => setHover(true)}
-              onPointerLeave={() => setHover(false)}
-            >
-              <div className="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-ink-3">Add a block</div>
-              {slashItems.map((it, i) => (
+        {/* The page wears one of Dovli's page styles, drawn the way the app draws a styled page:
+            the style's backdrop around it, the paper floating on it, a cover on the paper's top edge
+            and the icon over the cover. */}
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden [background:var(--s-backdrop)]" style={heroLook}>
+          <div className="page-styled relative -mb-6 mt-6 flex-1 rounded-t-[20px] bg-[var(--s-paper)] shadow-sheet max-md:mx-4 md:mx-10 md:mt-9">
+            <div aria-hidden="true" className="h-[72px] rounded-t-[20px] sm:h-[88px]" style={{ background: heroCover }} />
+            <div className="px-6 sm:px-10">
+              <span
+                aria-hidden="true"
+                className="relative -mt-7 grid size-14 place-items-center rounded-xl font-serif text-[26px] text-accent shadow-[0_0_0_4px_var(--s-paper)] [background:linear-gradient(var(--d-accent-soft),var(--d-accent-soft)),var(--s-paper)]"
+              >
+                ✦
+              </span>
+              <p className="m-0 mt-3 text-[26px] leading-tight text-ink [font-family:var(--title-font)] [font-style:var(--title-style)] [font-weight:var(--title-weight)] sm:text-[30px]">
+                Launch plan
+              </p>
+              <p aria-hidden="true" className="m-0 mt-1 text-xs text-ink-3">
+                Edited just now · 64 words
+              </p>
+              <p className="m-0 mt-3 max-w-[480px] text-[15px] leading-relaxed text-ink-2">Public beta opens on 14 November. Keep the first week quiet, and fix what people trip over.</p>
+              <ul className="m-0 mt-3 flex list-none flex-col gap-0.5 p-0 text-[15px] text-ink">
+                {todos.map((t, i) => (
+                  <li key={t}>
+                    <button
+                      type="button"
+                      aria-pressed={done[i]}
+                      onClick={() => setDone((d) => d.map((v, j) => (j === i ? !v : v)))}
+                      className="group -mx-1.5 flex items-start gap-2.5 rounded-sm px-1.5 py-0.5 text-left hover:bg-hover"
+                    >
+                      <CheckBox done={!!done[i]} />
+                      <span className={cn("transition-colors duration-200", done[i] && "text-ink-3 line-through decoration-line-strong")}>{t}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <div aria-hidden="true" className="relative mt-4 flex h-6 items-center text-[15px] text-ink">
+                /<span className="lp-caret ml-px inline-block h-[18px] w-[1.5px] bg-accent" />
                 <div
-                  key={it.label}
-                  onPointerEnter={() => setHi(i)}
-                  className={cn("lp-slash-row flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm", i === hi ? "bg-active text-active-ink" : "text-ink")}
+                  className="lp-fade absolute left-0 top-8 z-10 w-[248px] rounded-lg p-1.5 surface-raised"
+                  style={{ "--d": "1.2s" } as React.CSSProperties}
+                  onPointerEnter={() => setHover(true)}
+                  onPointerLeave={() => setHover(false)}
                 >
-                  <Icon name={it.icon} size={15} className={i === hi ? "" : "text-ink-3"} />
-                  <span className="flex-1 truncate">{it.label}</span>
-                  {it.hint && <span className="text-2xs text-ink-4">{it.hint}</span>}
+                  <div className="px-2.5 pb-1 pt-1.5 text-xs font-semibold text-ink-3">Add a block</div>
+                  {slashItems.map((it, i) => (
+                    <div
+                      key={it.label}
+                      onPointerEnter={() => setHi(i)}
+                      className={cn("lp-slash-row flex h-8 items-center gap-2.5 rounded-sm px-2.5 text-sm", i === hi ? "bg-accent-soft text-accent" : "text-ink")}
+                    >
+                      <Icon name={it.icon} size={15} className={i === hi ? "" : "text-ink-3"} />
+                      <span className="flex-1 truncate">{it.label}</span>
+                      {it.hint && <span className="text-2xs text-ink-4">{it.hint}</span>}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
             </div>
           </div>
         </div>

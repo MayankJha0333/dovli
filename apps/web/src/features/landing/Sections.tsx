@@ -1,7 +1,8 @@
 "use client";
 
-// The landing page's bigger sections: the feature story, templates, AI apps (MCP), and what's
-// coming next (the browser extension and the Android app). Landing.tsx puts them in order.
+// The landing page's bigger sections: the features, templates, AI (the assistant, and your own AI
+// apps through MCP), and what's coming next (the browser extension). Landing.tsx puts them in
+// order; the Android section lives in Android.tsx.
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
@@ -10,11 +11,12 @@ import { DovliMark, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { BlocksPicture, BoardPicture, FindPicture, LooksPicture, NestedPicture } from "./Pictures";
 import { SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
-import { useInView } from "./motion";
+import { prefersLessMotion, useInView } from "./motion";
+import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
 
-export const container = "mx-auto w-full max-w-[1160px] px-4 sm:px-8";
-/** One type scale for the whole page: hero 88, section 56, closing 64, step 30. */
+export const container = "mx-auto w-full max-w-[1200px] px-4 sm:px-8";
+/** One type scale for the whole page: hero 88, section 56, closing 60, step 30. */
 export const h2Class = "m-0 text-balance font-serif text-[34px] font-semibold leading-[1.06] tracking-[-0.025em] sm:text-[44px] lg:text-[56px]";
 export const h3Class = "m-0 text-balance font-serif text-[26px] font-semibold leading-tight tracking-[-0.02em] sm:text-[30px]";
 export const leadClass = "m-0 text-lg leading-relaxed text-ink-2";
@@ -32,7 +34,8 @@ export function Ticks({ items, className, t }: { items: string[]; className?: st
   );
 }
 
-export function Soon({ children = "Coming soon", className, t }: { children?: ReactNode; className?: string; t?: Tone }) {
+/** A small status pill: "Coming soon", "Now on Google Play". */
+export function Status({ children, className, t }: { children: ReactNode; className?: string; t?: Tone }) {
   return (
     <span
       className={cn("inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-sm font-semibold", t ? "bg-panel/75" : "bg-accent-soft text-accent", className)}
@@ -44,7 +47,7 @@ export function Soon({ children = "Coming soon", className, t }: { children?: Re
   );
 }
 
-/* ---------- Core features: a story that follows your scroll ---------- */
+/* ---------- Core features ---------- */
 
 const steps: { id: string; title: string; text: string; details: string[]; picture: ReactNode; t: Tone; icon: IconName }[] = [
   {
@@ -94,87 +97,121 @@ const steps: { id: string; title: string; text: string; details: string[]; pictu
   },
 ];
 
-export function Story() {
-  const [active, setActive] = useState(0);
-  const refs = useRef<(HTMLDivElement | null)[]>([]);
+const iconTone = (t: Tone) => ({ "--on-bg": tone(t).bg, "--on-ink": tone(t).ink }) as CSSProperties;
 
-  // The step nearest the middle of the screen is the one whose picture shows. Measured on every
-  // scroll (once per frame), so fast scrolling and jumping to a section never leave them mismatched.
+/**
+ * On phones, every feature in turn with its picture. On wider screens, a short list beside one
+ * picture panel, so all five fit on one screen: the features take turns once while the section is
+ * in view (paused while pointed at or focused), and picking one stops the tour.
+ */
+export function Features() {
+  const [active, setActive] = useState(0);
+  const [touring, setTouring] = useState(true);
+  const [visible, setVisible] = useState(false);
+  const [held, setHeld] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    let frame = 0;
-    const pick = () => {
-      frame = 0;
-      const mid = window.innerHeight / 2;
-      let best = 0;
-      let bestDist = Infinity;
-      refs.current.forEach((el, i) => {
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        const d = Math.abs(r.top + r.height / 2 - mid);
-        if (d < bestDist) {
-          bestDist = d;
-          best = i;
-        }
-      });
-      setActive(best);
-    };
-    const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(pick);
-    };
-    pick();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (frame) cancelAnimationFrame(frame);
-    };
+    const el = listRef.current;
+    if (!el || !("IntersectionObserver" in window)) return;
+    const io = new IntersectionObserver(([e]) => setVisible(!!e?.isIntersecting), { threshold: 0.5 });
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
-  return (
-    <section id="features" aria-labelledby="features-title" className={cn(container, "scroll-mt-24")}>
-      <div className="max-w-[760px]">
-        <h2 id="features-title" className={h2Class}>
-          Notes, docs and drawings, together
-        </h2>
-        <p className={cn(leadClass, "mt-5 max-w-[560px]")}>One home for all of it, so a thought can grow into a plan without moving apps.</p>
-      </div>
+  const pick = (i: number) => {
+    setTouring(false);
+    setActive(i);
+  };
+  const advance = () => {
+    if (prefersLessMotion()) return;
+    const next = (active + 1) % steps.length;
+    setActive(next);
+    if (next === 0) setTouring(false);
+  };
+  const current = steps[active]!;
 
-      <div className="mt-12 grid gap-10 md:mt-4 md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-16">
+  return (
+    <section id="features" aria-labelledby="features-title" className={container}>
+      <div className="md:grid md:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] md:gap-10 lg:gap-14">
         <div>
-          {steps.map((s, i) => (
-            <div
-              key={s.id}
-              ref={(el) => {
-                refs.current[i] = el;
-              }}
-              data-active={i === active}
-              className="lp-step flex flex-col justify-center py-8 md:min-h-[56vh] md:py-0"
-            >
-              {/* The step you're on shows its colour; the others wait in grey. The text stays full strength. */}
-              <span className="lp-step-icon mb-5 grid size-11 place-items-center rounded-lg" style={{ "--on-bg": tone(s.t).bg, "--on-ink": tone(s.t).ink } as CSSProperties} aria-hidden="true">
-                <Icon name={s.icon} size={20} />
-              </span>
-              <h3 className={cn(h3Class, "text-ink")}>{s.title}</h3>
-              <p className={cn(leadClass, "mt-4 max-w-[460px]")}>{s.text}</p>
-              <Ticks items={s.details} t={s.t} className="mt-5 text-ink-2" />
-              <div className="mt-8 rounded-[28px] p-4 sm:p-5 md:hidden" style={{ background: tone(s.t).bg }}>
-                {s.picture}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="relative hidden md:block">
-          {/* The panel takes on the colour of the step you're reading. */}
-          <div
-            className="lp-story-panel sticky top-24 grid h-[calc(100dvh-8rem)] max-h-[680px] items-center rounded-[36px] p-8 [grid-template-areas:'pic'] lg:p-12"
-            style={{ background: tone(steps[active]!.t).bg }}
-          >
-            {steps.map((s, i) => (
-              <div key={s.id} data-active={i === active} aria-hidden={i !== active} className="lp-story-pic [grid-area:pic]">
-                {s.picture}
+          <h2 id="features-title" className={h2Class}>
+            Notes, docs and drawings, together
+          </h2>
+          <p className={cn(leadClass, "mt-5 max-w-[520px]")}>One home for all of it, so a thought can grow into a plan without moving apps.</p>
+
+          <div className="mt-4 md:hidden">
+            {steps.map((s) => (
+              <div key={s.id} className="flex flex-col py-8">
+                <span className="lp-step-icon mb-5 grid size-11 place-items-center rounded-lg" style={iconTone(s.t)} aria-hidden="true">
+                  <Icon name={s.icon} size={20} />
+                </span>
+                <h3 className={cn(h3Class, "text-ink")}>{s.title}</h3>
+                <p className={cn(leadClass, "mt-4")}>{s.text}</p>
+                <Ticks items={s.details} t={s.t} className="mt-5 text-ink-2" />
+                <div className="mt-8 rounded-[28px] p-4 sm:p-5" style={{ background: tone(s.t).bg }}>
+                  {s.picture}
+                </div>
               </div>
             ))}
+          </div>
+
+          <div
+            ref={listRef}
+            className="mt-9 hidden flex-col gap-1.5 md:flex"
+            data-held={held || !visible ? "" : undefined}
+            onPointerEnter={() => setHeld(true)}
+            onPointerLeave={() => setHeld(false)}
+            onFocus={() => setHeld(true)}
+            onBlur={() => setHeld(false)}
+          >
+            {steps.map((s, i) => {
+              const on = i === active;
+              return (
+                <div key={s.id} data-active={on} className="lp-acc relative rounded-[20px]" style={iconTone(s.t)}>
+                  <h3 className="m-0">
+                    <button
+                      type="button"
+                      aria-expanded={on}
+                      aria-controls={`feature-${s.id}`}
+                      onClick={() => pick(i)}
+                      className="flex w-full items-center gap-4 rounded-[20px] px-4 py-3 text-left text-md font-semibold text-ink focus-visible:outline-offset-[-2px] lg:text-lg"
+                    >
+                      <span className="lp-step-icon grid size-10 flex-none place-items-center rounded-lg" aria-hidden="true">
+                        <Icon name={s.icon} size={18} />
+                      </span>
+                      {s.title}
+                    </button>
+                  </h3>
+                  <div id={`feature-${s.id}`} className="lp-acc-body" aria-hidden={!on}>
+                    <div className="min-h-0 overflow-hidden">
+                      <p className="m-0 pb-7 pl-[72px] pr-6 text-md leading-relaxed text-ink-2">{s.text}</p>
+                    </div>
+                  </div>
+                  {on && touring && <span key={active} className="lp-acc-progress" onAnimationEnd={advance} aria-hidden="true" />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* The panel takes on the colour of the feature you're on. */}
+        <div className="hidden md:block">
+          <div className="lp-story-panel flex h-full min-h-[540px] flex-col rounded-[36px] p-8 lg:p-10" style={{ background: tone(current.t).bg }}>
+            <div className="grid flex-1 items-center [grid-template-areas:'pic']">
+              {steps.map((s, i) => (
+                <div key={s.id} data-active={i === active} aria-hidden={i !== active} className="lp-story-pic [grid-area:pic]">
+                  {s.picture}
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 grid [grid-template-areas:'more']">
+              {steps.map((s, i) => (
+                <div key={s.id} data-active={i === active} aria-hidden={i !== active} className="lp-story-pic [grid-area:more]">
+                  <Ticks items={s.details} t={s.t} className="flex-row flex-wrap gap-x-6 gap-y-2 text-ink" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -234,7 +271,7 @@ export function Templates({ start }: { start: { href: string; label: string } })
   const first = templates.slice(0, Math.ceil(templates.length / 2));
   const second = templates.slice(Math.ceil(templates.length / 2));
   return (
-    <section id="templates" aria-labelledby="templates-title" className="scroll-mt-24" data-paused={paused ? "" : undefined}>
+    <section id="templates" aria-labelledby="templates-title" data-paused={paused ? "" : undefined}>
       <div className={cn(container, "flex flex-col gap-6 md:flex-row md:items-end md:justify-between")}>
         <div className="max-w-[640px]">
           <h2 id="templates-title" className={h2Class}>
@@ -268,7 +305,7 @@ export function Templates({ start }: { start: { href: string; label: string } })
           </Link>
         </div>
       </div>
-      <div className="mt-10 flex flex-col gap-1">
+      <div className="mt-8 flex flex-col gap-1">
         <Marquee items={first} duration={70} label="Templates, first row" />
         <Marquee items={second} duration={60} reverse label="Templates, second row" />
       </div>
@@ -276,98 +313,163 @@ export function Templates({ start }: { start: { href: string; label: string } })
   );
 }
 
-/* ---------- AI apps through MCP ---------- */
+/* ---------- AI: the assistant beside your page, and your own AI apps through MCP ---------- */
+
+// The changes the assistant suggests, worded the way the app words them (lib/assistantCore.ts).
+const suggestions: { icon: IconName; label: string; preview?: string }[] = [
+  { icon: "summary", label: "Add a summary at the top", preview: "Beta opens 14 November. Three to-dos left before then." },
+  { icon: "pencil", label: "Fix the wording", preview: "“recieve” → “receive”" },
+  { icon: "board", label: "Turn a block into a flowchart" },
+];
+
+function AssistantPicture() {
+  return (
+    <Sheet
+      fold={36}
+      sheetClassName="rounded-[22px] bg-raised"
+      label="The assistant beside a page. Asked to tidy the page and add a summary, it suggests three changes to check before applying: a summary at the top, a spelling fix, and a flowchart."
+    >
+      <div className="flex items-center gap-2.5 border-b border-line px-4 py-3 sm:px-5">
+        <span className="grid size-7 place-items-center rounded-md bg-accent-soft text-accent">
+          <Icon name="sparkles" size={14} />
+        </span>
+        <span className="text-sm font-semibold text-ink">Assistant</span>
+        <span className="ml-auto mr-6 flex rounded-full bg-well p-0.5 text-xs font-medium">
+          <span className="rounded-full bg-panel px-2.5 py-1 text-ink shadow-sm">Suggest</span>
+          <span className="px-2.5 py-1 text-ink-3">Edit</span>
+        </span>
+      </div>
+      <div className="flex flex-col gap-3 p-4 sm:p-5">
+        <p className="lp-seq m-0 ml-auto max-w-[85%] rounded-[16px] rounded-br-md bg-accent px-3.5 py-2 text-sm text-accent-ink" style={{ "--d": "0.25s" } as CSSProperties}>
+          Tidy this page and add a short summary at the top.
+        </p>
+        <p className="lp-seq m-0 text-sm text-ink-2" style={{ "--d": "0.8s" } as CSSProperties}>
+          Here&apos;s what I&apos;d change. Check each one, then apply.
+        </p>
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {suggestions.map((s, i) => (
+            <li key={s.label} className="lp-seq flex items-center gap-3 rounded-[14px] bg-well px-3 py-2.5" style={{ "--d": `${1.15 + i * 0.3}s` } as CSSProperties}>
+              <span className="grid size-7 flex-none place-items-center rounded-md bg-panel text-accent shadow-sm">
+                <Icon name={s.icon} size={14} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-ink">{s.label}</span>
+                {s.preview && <span className="block truncate text-xs text-ink-3">{s.preview}</span>}
+              </span>
+              <span className="grid size-6 flex-none place-items-center rounded-full bg-[var(--lp-mint)] text-[var(--lp-mint-ink)]">
+                <Icon name="check" size={12} />
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="lp-seq flex items-center gap-3 pt-1" style={{ "--d": "2.2s" } as CSSProperties}>
+          <span className={cn(buttonStyles({ variant: "primary", size: "sm" }), "rounded-full px-3.5")}>Apply all</span>
+          <span className="text-xs text-ink-3">One undo takes it all back</span>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
 
 const aiApps: { name: string; icon: IconName; x: number; y: number }[] = [
-  { name: "Claude Desktop", icon: "monitor", x: 24, y: 12 },
-  { name: "Claude Code", icon: "keyboard", x: 76, y: 12 },
-  { name: "Codex", icon: "code", x: 22, y: 88 },
-  { name: "Any MCP app", icon: "plug", x: 78, y: 88 },
+  { name: "Claude Desktop", icon: "monitor", x: 20, y: 14 },
+  { name: "Claude Code", icon: "keyboard", x: 80, y: 14 },
+  { name: "Codex", icon: "code", x: 18, y: 86 },
+  { name: "Any MCP app", icon: "plug", x: 82, y: 86 },
 ];
 
-const aiCan: { icon: IconName; text: string }[] = [
-  { icon: "search", text: "Search and read your pages" },
-  { icon: "pencil", text: "Write new pages and add to old ones" },
-  { icon: "checkbox", text: "Tick off to-dos across every page" },
-  { icon: "move", text: "Move, star and tidy pages" },
-];
-
-export function Mcp() {
-  const { ref } = useInView<HTMLDivElement>(0.3);
+function McpPicture() {
   return (
-    <section id="mcp" aria-labelledby="mcp-title" className="scroll-mt-20 px-2 sm:px-4">
+    <div className="flex flex-col gap-4">
+      {/* Hub: Dovli in the middle, AI apps around it, with data flowing along the lines. */}
+      <div className="relative aspect-[5/2] w-full" role="img" aria-label="Dovli in the middle, connected to Claude Desktop, Claude Code, Codex and any other MCP app.">
+        <svg viewBox="0 0 110 90" className="absolute inset-0 size-full" fill="none" aria-hidden="true" preserveAspectRatio="none">
+          {aiApps.map((a) => (
+            <path
+              key={a.name}
+              d={`M55 45 C ${55 + (a.x * 1.1 - 55) * 0.2} ${45 + (a.y * 0.9 - 45) * 0.9}, ${a.x * 1.1 + (55 - a.x * 1.1) * 0.6} ${a.y * 0.9}, ${a.x * 1.1} ${a.y * 0.9}`}
+              className="lp-flow"
+              stroke="rgba(255,255,255,0.45)"
+              vectorEffect="non-scaling-stroke"
+              style={{ strokeWidth: 1.5 }}
+              strokeLinecap="round"
+            />
+          ))}
+        </svg>
+        <div aria-hidden="true" className="absolute left-1/2 top-1/2 grid size-[88px] -translate-x-1/2 -translate-y-1/2 place-items-center sm:size-[104px]">
+          <span className="lp-pulse absolute inset-0 rounded-full bg-[#a592ff]/40" />
+          <span className="absolute inset-[9px] rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm" />
+          <DovliMark size={44} className="relative" />
+        </div>
+        {aiApps.map((a, i) => (
+          <div
+            key={a.name}
+            aria-hidden="true"
+            className="lp-seq absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md sm:px-3 sm:text-sm"
+            style={{ left: `${a.x}%`, top: `${a.y}%`, "--d": `${0.15 + i * 0.12}s` } as CSSProperties}
+          >
+            <Icon name={a.icon} size={14} />
+            {a.name}
+          </div>
+        ))}
+      </div>
+
+      {/* A short chat, played in when you reach it. */}
+      <div className="flex flex-col gap-3 rounded-[18px] bg-white/[0.06] p-4 ring-1 ring-white/10 sm:p-5">
+        <p className="lp-seq m-0 ml-auto max-w-[85%] rounded-[18px] rounded-br-md bg-white/15 px-4 py-2.5 text-base text-white" style={{ "--d": "0.7s" } as CSSProperties}>
+          Turn today&apos;s meeting notes into to-dos on Launch plan.
+        </p>
+        <p className="lp-seq m-0 flex items-center gap-2 text-sm text-white/75" style={{ "--d": "1.3s" } as CSSProperties}>
+          <DovliMark size={14} />
+          Searched your pages, read Meeting notes, added 3 to-dos
+        </p>
+        <p className="lp-seq m-0 max-w-[92%] text-base leading-relaxed text-white/90" style={{ "--d": "1.9s" } as CSSProperties}>
+          Done. Launch plan now has three new to-dos: send the press kit, book the demo room, and invite the first 200 people.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export function Ai() {
+  const { ref } = useInView<HTMLDivElement>(0.25);
+  return (
+    <section id="mcp" aria-labelledby="ai-title" className="px-2 sm:px-4">
       <div className="lp-starlight overflow-hidden rounded-[28px] sm:rounded-[44px]">
-        <div className={cn(container, "grid items-center gap-14 py-20 sm:py-28 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16")}>
-          <div>
-            <span className="inline-flex h-7 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold text-white ring-1 ring-white/15">
-              <Icon name="plug" size={13} aria-hidden="true" />
-              Works with MCP
-            </span>
-            <h2 id="mcp-title" className={cn(h2Class, "mt-6 text-white")}>
-              Your AI apps, working in your pages
-            </h2>
-            <p className="m-0 mt-5 max-w-[520px] text-lg leading-relaxed text-white/80">
-              Dovli speaks MCP (Model Context Protocol, the open standard AI apps use to connect to other tools). Connect the AI app you already use, and ask it to work with your pages in plain words.
+        <div ref={ref} className={cn(container, "py-16 sm:py-24")}>
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
+            <div className="max-w-[620px]">
+              <span className="inline-flex h-7 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold text-white ring-1 ring-white/15">
+                <Icon name="sparkles" size={13} aria-hidden="true" />
+                AI, when you ask for it
+              </span>
+              <h2 id="ai-title" className={cn(h2Class, "mt-6 text-white")}>
+                AI that works in your pages
+              </h2>
+            </div>
+            <p className="m-0 max-w-[460px] text-lg leading-relaxed text-white/80">
+              Ask the assistant beside your page, or connect the AI app you already use. In Suggest mode, every change waits for your OK.
             </p>
-            <ul className="m-0 mt-8 grid list-none gap-3 p-0 sm:grid-cols-2">
-              {aiCan.map((c) => (
-                <li key={c.text} className="flex items-center gap-3 text-md text-white/90">
-                  <span className="grid size-9 flex-none place-items-center rounded-md bg-white/10 ring-1 ring-white/10" aria-hidden="true">
-                    <Icon name={c.icon} size={16} />
-                  </span>
-                  {c.text}
-                </li>
-              ))}
-            </ul>
-            <p className="m-0 mt-8 max-w-[480px] text-base text-white/75">Nothing connects until you add it in Settings, and you can remove a connection any time.</p>
           </div>
 
-          <div ref={ref} className="flex flex-col gap-5">
-            {/* Hub: Dovli in the middle, AI apps around it, with data flowing along the lines. */}
-            <div className="relative mx-auto aspect-[11/9] w-full max-w-[520px]" role="img" aria-label="Dovli in the middle, connected to Claude Desktop, Claude Code, Codex and any other MCP app.">
-              <svg viewBox="0 0 110 90" className="absolute inset-0 size-full" fill="none" aria-hidden="true" preserveAspectRatio="none">
-                {aiApps.map((a) => (
-                  <path
-                    key={a.name}
-                    d={`M55 45 C ${55 + (a.x * 1.1 - 55) * 0.2} ${45 + (a.y * 0.9 - 45) * 0.9}, ${a.x * 1.1 + (55 - a.x * 1.1) * 0.6} ${a.y * 0.9}, ${a.x * 1.1} ${a.y * 0.9}`}
-                    className="lp-flow"
-                    stroke="rgba(255,255,255,0.45)"
-                    vectorEffect="non-scaling-stroke"
-                    style={{ strokeWidth: 1.5 }}
-                    strokeLinecap="round"
-                  />
-                ))}
-              </svg>
-              <div aria-hidden="true" className="absolute left-1/2 top-1/2 grid size-[104px] -translate-x-1/2 -translate-y-1/2 place-items-center sm:size-[124px]">
-                <span className="lp-pulse absolute inset-0 rounded-full bg-[#a592ff]/40" />
-                <span className="absolute inset-[10px] rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm" />
-                <DovliMark size={52} className="relative" />
+          <div className="mt-12 grid grid-cols-1 gap-14 lg:mt-14 lg:grid-cols-2 lg:gap-12">
+            <div className="flex flex-col">
+              <h3 className="m-0 text-xl font-semibold text-white">An assistant beside every page</h3>
+              <p className="m-0 mt-2 max-w-[500px] text-md leading-relaxed text-white/75">
+                Summarise a page, check its spelling, clarity and tone, or turn a list into a flowchart. A monthly AI allowance comes with your account, or use your own OpenAI, Anthropic, Groq or OpenRouter key.
+              </p>
+              <div className="mt-7">
+                <AssistantPicture />
               </div>
-              {aiApps.map((a, i) => (
-                <div
-                  key={a.name}
-                  aria-hidden="true"
-                  className="lp-seq absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md sm:px-3 sm:py-2 sm:text-sm"
-                  style={{ left: `${a.x}%`, top: `${a.y}%`, "--d": `${0.15 + i * 0.12}s` } as CSSProperties}
-                >
-                  <Icon name={a.icon} size={14} />
-                  {a.name}
-                </div>
-              ))}
             </div>
-
-            {/* A short chat, played in when you reach it. */}
-            <div className="flex flex-col gap-3 rounded-[18px] bg-white/[0.06] p-4 ring-1 ring-white/10 backdrop-blur-md sm:p-5">
-              <p className="lp-seq m-0 ml-auto max-w-[85%] rounded-[18px] rounded-br-md bg-white/15 px-4 py-2.5 text-base text-white" style={{ "--d": "0.7s" } as CSSProperties}>
-                Turn today&apos;s meeting notes into to-dos on Launch plan.
+            <div className="flex flex-col">
+              <h3 className="m-0 text-xl font-semibold text-white">Your AI apps, through MCP</h3>
+              <p className="m-0 mt-2 max-w-[500px] text-md leading-relaxed text-white/75">
+                Connect Claude Desktop, Claude Code, Codex or any MCP app, and ask it to search, write, tick off or tidy your pages in plain words. Nothing connects until you add it in Settings.
               </p>
-              <p className="lp-seq m-0 flex items-center gap-2 text-sm text-white/75" style={{ "--d": "1.3s" } as CSSProperties}>
-                <DovliMark size={14} />
-                Searched your pages, read Meeting notes, added 3 to-dos
-              </p>
-              <p className="lp-seq m-0 max-w-[90%] text-base leading-relaxed text-white/90" style={{ "--d": "1.9s" } as CSSProperties}>
-                Done. Launch plan now has three new to-dos: send the press kit, book the demo room, and invite the first 200 people.
-              </p>
+              <div className="mt-7">
+                <McpPicture />
+              </div>
             </div>
           </div>
         </div>
@@ -376,7 +478,7 @@ export function Mcp() {
   );
 }
 
-/* ---------- Coming next: the browser extension and the Android app ---------- */
+/* ---------- Coming next: the browser extension ---------- */
 
 function BrowserDemo({ replay, inViewRef }: { replay: () => void; inViewRef: React.RefObject<HTMLDivElement | null> }) {
   return (
@@ -439,131 +541,24 @@ function BrowserDemo({ replay, inViewRef }: { replay: () => void; inViewRef: Rea
   );
 }
 
-/** An Android phone: even bezels, a punch-hole camera, time on the left and status icons on the right. */
-function Phone() {
-  const recent = [
-    { title: "Launch plan", meta: "Edited 5 min ago", lines: [88, 64] },
-    { title: "Kyoto trip", meta: "Edited yesterday", lines: [72, 80] },
-    { title: "Reading notes", meta: "Edited Monday", lines: [90, 56] },
-  ];
-  return (
-    <div className="relative mx-auto w-[260px]">
-      <div className="rounded-[38px] bg-[#17181d] p-[7px] shadow-pop ring-1 ring-line-strong">
-        <div className="relative h-[520px] overflow-hidden rounded-[32px] bg-bg">
-          <div className="relative flex h-9 items-center justify-between px-6 text-[11px] font-semibold text-ink">
-            <span>9:30</span>
-            <span className="absolute left-1/2 top-2.5 size-3 -translate-x-1/2 rounded-full bg-[#0b0c10]" />
-            <span className="flex items-center gap-1">
-              <span className="flex h-2.5 items-end gap-[2px]">
-                {[40, 65, 100].map((h) => (
-                  <span key={h} className="w-[3px] rounded-[1px] bg-ink" style={{ height: `${h}%` }} />
-                ))}
-              </span>
-              <span className="h-2.5 w-[18px] rounded-[2px] border border-ink p-[1px]">
-                <span className="block h-full w-3/4 rounded-[1px] bg-ink" />
-              </span>
-            </span>
-          </div>
-          <div className="px-4 pt-4">
-            <div className="text-xs text-ink-3">Monday, 19 October</div>
-            <div className="mt-1 text-[24px] font-bold tracking-tight text-ink">Good morning</div>
-            <div className="mt-3 flex h-10 items-center gap-2 rounded-full bg-panel px-4 text-sm text-ink-3 shadow-sm">
-              <Icon name="search" size={14} />
-              Search pages
-            </div>
-            <div className="mb-2 mt-5 text-xs font-semibold text-ink-3">Recent</div>
-            <div className="flex flex-col gap-2.5">
-              {recent.map((r) => (
-                <div key={r.title} className="rounded-[18px] bg-panel p-3.5 shadow-sm">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-                    <Icon name="page" size={14} className="text-accent" />
-                    {r.title}
-                  </div>
-                  <div className="mt-2.5 flex flex-col gap-1.5">
-                    {r.lines.map((w, i) => (
-                      <span key={i} className="block h-1.5 rounded-full bg-line-strong/70" style={{ width: `${w}%` }} />
-                    ))}
-                  </div>
-                  <div className="mt-2.5 text-2xs text-ink-3">{r.meta}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-          <span className="absolute bottom-7 right-4 grid size-14 place-items-center rounded-[18px] bg-primary text-primary-ink shadow-pop">
-            <Icon name="plus" size={22} />
-          </span>
-          <span className="absolute bottom-2 left-1/2 h-1 w-24 -translate-x-1/2 rounded-full bg-ink/70" />
-        </div>
-      </div>
-      <div className="lp-float absolute -left-10 top-[250px] hidden items-center gap-2.5 rounded-[18px] px-3.5 py-3 text-sm surface-raised sm:flex">
-        <span className="grid size-8 place-items-center rounded-lg" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
-          <Icon name="cloudCheck" size={16} />
-        </span>
-        <span>
-          <span className="block font-semibold text-ink">Synced with the web</span>
-          <span className="block text-xs text-ink-3">Kept for offline</span>
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function ComingCard({ t, kicker, title, text, details, children }: { t: Tone; kicker: string; title: string; text: string; details: string[]; children: ReactNode }) {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-[28px] sm:rounded-[36px]" style={{ background: tone(t).bg }}>
-      <div className="px-6 pt-8 sm:px-10 sm:pt-10">
-        <Soon t={t}>{kicker}</Soon>
-        <h3 className={cn(h3Class, "mt-5 text-ink")}>{title}</h3>
-        <p className="m-0 mt-3 max-w-[460px] text-md leading-relaxed text-ink-2">{text}</p>
-        <Ticks t={t} items={details} className="mt-5 text-ink-2" />
-      </div>
-      <div className="mt-auto px-4 pt-10 sm:px-10">{children}</div>
-    </div>
-  );
-}
-
 export function Coming() {
   const { ref, replay } = useInView<HTMLDivElement>(0.45);
   return (
-    <section id="coming" aria-labelledby="coming-title" className={cn(container, "scroll-mt-24")}>
-      <div className="max-w-[640px]">
-        <h2 id="coming-title" className={h2Class}>
-          Coming next
-        </h2>
-        <p className={cn(leadClass, "mt-5")}>Two more ways into the same pages. Both are on the way; everything you write on the web today will be there when they land.</p>
-      </div>
-      <div className="mt-10 grid gap-4 lg:grid-cols-2 lg:gap-6">
-        <ComingCard
-          t="sky"
-          kicker="Browser extension, coming soon"
-          title="Clip the web into Dovli"
-          text="Highlight a passage while you read, pick a page, and it's saved, with a link back to where you found it."
-          details={["Save a quote, a link, an image or the whole article", "Choose which page each clip goes to"]}
-        >
-          <div className="pb-6 sm:pb-8">
-            <BrowserDemo replay={replay} inViewRef={ref} />
-          </div>
-        </ComingCard>
-        <ComingCard
-          t="mint"
-          kicker="Android app, coming soon"
-          title="Dovli for Android"
-          text="Your pages in your pocket. Jot something down on the train, and find it waiting on the web when you sit down."
-          details={["The same editor as on the web", "Keeps working without signal, then syncs"]}
-        >
-          <div className="flex flex-col items-center">
-            <span className="mb-8 inline-flex items-center gap-2 rounded-full bg-panel/75 px-3.5 py-1.5 text-sm font-semibold" style={{ color: tone("mint").ink }}>
-              <Icon name="play" size={14} aria-hidden="true" />
-              Coming to Google Play
-            </span>
-            {/* The phone rises out of the bottom edge of the card. */}
-            <div className="lp-phone -mb-24" role="img" aria-label="The Dovli Android app's home screen, with recent pages and a button to add a new one.">
-              <div aria-hidden="true">
-                <Phone />
-              </div>
-            </div>
-          </div>
-        </ComingCard>
+    <section id="coming" aria-labelledby="coming-title" className={container}>
+      <div className="grid grid-cols-1 items-center overflow-hidden rounded-[28px] sm:rounded-[36px] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" style={{ background: tone("sky").bg }}>
+        <div className="px-6 pt-8 sm:px-10 sm:pt-10 lg:py-14 lg:pl-14 lg:pr-4">
+          <Status t="sky">Browser extension, coming soon</Status>
+          <h2 id="coming-title" className={cn(h3Class, "mt-5 text-ink")}>
+            Clip the web into Dovli
+          </h2>
+          <p className="m-0 mt-3 max-w-[440px] text-md leading-relaxed text-ink-2">
+            Highlight a passage while you read, pick a page, and it&apos;s saved, with a link back to where you found it. Everything you write today will be there when it lands.
+          </p>
+          <Ticks t="sky" items={["Save a quote, a link, an image or the whole article", "Choose which page each clip goes to"]} className="mt-5 text-ink-2" />
+        </div>
+        <div className="flex flex-col px-4 pb-5 pt-8 sm:px-10 sm:pb-8 lg:py-12 lg:pl-6 lg:pr-12">
+          <BrowserDemo replay={replay} inViewRef={ref} />
+        </div>
       </div>
     </section>
   );

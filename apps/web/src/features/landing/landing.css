@@ -4,7 +4,8 @@
 
 :root {
   --lp-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
-  --lp-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  /* For things that pop in (the clipper, the "Saved" note): quick to arrive, no overshoot. */
+  --lp-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --sheet-shadow: drop-shadow(0 0 0.6px rgba(21, 23, 29, 0.22)) drop-shadow(0 2px 4px rgba(21, 23, 29, 0.05)) drop-shadow(0 22px 40px rgba(21, 23, 29, 0.11));
   --fold-shadow: drop-shadow(-3px 5px 6px rgba(40, 30, 110, 0.22));
 }
@@ -116,6 +117,98 @@
 }
 .lp-verb svg { width: 0.5em; height: 0.5em; flex: none; }
 
+/* Google's badge lifts a little under the pointer; the artwork itself is never changed. */
+.lp-badge { transition: transform 0.2s var(--lp-ease), filter 0.2s var(--lp-ease); }
+.lp-badge:hover { transform: translateY(-1px); filter: drop-shadow(0 8px 16px rgba(20, 16, 60, 0.22)); }
+.lp-badge:active { transform: none; filter: none; }
+
+/* ---------- Phones: real screens from the Android app in a plain frame ----------
+   Sizes are in container units, so every phone keeps the same proportions at any width.
+   A "rising" phone has no bottom edge: it runs out of the bottom of the panel it sits in. */
+.lp-device { container-type: inline-size; }
+.lp-device-body {
+  position: relative;
+  padding: 2.8cqw;
+  border-radius: 15cqw;
+  background: #0e0f12;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 2px 6px rgba(28, 20, 80, 0.12),
+    0 32px 64px -24px rgba(28, 20, 80, 0.5);
+}
+:root[data-scheme="dark"] .lp-device-body {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 0 0 1px rgba(255, 255, 255, 0.05), 0 32px 64px -24px rgba(0, 0, 0, 0.7);
+}
+/* The power and volume keys. */
+.lp-device-body::before,
+.lp-device-body::after {
+  content: "";
+  position: absolute;
+  right: -1.1cqw;
+  width: 1.3cqw;
+  border-radius: 0 1cqw 1cqw 0;
+  background: #1d1e24;
+}
+.lp-device-body::before { top: 15%; height: 6%; }
+.lp-device-body::after { top: 25%; height: 11%; }
+/* Concentric with the frame, and round enough to hide the corners of the captured screen. */
+.lp-device-screen { display: block; width: 100%; height: auto; border-radius: 12.2cqw; background: var(--d-well); }
+.lp-device[data-rising] .lp-device-body { padding-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.lp-device[data-rising] .lp-device-screen { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+
+/* ---------- Android: the panel, and three phones fanned out from its bottom edge ---------- */
+.lp-pocket {
+  background:
+    radial-gradient(45% 65% at 80% 105%, rgba(165, 146, 255, 0.55), transparent 70%),
+    radial-gradient(35% 50% at 102% 15%, rgba(125, 180, 255, 0.45), transparent 70%),
+    radial-gradient(40% 55% at -2% -5%, rgba(246, 185, 238, 0.45), transparent 70%),
+    var(--lp-lilac);
+}
+:root[data-scheme="dark"] .lp-pocket {
+  background:
+    radial-gradient(45% 65% at 80% 105%, rgba(140, 120, 255, 0.32), transparent 70%),
+    radial-gradient(35% 50% at 102% 15%, rgba(90, 130, 255, 0.22), transparent 70%),
+    radial-gradient(40% 55% at -2% -5%, rgba(200, 110, 210, 0.18), transparent 70%),
+    var(--lp-lilac);
+}
+/* --mid: where the middle phone stands. Beside the text (wide screens) it moves right, so the
+   tilted left phone stays clear of the words. */
+.lp-fan { --c-w: 212px; --s-w: 170px; --spread: 118px; --drop: 26px; --mid: 50%; }
+@media (min-width: 640px) { .lp-fan { --c-w: 250px; --s-w: 200px; --spread: 162px; --drop: 30px; } }
+@media (min-width: 1024px) { .lp-fan { --c-w: 290px; --s-w: 236px; --spread: 188px; --drop: 36px; } }
+@media (min-width: 1280px) { .lp-fan { --c-w: 316px; --s-w: 240px; --spread: 196px; --drop: 38px; --mid: 54%; } }
+/* The side phones sit a little lower than they tilt, so their cut bottom edge never shows. */
+.lp-fan-phone { position: absolute; bottom: -2px; left: var(--mid); transform-origin: 50% 100%; }
+.lp-fan-c { z-index: 2; width: var(--c-w); transform: translateX(-50%); }
+.lp-fan-l { width: var(--s-w); transform: translateX(calc(-50% - var(--spread))) translateY(var(--drop)) rotate(-7deg); }
+.lp-fan-r { width: var(--s-w); transform: translateX(calc(-50% + var(--spread))) translateY(var(--drop)) rotate(7deg); }
+
+/* ---------- Features (wider screens): pick one, and its picture shows beside the list ---------- */
+.lp-acc { transition: background-color 0.3s var(--lp-ease), box-shadow 0.3s var(--lp-ease); }
+.lp-acc[data-active="true"] { background: var(--d-panel); box-shadow: var(--d-shadow-card); }
+.lp-acc[data-active="false"]:hover { background: color-mix(in srgb, var(--d-panel) 55%, transparent); }
+.lp-acc-body { display: grid; grid-template-rows: 0fr; }
+.lp-acc[data-active="true"] .lp-acc-body { grid-template-rows: 1fr; }
+.lp-acc-progress {
+  display: none;
+  position: absolute;
+  left: 72px;
+  right: 24px;
+  bottom: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--on-ink);
+  opacity: 0.55;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+/* The picture for the feature you're on shows; the others wait, hidden. */
+.lp-story-pic[data-active="false"] { opacity: 0; pointer-events: none; }
+/* The feature you're on shows its colour; the others wait in a plain tile. Text is never faded. */
+.lp-step-icon { background: var(--on-bg); color: var(--on-ink); transition: background-color 0.4s, color 0.4s; }
+.lp-acc[data-active="false"] .lp-step-icon { background: var(--d-panel); color: var(--d-ink-3); box-shadow: var(--d-shadow-sm); }
+.lp-acc[data-active="false"]:hover .lp-step-icon { background: var(--on-bg); color: var(--on-ink); }
+
 /* ---------- Starlight: the page style, used for the AI section ---------- */
 .lp-starlight {
   color: #ecebff;
@@ -140,14 +233,6 @@
 .lp-marquee-track { display: flex; width: max-content; gap: 16px; padding-inline: 16px; }
 .lp-copy { display: none; }
 
-/* ---------- Feature story: only the picture for the current step shows ---------- */
-.lp-story-pic[data-active="false"] { opacity: 0; pointer-events: none; }
-/* The step you're on shows its colour; the others wait in grey. Text is never faded. */
-.lp-step-icon { background: var(--on-bg); color: var(--on-ink); transition: background-color 0.4s, color 0.4s; }
-@media (min-width: 768px) {
-  .lp-step[data-active="false"] .lp-step-icon { background: var(--d-well); color: var(--d-ink-3); }
-}
-
 /* Things that only make sense while things move (pause, replay) hide when motion is off. */
 .lp-motion-only { display: none; }
 [data-paused] .lp-marquee-track { animation-play-state: paused !important; }
@@ -166,16 +251,20 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
 
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-reduce-motion="true"]) {
-    /* Hero: the headline rises word by word, then the picture settles in. */
+    /* Hero: the headline rises word by word, then the picture settles in and the phone rises beside it. */
     .lp-line { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
     .lp-word { display: inline-block; animation: lp-word 0.9s var(--lp-ease) both; animation-delay: calc(var(--i) * 70ms + 80ms); }
     .lp-fade { animation: lp-fade 0.9s var(--lp-ease) both; animation-delay: var(--d, 0.5s); }
+    .lp-rise { animation: lp-rise 1.1s var(--lp-expo) both; animation-delay: var(--d, 1s); }
     .lp-caret { animation: lp-caret 1.1s steps(1) 4; }
 
     /* Slash menu highlight glides between rows. */
     .lp-slash-row { transition: background-color 0.25s var(--lp-ease), color 0.25s var(--lp-ease); }
 
-    /* Feature story: the picture for the step you're reading. */
+    /* Features: the list opens the one you're on, and its picture comes into focus. */
+    .lp-acc-body { transition: grid-template-rows 0.5s var(--lp-ease); }
+    .lp-acc-progress { display: block; animation: lp-acc 6.5s linear forwards; }
+    [data-held] .lp-acc-progress { animation-play-state: paused; }
     .lp-story-pic { transition: opacity 0.6s var(--lp-ease), transform 0.8s var(--lp-ease), filter 0.6s var(--lp-ease); }
     .lp-story-pic[data-active="false"] { transform: translateY(18px) scale(0.97); filter: blur(4px); }
     .lp-story-panel { transition: background-color 0.7s var(--lp-ease); }
@@ -188,7 +277,7 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
     .lp-marquee:hover .lp-marquee-track,
     .lp-marquee:focus-within .lp-marquee-track { animation-play-state: paused; }
 
-    /* AI section: data flows along the lines, the chat plays in. */
+    /* AI section: data flows along the lines, the chats play in. */
     .lp-flow { stroke-dasharray: 3 9; animation: lp-flow 1.6s linear 3; }
     .lp-pulse { animation: lp-pulse 2.4s var(--lp-ease) 2; transform-origin: center; transform-box: fill-box; }
     [data-inview="false"] .lp-seq { opacity: 0; transform: translateY(12px); }
@@ -197,9 +286,9 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
     /* Browser extension: a passage gets highlighted, the clipper opens, then "Saved". */
     .lp-hl { transition: background-size 1.1s var(--lp-ease) 0.4s, box-shadow 0.4s var(--lp-ease) 1.3s; }
     [data-inview="false"] .lp-hl { background-size: 0% 100%; box-shadow: inset 0 -2px 0 transparent; }
-    .lp-clipper { transition: opacity 0.4s var(--lp-ease) 1.6s, transform 0.5s var(--lp-spring) 1.6s; transform-origin: top right; }
+    .lp-clipper { transition: opacity 0.4s var(--lp-ease) 1.6s, transform 0.5s var(--lp-expo) 1.6s; transform-origin: top right; }
     [data-inview="false"] .lp-clipper { opacity: 0; transform: translateY(-8px) scale(0.94); }
-    .lp-saved { transition: opacity 0.4s var(--lp-ease) 3s, transform 0.5s var(--lp-spring) 3s; }
+    .lp-saved { transition: opacity 0.4s var(--lp-ease) 3s, transform 0.5s var(--lp-expo) 3s; }
     [data-inview="false"] .lp-saved { opacity: 0; transform: translateY(14px); }
     .lp-clip-btn { transition: background-color 0.2s, transform 0.2s var(--lp-ease); transition-delay: 2.7s; }
     [data-inview="false"] .lp-clip-btn { transform: none; }
@@ -214,11 +303,22 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
         animation-timeline: view();
         animation-range: entry 0% cover 42%;
       }
-      .lp-phone {
-        animation: lp-phone linear both;
+      .lp-drift {
+        animation: lp-drift linear both;
         animation-timeline: view();
-        animation-range: entry 0% cover 55%;
+        animation-range: cover 20% cover 80%;
       }
+      /* The phones start stacked behind the middle one and fan out as the section comes up. */
+      .lp-fan-c,
+      .lp-fan-l,
+      .lp-fan-r {
+        animation: linear both;
+        animation-timeline: view();
+        animation-range: entry 10% cover 40%;
+      }
+      .lp-fan-c { animation-name: lp-fan-c; }
+      .lp-fan-l { animation-name: lp-fan-side; }
+      .lp-fan-r { animation-name: lp-fan-side; }
       .lp-float {
         animation: lp-float linear both;
         animation-timeline: view();
@@ -237,7 +337,9 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
 
 @keyframes lp-word { from { transform: translateY(105%); } to { transform: none; } }
 @keyframes lp-fade { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes lp-rise { from { opacity: 0; transform: translateY(56px); } to { opacity: 1; transform: none; } }
 @keyframes lp-caret { 50% { opacity: 0; } }
+@keyframes lp-acc { to { transform: scaleX(1); } }
 @keyframes lp-marquee { to { transform: translateX(calc(-50% - 8px)); } }
 @keyframes lp-flow { to { stroke-dashoffset: -24; } }
 @keyframes lp-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.2; } }
@@ -246,10 +348,9 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
   from { transform: perspective(1800px) rotateX(18deg) scale(0.92); }
   to { transform: none; }
 }
-@keyframes lp-phone {
-  from { transform: translateY(80px) rotate(-6deg); }
-  to { transform: none; }
-}
+@keyframes lp-drift { to { transform: translateY(-40px); } }
+@keyframes lp-fan-c { from { transform: translateX(-50%) translateY(56px); } }
+@keyframes lp-fan-side { from { transform: translateX(-50%) translateY(calc(var(--drop) + 90px)) rotate(0deg); } }
 @keyframes lp-float {
   from { transform: translateY(40px); }
   to { transform: translateY(-40px); }

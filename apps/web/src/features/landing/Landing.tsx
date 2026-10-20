@@ -2,19 +2,22 @@
 
 // The landing page at "/". It uses the app's own tokens, logo, buttons and glass pills, plus the
 // folded sheet from the mark, so the landing page, the sign-in page and the app read as one
-// product. The sections live in Sections.tsx, the product pictures in Pictures.tsx, the colours in
-// tones.ts, and the motion in landing.css (all of it off when motion is reduced).
+// product. The sections live in Platforms.tsx, Sections.tsx and Android.tsx, the product pictures in
+// Pictures.tsx, the colours in tones.ts, and the motion in landing.css (all of it off when motion
+// is reduced).
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_THEME, type ThemePreference } from "@dovli/theme";
 import { DovliLogo, DovliMark, Icon, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
+import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL } from "./Android";
 import { prefersLessMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
-import { Coming, Mcp, Story, Templates, container, h2Class, leadClass } from "./Sections";
+import { Platforms } from "./Platforms";
+import { Ai, Coming, Features, Templates, container, leadClass } from "./Sections";
 import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
 
@@ -23,7 +26,6 @@ type Start = { href: string; label: string };
 /** Counts clicks on the main button, by where it sits on the page (see lib/analytics.ts). */
 const startClick = (start: Start, place: string) => () =>
   trackEvent(start.href === SIGNUP_PATH ? "Sign-up click" : "Open app click", { place });
-
 
 /**
  * `accounts`: sign-in is set up. Without it, Dovli runs on this device only, so the buttons open the app.
@@ -45,13 +47,13 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
       <Header showSignIn={showSignIn} start={start} />
       <main id="main">
         <Hero free={showSignIn} start={start} />
-        <Ecosystem />
-        <div className="flex flex-col gap-28 py-28 sm:gap-36 sm:py-36">
-          <Story />
+        <Platforms />
+        <div className="flex flex-col gap-24 py-24 sm:gap-28 sm:py-28">
+          <Features />
+          <Android />
           <Templates start={start} />
-          <Mcp />
+          <Ai />
           <Coming />
-          <Promises />
         </div>
         <Closing free={showSignIn} start={start} />
       </main>
@@ -63,22 +65,23 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
 // Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
-const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; soon?: "extension" | "android" }[] = [
+const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon" }[] = [
   { href: "#features", icon: "pencil", t: "blue", title: "Pages and blocks", text: "Type / for to-dos, tables, callouts and more" },
   { href: "#features", icon: "board", t: "mint", title: "Whiteboards", text: "Sketch and flowchart beside your notes" },
   { href: "#templates", icon: "templates", t: "butter", title: "Templates", text: "Meeting notes, briefs, reviews and boards" },
-  { href: "#mcp", icon: "plug", t: "lilac", title: "AI apps", text: "Claude, Codex and more, through MCP" },
-  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", soon: "extension" },
-  { href: "#coming", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", soon: "android" },
+  { href: "#mcp", icon: "sparkles", t: "lilac", title: "AI", text: "An assistant in the page, and your AI apps through MCP" },
+  { href: "#android", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", tag: "New" },
+  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon" },
 ];
 
 // The links in the bar, and which sections light each one up.
-const navLinks: { href: string; label: string; sections: string[]; menu?: boolean }[] = [
+const navLinks: { href: string; label: string; sections: string[]; menu?: boolean; fresh?: boolean }[] = [
   { href: "#features", label: "Product", sections: ["features", "coming"], menu: true },
   { href: "#templates", label: "Templates", sections: ["templates"] },
-  { href: "#mcp", label: "AI apps", sections: ["mcp"] },
+  { href: "#mcp", label: "AI", sections: ["mcp"] },
+  { href: "#android", label: "Android", sections: ["android"], fresh: true },
 ];
-const watched = ["features", "templates", "mcp", "coming"];
+const watched = ["features", "android", "templates", "mcp", "coming"];
 
 function ProductItem({ item, onPick, large }: { item: (typeof productItems)[number]; onPick: () => void; large?: boolean }) {
   const c = tone(item.t);
@@ -86,7 +89,7 @@ function ProductItem({ item, onPick, large }: { item: (typeof productItems)[numb
     <a
       href={item.href}
       onClick={() => {
-        if (item.soon) trackEvent("Coming soon click", { app: item.soon });
+        if (item.tag === "Soon") trackEvent("Coming soon click", { app: "extension" });
         onPick();
       }}
       className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
@@ -100,7 +103,14 @@ function ProductItem({ item, onPick, large }: { item: (typeof productItems)[numb
       <span className="min-w-0 pt-0.5">
         <span className="flex items-center gap-2 text-base font-semibold text-ink">
           {item.title}
-          {item.soon && <span className="rounded-full bg-well px-1.5 py-px text-2xs font-semibold text-ink-2">Soon</span>}
+          {item.tag && (
+            <span
+              className={cn("rounded-full px-1.5 py-px text-2xs font-semibold", item.tag === "Soon" && "bg-well text-ink-2")}
+              style={item.tag === "New" ? { background: tone("mint").bg, color: tone("mint").ink } : undefined}
+            >
+              {item.tag}
+            </span>
+          )}
         </span>
         <span className="mt-0.5 block text-sm leading-snug text-ink-2">{item.text}</span>
       </span>
@@ -193,7 +203,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
     <header className="fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:pt-4">
       <div
         ref={wrapRef}
-        className={cn("relative mx-auto transition-[max-width] duration-500 ease-out", scrolled ? "max-w-[1000px]" : "max-w-[1120px]")}
+        className={cn("relative mx-auto transition-[max-width] duration-500 ease-out", scrolled ? "max-w-[1060px]" : "max-w-[1160px]")}
       >
         <div className={cn("relative flex h-14 items-center gap-1 pl-4 pr-2 transition-[box-shadow,background-color] duration-300", raised ? "chrome-pill" : "rounded-full")}>
           <Link href="/" aria-label="Dovli home" className="mr-4 rounded-md">
@@ -249,11 +259,12 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                     aria-current={activeHref === l.href ? "location" : undefined}
                     onPointerEnter={() => setHovered(l.href)}
                     className={cn(
-                      "relative flex h-8 items-center rounded-full px-3 text-base font-semibold transition-colors",
+                      "relative flex h-8 items-center gap-1.5 rounded-full px-3 text-base font-semibold transition-colors",
                       activeHref === l.href ? "text-active-ink" : "text-ink-2 hover:text-ink",
                     )}
                   >
                     {l.label}
+                    {l.fresh && <span className="size-1.5 rounded-full" style={{ background: tone("mint").ink }} aria-label="New" role="img" />}
                   </a>
                 ),
               )}
@@ -298,15 +309,21 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <ProductItem key={it.title} item={it} large onPick={() => setMenu(false)} />
               ))}
             </div>
-            <div className="mt-2 flex gap-2 border-t border-line p-2 pt-3">
-              {showSignIn && (
-                <Link href={LOGIN_PATH} className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "flex-1 rounded-full")}>
-                  Sign in
+            <div className="mt-2 flex flex-col gap-3 border-t border-line p-2 pt-3">
+              <div className="flex items-center gap-3">
+                <GooglePlayBadge place="menu" className="h-11" />
+                <span className="text-sm leading-snug text-ink-2">Dovli for Android is here</span>
+              </div>
+              <div className="flex gap-2">
+                {showSignIn && (
+                  <Link href={LOGIN_PATH} className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "flex-1 rounded-full")}>
+                    Sign in
+                  </Link>
+                )}
+                <Link href={start.href} onClick={startClick(start, "menu")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "flex-1 rounded-full")}>
+                  {start.label}
                 </Link>
-              )}
-              <Link href={start.href} onClick={startClick(start, "menu")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "flex-1 rounded-full")}>
-                {start.label}
-              </Link>
+              </div>
             </div>
           </nav>
         )}
@@ -329,11 +346,22 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
   return (
     <section aria-labelledby="hero-title" className="relative px-2 pt-2 sm:px-4 sm:pt-4">
       {/* Sky and ruled paper behind the headline. */}
-      <div aria-hidden="true" className="lp-sky absolute inset-x-2 top-2 -z-10 h-[min(980px,112vh)] overflow-hidden rounded-[28px] sm:inset-x-4 sm:top-4 sm:rounded-[44px]">
+      <div aria-hidden="true" className="lp-sky absolute inset-x-2 top-2 -z-10 h-[min(1020px,116vh)] overflow-hidden rounded-[28px] sm:inset-x-4 sm:top-4 sm:rounded-[44px]">
         <div className="lp-ruled absolute inset-0" />
       </div>
-      <div className={cn(container, "flex flex-col items-center pt-28 text-center sm:pt-32")}>
-        <h1 id="hero-title" className="m-0 font-serif text-[44px] font-semibold leading-[1.04] tracking-[-0.035em] text-ink sm:text-[72px] lg:text-[88px]">
+      <div className={cn(container, "flex flex-col items-center pt-24 text-center sm:pt-28")}>
+        <a
+          href="#android"
+          className="lp-fade group inline-flex h-9 items-center gap-2.5 rounded-full bg-panel/85 pl-1.5 pr-3.5 text-sm font-semibold text-ink shadow-sm ring-1 ring-line transition-colors hover:bg-panel"
+          style={{ "--d": "0s" } as CSSProperties}
+        >
+          <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
+            New
+          </span>
+          Dovli for Android is on Google Play
+          <Icon name="arrowRight" size={14} className="text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
+        </a>
+        <h1 id="hero-title" className="m-0 mt-7 font-serif text-[44px] font-semibold leading-[1.04] tracking-[-0.035em] text-ink sm:text-[72px] lg:text-[88px]">
           <span className="sr-only">A calm place to write, plan and sketch.</span>
           {heroLines.map((line, li) => (
             <span key={li} className="lp-line" aria-hidden="true">
@@ -341,40 +369,38 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
                 const style = { "--i": i++ } as CSSProperties;
                 const next = line[wi + 1];
                 // A space after each word, except before a comma or full stop and at the end of a line.
-                const space = next && next.text !== "," && next.text !== "." ? " " : "";
-                if (w.verb) {
-                  const c = tone(w.verb.t);
-                  return (
-                    <span key={w.text} className="lp-word" style={style}>
-                      <span className="lp-verb" style={{ background: c.bg, color: c.ink }}>
-                        <Icon name={w.verb.icon} size={16} />
-                        {w.text}
-                      </span>
-                      {space}
-                    </span>
-                  );
-                }
+                // It sits between the words, not inside them: the words become inline-blocks while
+                // they rise, and an inline-block drops a space at its end.
+                const space = next && next.text !== "," && next.text !== "." ? " " : "";
+                const c = w.verb && tone(w.verb.t);
                 const glue = w.text === "," || w.text === ".";
                 return (
-                  <span key={w.text} className={cn("lp-word", glue && "-ml-[0.12em]")} style={style}>
-                    {w.text}
+                  <Fragment key={w.text}>
+                    <span className={cn("lp-word", glue && "-ml-[0.12em]")} style={style}>
+                      {w.verb && c ? (
+                        <span className="lp-verb" style={{ background: c.bg, color: c.ink }}>
+                          <Icon name={w.verb.icon} size={16} />
+                          {w.text}
+                        </span>
+                      ) : (
+                        w.text
+                      )}
+                    </span>
                     {space}
-                  </span>
+                  </Fragment>
                 );
               })}
             </span>
           ))}
         </h1>
-        <p className={cn(leadClass, "lp-fade mt-7 max-w-[560px] text-balance sm:text-xl sm:leading-relaxed")} style={{ "--d": "0.55s" } as CSSProperties}>
-          Your notes, docs and whiteboards, together in one place. Free on the web, and your AI apps can help out too.
+        <p className={cn(leadClass, "lp-fade mt-7 max-w-[580px] text-balance sm:text-xl sm:leading-relaxed")} style={{ "--d": "0.55s" } as CSSProperties}>
+          Your notes, docs and whiteboards, together in one place. Free on the web and on Android, with AI that helps when you ask.
         </p>
         <div className="lp-fade mt-8 flex flex-wrap items-center justify-center gap-3" style={{ "--d": "0.7s" } as CSSProperties}>
           <Link href={start.href} onClick={startClick(start, "hero")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
             {start.label}
           </Link>
-          <a href="#templates" className={cn(buttonStyles({ variant: "secondary", size: "lg" }), "h-12 rounded-full bg-panel/80 px-6 text-md")}>
-            Browse templates
-          </a>
+          <GooglePlayBadge place="hero" />
         </div>
         {free && (
           <p className="lp-fade m-0 mt-4 text-sm text-ink-2" style={{ "--d": "0.8s" } as CSSProperties}>
@@ -383,11 +409,15 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
         )}
       </div>
 
-      <div className={cn(container, "relative mt-12")}>
-        <div className="lp-fade" style={{ "--d": "0.85s" } as CSSProperties}>
-          <div className="lp-tilt origin-top">
-            <HeroPicture />
+      <div className={cn(container, "mt-12")}>
+        <div className="relative">
+          <div className="lp-fade" style={{ "--d": "0.85s" } as CSSProperties}>
+            <div className="lp-tilt origin-top">
+              <HeroPicture />
+            </div>
           </div>
+          {/* Only where the picture leaves room for it beside the page's text. */}
+          <HeroPhone className="absolute -bottom-16 right-14 z-10 hidden xl:block" />
         </div>
         <p className="m-0 mt-5 text-center text-base text-ink-2">Go on, tick a to-do.</p>
       </div>
@@ -395,116 +425,65 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
   );
 }
 
-/* ---------- Where you can use Dovli ---------- */
-
-const places: { href: string; icon: IconName; name: string; text: string; t: Tone; soon?: "extension" | "android" }[] = [
-  { href: "#features", icon: "monitor", name: "Web app", text: "Every feature, in any modern browser.", t: "blue" },
-  { href: "#mcp", icon: "plug", name: "AI apps", text: "Claude, Codex and more, through MCP.", t: "lilac" },
-  { href: "#coming", icon: "paperclip", name: "Browser extension", text: "Clip anything you read online.", t: "sky", soon: "extension" },
-  { href: "#coming", icon: "device", name: "Android app", text: "Your pages on your phone, offline too.", t: "mint", soon: "android" },
-];
-
-function Ecosystem() {
-  return (
-    <section aria-labelledby="eco-title" className={cn(container, "pt-20 sm:pt-28")}>
-      <h2 id="eco-title" className="m-0 text-lg font-semibold text-ink-2">
-        Wherever you work
-      </h2>
-      <ul className="m-0 mt-5 grid list-none gap-px overflow-hidden rounded-xl bg-line p-0 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
-        {places.map((p) => (
-          <li key={p.name} className="bg-panel">
-            <a href={p.href} onClick={() => p.soon && trackEvent("Coming soon click", { app: p.soon })} className="group flex h-full flex-col gap-4 p-6 transition-colors duration-200 hover:bg-hover focus-visible:outline-offset-[-3px]">
-              <span
-                className="grid size-11 place-items-center rounded-lg transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-105"
-                style={{ background: tone(p.t).bg, color: tone(p.t).ink }}
-                aria-hidden="true"
-              >
-                <Icon name={p.icon} size={20} />
-              </span>
-              <span>
-                <span className="block text-lg font-semibold text-ink">{p.name}</span>
-                <span className="mt-1 block text-md text-ink-2">{p.text}</span>
-              </span>
-              {p.soon ? (
-                <span className="mt-auto self-start rounded-full bg-well px-2.5 py-1 text-xs font-semibold text-ink-2">Coming soon</span>
-              ) : (
-                <span className="mt-auto flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
-                  <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                  Available now
-                </span>
-              )}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-/* ---------- Promises ---------- */
-
-function Promises() {
-  return (
-    <section className="px-2 sm:px-4" aria-labelledby="promises-title">
-      <div className="rounded-[28px] bg-panel shadow-sm sm:rounded-[44px]">
-        <div className={cn(container, "grid gap-12 py-16 sm:py-24 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-16")}>
-          <h2 id="promises-title" className={cn(h2Class, "text-ink")}>
-            Private, offline, and yours
-          </h2>
-          <ul className="m-0 grid list-none gap-10 p-0 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-12">
-            <Pledge icon="cloudOff" t="sky" title="Works offline">
-              Pages save on your device first, then sync when you&apos;re back online.
-            </Pledge>
-            <Pledge icon="lock" t="lilac" title="Private by default">
-              Each account sees only its own workspace. Nothing is shared until you share it.
-            </Pledge>
-            <Pledge icon="share" t="mint" title="Share your way">
-              Send a link people can read, or let the people you pick edit with you.
-            </Pledge>
-            <Pledge icon="download" t="butter" title="Take it with you">
-              Export any page as a Word file or a PDF, whenever you like.
-            </Pledge>
-          </ul>
-        </div>
-      </div>
-    </section>
-  );
-}
+/* ---------- Closing: one last invitation, and what Dovli promises ---------- */
 
 function Pledge({ icon, title, t, children }: { icon: IconName; title: string; t: Tone; children: ReactNode }) {
   return (
-    <li className="flex flex-col gap-3">
-      <span className="grid size-10 place-items-center rounded-md" style={{ background: tone(t).bg, color: tone(t).ink }} aria-hidden="true">
-        <Icon name={icon} size={18} />
+    <li className="flex flex-col gap-2">
+      <span className="flex items-center gap-2.5">
+        <span className="grid size-8 flex-none place-items-center rounded-md" style={{ background: tone(t).bg, color: tone(t).ink }} aria-hidden="true">
+          <Icon name={icon} size={15} />
+        </span>
+        <span className="text-md font-semibold text-ink">{title}</span>
       </span>
-      <h3 className="m-0 text-lg font-semibold text-ink">{title}</h3>
-      <p className="m-0 max-w-[340px] text-md leading-relaxed text-ink-2">{children}</p>
+      <p className="m-0 text-base leading-relaxed text-ink-2">{children}</p>
     </li>
   );
 }
 
-/* ---------- Closing ---------- */
-
 function Closing({ free, start }: { free: boolean; start: Start }) {
   return (
-    <section aria-labelledby="cta-title" className="px-2 pb-16 sm:px-4 sm:pb-24">
+    <section aria-labelledby="cta-title" className="px-2 pb-8 sm:px-4 sm:pb-12">
       {/* The hero's sky again, so the page ends where it began. */}
       <div className="lp-sky relative overflow-hidden rounded-[28px] sm:rounded-[44px]">
         <div aria-hidden="true" className="lp-ruled absolute inset-0" />
-        <div className={cn(container, "relative py-14 sm:py-24")}>
+        <div className={cn(container, "relative py-10 sm:py-16")}>
           <Sheet fold={72} sheetClassName="rounded-[32px] bg-panel">
-            <div className="flex flex-col items-start gap-8 px-6 py-12 sm:px-16 sm:py-20">
-              <DovliMark size={44} />
-              <h2 id="cta-title" className="m-0 max-w-[820px] text-balance font-serif text-[40px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[64px]">
-                Start with a blank page.
-              </h2>
-              <div className="flex w-full flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-                <p className={cn(leadClass, "max-w-[460px]")}>
-                  {free ? "Free to use. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them."}
-                </p>
-                <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 flex-none rounded-full px-6 text-md")}>
-                  {start.label}
-                </Link>
+            <div className="px-6 py-10 sm:px-14 sm:py-14">
+              <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                  <DovliMark size={40} />
+                  <h2 id="cta-title" className="m-0 mt-6 max-w-[760px] text-balance font-serif text-[40px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[60px]">
+                    Start with a blank page.
+                  </h2>
+                  <p className={cn(leadClass, "mt-4 max-w-[500px]")}>
+                    {free ? "Free on the web and on Android. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them, on the web and on your phone."}
+                  </p>
+                </div>
+                <div className="flex flex-none flex-wrap items-center gap-3">
+                  <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
+                    {start.label}
+                  </Link>
+                  <GooglePlayBadge place="closing" />
+                </div>
+              </div>
+
+              <div className="mt-10 border-t border-line pt-8 sm:mt-12">
+                <h3 className="m-0 text-sm font-semibold text-ink-3">Private, offline, and yours</h3>
+                <ul className="m-0 mt-5 grid list-none gap-x-8 gap-y-7 p-0 sm:grid-cols-2 lg:grid-cols-4">
+                  <Pledge icon="cloudOff" t="sky" title="Works offline">
+                    Pages save on your device first, then sync when you&apos;re back online.
+                  </Pledge>
+                  <Pledge icon="lock" t="lilac" title="Private by default">
+                    Each account sees only its own workspace. Nothing is shared until you share it.
+                  </Pledge>
+                  <Pledge icon="share" t="mint" title="Share your way">
+                    Send a link people can read, or let the people you pick edit with you.
+                  </Pledge>
+                  <Pledge icon="download" t="butter" title="Take it with you">
+                    Bring pages in from Notion, Evernote or Obsidian, and export to Word, PDF or Markdown.
+                  </Pledge>
+                </ul>
               </div>
             </div>
           </Sheet>
@@ -545,24 +524,31 @@ function FooterColumn({ title, children }: { title: string; children: ReactNode 
   );
 }
 
-function FooterLink({ href, children, soon, onClick }: { href: string; children: ReactNode; soon?: boolean; onClick?: () => void }) {
+function FooterLink({ href, children, tag, onClick }: { href: string; children: ReactNode; tag?: "New" | "Soon"; onClick?: () => void }) {
   const cls = "group inline-flex items-center gap-2 rounded-sm py-1.5 text-base text-ink-2 transition-colors hover:text-ink";
   const body = (
     <>
       <span className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-px transition-[background-size] duration-300 group-hover:bg-[length:100%_1px]">{children}</span>
-      {soon && <span className="rounded-full bg-well px-2 py-0.5 text-2xs font-semibold text-ink-2">Soon</span>}
+      {tag && (
+        <span
+          className={cn("rounded-full px-2 py-0.5 text-2xs font-semibold", tag === "Soon" && "bg-well text-ink-2")}
+          style={tag === "New" ? { background: tone("mint").bg, color: tone("mint").ink } : undefined}
+        >
+          {tag}
+        </span>
+      )}
     </>
   );
   return (
     <li>
-      {href.startsWith("#") ? (
-        <a href={href} onClick={onClick} className={cls}>
-          {body}
-        </a>
-      ) : (
+      {href.startsWith("/") ? (
         <Link href={href} onClick={onClick} className={cls}>
           {body}
         </Link>
+      ) : (
+        <a href={href} onClick={onClick} className={cls}>
+          {body}
+        </a>
       )}
     </li>
   );
@@ -583,24 +569,27 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
               <Link href="/" aria-label="Dovli home" className="rounded-md">
                 <DovliLogo size={34} />
               </Link>
-              <p className="m-0 max-w-[340px] text-md leading-relaxed text-ink-2">A calm place to write, plan and sketch. Free on the web, with more apps on the way.</p>
-              <Link href={start.href} onClick={startClick(start, "footer")} className={cn(buttonStyles({ variant: "primary", size: "md" }), "mt-1 rounded-full px-4")}>
-                {start.label}
-              </Link>
+              <p className="m-0 max-w-[340px] text-md leading-relaxed text-ink-2">A calm place to write, plan and sketch. Free on the web and on Android.</p>
+              <div className="mt-1 flex flex-wrap items-center gap-3">
+                <Link href={start.href} onClick={startClick(start, "footer")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-10 rounded-full px-5")}>
+                  {start.label}
+                </Link>
+                <GooglePlayBadge place="footer" className="h-10" />
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-x-8 gap-y-10 sm:grid-cols-3">
               <FooterColumn title="Product">
                 <FooterLink href="#features">Features</FooterLink>
                 <FooterLink href="#templates">Templates</FooterLink>
-                <FooterLink href="#mcp">AI apps and MCP</FooterLink>
+                <FooterLink href="#mcp">AI and MCP</FooterLink>
               </FooterColumn>
               <FooterColumn title="Get Dovli">
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
-                <FooterLink href="#coming" soon onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
-                  Browser extension
-                </FooterLink>
-                <FooterLink href="#coming" soon onClick={() => trackEvent("Coming soon click", { app: "android" })}>
+                <FooterLink href={PLAY_STORE_URL} tag="New" onClick={() => trackEvent("Play Store click", { place: "footer-link" })}>
                   Android app
+                </FooterLink>
+                <FooterLink href="#coming" tag="Soon" onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
+                  Browser extension
                 </FooterLink>
               </FooterColumn>
               <FooterColumn title="Account">
@@ -630,6 +619,8 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
               </button>
             </div>
           </div>
+          {/* Google asks for this line wherever its badge appears. */}
+          <p className="m-0 mt-4 text-xs text-ink-3">Google Play and the Google Play logo are trademarks of Google LLC.</p>
         </div>
 
         {/* The name in the mark's colours, rising out of the panel's bottom edge. */}

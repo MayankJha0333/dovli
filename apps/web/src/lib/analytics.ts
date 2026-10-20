@@ -11,8 +11,10 @@ type Events = {
   "Sign-up click": { place: string };
   /** An "Open Dovli" button on the landing page, for people already signed in. */
   "Open app click": { place: string };
+  /** A link to Dovli on Google Play (the badge, or the footer link). `place`: which one. */
+  "Play Store click": { place: string };
   /** Interest in something that isn't out yet. */
-  "Coming soon click": { app: "extension" | "android" };
+  "Coming soon click": { app: "extension" };
   /** Someone finished signing in. `flow`: the sign-in page, the sign-up page, or the in-app dialog. */
   "Signed in": { method: "google" | "email"; flow: "login" | "signup" | "dialog" };
 };
