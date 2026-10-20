@@ -426,48 +426,66 @@ export function HomeScreen() {
         <LinearGradient colors={[p.bg, `${p.bg}00`]} locations={[0.6, 1]} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
-      {/* The dock floats at the bottom, over the list. */}
+      {/* The dock floats at the bottom, over the list. Cards slide under a soft fade instead of
+          running into it. On light themes it's a white bar like the cards; dark themes keep it dark. */}
       {!searching && !q.trim() && (
-        <View style={[styles.dockWrap, { bottom: insets.bottom + space.md }]} pointerEvents="box-none">
-          <View style={[styles.dock, { backgroundColor: p.dark ? p.raised : "#1F1840", borderColor: p.dark ? p.lineStrong : "transparent" }]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="New page"
-              onPress={() => {
-                tap();
-                open(store.createPage());
-              }}
-              style={({ pressed }) => [styles.dockNew, pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] }]}
-            >
-              <LinearGradient colors={["#A592FF", "#E39AEC", "#FFC48A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dockPlus}>
-                <Icon name="add" size={22} color="#fff" />
-              </LinearGradient>
-              <T v="subhead" style={{ color: "#1F1840", fontWeight: "700" }}>
-                New page
-              </T>
-            </Pressable>
-            {(
-              [
-                ["search", "Search", focusSearch],
-                ["star-outline", "Favourites", () => router.push("/favorites")],
-                ["documents-outline", "All pages", () => router.push("/pages")],
-              ] as const
-            ).map(([icon, label, go]) => (
+        <>
+          <LinearGradient
+            pointerEvents="none"
+            colors={[`${p.bg}00`, `${p.bg}E6`]}
+            style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: insets.bottom + 110 }}
+          />
+          <View style={[styles.dockWrap, { bottom: insets.bottom + space.md }]} pointerEvents="box-none">
+            <View style={[styles.dock, p.dark ? { backgroundColor: p.raised, borderColor: p.lineStrong } : [{ backgroundColor: p.panel, borderColor: "transparent" }, lift(p, 2)]]}>
               <Pressable
-                key={label}
                 accessibilityRole="button"
-                accessibilityLabel={label}
+                accessibilityLabel="New page"
                 onPress={() => {
-                  tap("select");
-                  go();
+                  tap();
+                  open(store.createPage());
                 }}
-                style={({ pressed }) => [styles.dockBtn, { backgroundColor: pressed ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)" }]}
+                style={({ pressed }) => [styles.dockNew, p.dark && { backgroundColor: "#fff" }, pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] }]}
               >
-                <Icon name={icon} size={20} color="rgba(255,255,255,0.9)" />
+                {!p.dark && <LinearGradient colors={["#9B7CFF", "#7C5CF0"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 999 }]} />}
+                {p.dark ? (
+                  <LinearGradient colors={["#A592FF", "#E39AEC", "#FFC48A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dockPlus}>
+                    <Icon name="add" size={22} color="#fff" />
+                  </LinearGradient>
+                ) : (
+                  <View style={[styles.dockPlus, { backgroundColor: "rgba(255,255,255,0.24)" }]}>
+                    <Icon name="add" size={22} color="#fff" />
+                  </View>
+                )}
+                <T v="subhead" style={{ color: p.dark ? "#1F1840" : "#fff", fontWeight: "700" }}>
+                  New page
+                </T>
               </Pressable>
-            ))}
+              {(
+                [
+                  ["search", "Search", focusSearch],
+                  ["star-outline", "Favourites", () => router.push("/favorites")],
+                  ["documents-outline", "All pages", () => router.push("/pages")],
+                ] as const
+              ).map(([icon, label, go]) => (
+                <Pressable
+                  key={label}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
+                  onPress={() => {
+                    tap("select");
+                    go();
+                  }}
+                  style={({ pressed }) => [
+                    styles.dockBtn,
+                    { backgroundColor: p.dark ? (pressed ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)") : pressed ? p.active : p.well },
+                  ]}
+                >
+                  <Icon name={icon} size={20} color={p.dark ? "rgba(255,255,255,0.9)" : p.ink} />
+                </Pressable>
+              ))}
+            </View>
           </View>
-        </View>
+        </>
       )}
     </View>
   );
@@ -526,7 +544,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 10,
   },
-  dockNew: { flexDirection: "row", alignItems: "center", gap: 8, height: 48, paddingLeft: 5, paddingRight: 18, borderRadius: 999, backgroundColor: "#fff" },
+  dockNew: { flexDirection: "row", alignItems: "center", gap: 8, height: 48, paddingLeft: 5, paddingRight: 18, borderRadius: 999, overflow: "hidden" },
   dockPlus: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
   dockBtn: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
 });
