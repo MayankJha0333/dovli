@@ -17,7 +17,8 @@ export default function PrivacyPage() {
       updated="20 October 2026"
       lead={
         <p className="m-0">
-          Dovli is a place to write, plan and sketch, on the web at dovli.in and in the Dovli app for phones. This policy explains what we keep about
+          Dovli is a place to write, plan and sketch, on the web at dovli.in, in the Dovli app for phones, and in Dovli for Chrome, the browser
+          extension. This policy explains what we keep about
           you, why, who else sees it, and how to delete it. We don&rsquo;t sell your data and we don&rsquo;t show ads.
         </p>
       }
@@ -54,12 +55,22 @@ export default function PrivacyPage() {
           doesn&rsquo;t have a Dovli account yet, we keep that address and the page title until they sign up or you remove the invite.
         </p>
         <p>
-          <strong>AI features (web).</strong> How much AI you&rsquo;ve used each month, and which AI provider and model you chose. If you connect your
+          <strong>AI features (web and browser extension).</strong> How much AI you&rsquo;ve used each month, and which AI provider and model you chose. If you connect your
           own AI key, we keep it encrypted and use it only for your requests.
         </p>
         <p>
           <strong>Connected AI apps.</strong> If you connect an AI app to Dovli (through MCP), we keep the connection&rsquo;s name, which pages it may
-          use and what it may do, and when it was last used.
+          use and what it may do, when it was last used, what it last did, and how many requests it has made.
+        </p>
+        <p>
+          <strong>The browser extension.</strong> Dovli for Chrome reads a website only when you click its toolbar icon, one of its right-click items or
+          one of its shortcuts. To clip a page, it sends Dovli the page&rsquo;s address and its content as your browser shows it (without scripts or
+          styles), with your device&rsquo;s date and language. To add a selection, picture, link or bookmark, it sends that, with the page&rsquo;s
+          title, address and summary. It also sends any title, tags or remark you write. Dovli makes one of your pages from it and keeps that page, not
+          the copy of the website. Pictures are saved as links, so they keep loading from the website they came from. Highlights stay in the website
+          until it reloads and are sent only inside something you clip. While its drawer is open, the extension checks every few seconds whether the
+          page shown in it has changed. It connects to your account like an AI app (above), so it shows under Settings &rarr; AI apps, where you can
+          switch it off or delete it.
         </p>
         <p>
           <strong>Website analytics.</strong> The website uses Vercel Web Analytics and Speed Insights to count visits, see how fast pages load, and
@@ -93,9 +104,9 @@ export default function PrivacyPage() {
             <strong>An email delivery service</strong>: sends sign-in codes and share invites.
           </li>
           <li>
-            <strong>AI providers</strong>, only when you use an AI feature on the web: Groq or Anthropic for Dovli&rsquo;s own AI, or the provider whose
-            key you connect (Groq, OpenRouter, Anthropic or OpenAI). We send what the request needs, such as your question, the page you have open and
-            the titles of pages inside it. We don&rsquo;t send your name, email or account ID. Each provider handles that text under its own terms.
+            <strong>AI providers</strong>, only when you use an AI feature on the web or in the browser extension: Groq or Anthropic for Dovli&rsquo;s
+            own AI, or the provider whose key you connect (Groq, OpenRouter, Anthropic or OpenAI). We send what the request needs, such as your
+            question, the page you have open and the titles of pages inside it, or the article you ask the extension to make notes from. We don&rsquo;t send your name, email or account ID. Each provider handles that text under its own terms.
           </li>
           <li>
             <strong>Link previews</strong>: when you paste a link, your device asks microlink.io (or noembed.com for YouTube and Vimeo links) for its
@@ -167,7 +178,8 @@ export default function PrivacyPage() {
       <Section title="Cookies and storage">
         <p>
           The website sets one cookie, to keep you signed in (for up to 14 days). The website and app also keep your pages on your device so they open
-          quickly and work offline. Analytics does not use cookies.
+          quickly and work offline. Analytics does not use cookies. The browser extension keeps its connection to your account, your name and email,
+          and the page and choices you last used in Chrome&rsquo;s storage for extensions, on your device.
         </p>
       </Section>
 

@@ -29,7 +29,8 @@ function Tile({ href, t, status, name, text, children, className }: { href: stri
           {status}
         </Status>
         <span className="mt-4 block text-lg font-semibold text-ink">{name}</span>
-        <span className="mt-1 block max-w-[320px] text-md leading-snug text-ink-2">{text}</span>
+        {/* Two lines kept for every description, so the pictures start level side by side. */}
+        <span className="mt-1 block max-w-[320px] text-md leading-snug text-ink-2 md:min-h-[2lh]">{text}</span>
         <span aria-hidden="true" className="relative mt-6 block min-h-[150px] flex-1">
           {children}
         </span>
@@ -87,6 +88,9 @@ function WebPicture() {
   );
 }
 
+// The same three as in the AI section's chat (Sections.tsx).
+const addedTodos = ["Send the press kit", "Book the demo room", "Invite the first 200 people"];
+
 /** An AI app with Dovli connected, adding to-dos to a page. */
 function AiPicture() {
   return (
@@ -103,9 +107,19 @@ function AiPicture() {
         <span className="ml-auto block max-w-[86%] rounded-[14px] rounded-br-[4px] bg-accent px-3 py-1.5 text-[12px] leading-snug text-accent-ink">
           Add today&apos;s meeting notes to Launch plan
         </span>
-        <span className="flex max-w-[92%] items-center gap-2 rounded-[14px] rounded-bl-[4px] bg-well px-3 py-1.5 text-[12px] leading-snug text-ink">
-          <DovliMark size={13} />
-          Added 3 to-dos to Launch plan
+        <span className="block max-w-[92%] rounded-[14px] rounded-bl-[4px] bg-well px-3 py-2 text-[12px] leading-snug text-ink">
+          <span className="flex items-center gap-2">
+            <DovliMark size={13} />
+            Added 3 to-dos to Launch plan
+          </span>
+          <span className="mt-1.5 flex flex-col gap-1 pl-[21px]">
+            {addedTodos.map((t) => (
+              <span key={t} className="flex items-center gap-1.5 text-[11px] text-ink-2">
+                <span className="size-2.5 flex-none rounded-[3px] shadow-[inset_0_0_0_1px_var(--d-line-strong)]" />
+                {t}
+              </span>
+            ))}
+          </span>
         </span>
       </span>
     </span>
