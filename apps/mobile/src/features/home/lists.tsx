@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { displayTitle, pageTags, previewLines, timeAgo, type Page, type SearchHit } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { MarkTile, PageRow } from "@/components/Pages";
@@ -54,19 +55,20 @@ export function FavoriteCard({ page, onPress, onLongPress }: { page: Page; onPre
   );
 }
 
-/** Soft card colours that Home's note cards take turns with: a wash for the card and an ink for its chips. */
+/** Card colours that Home's note cards take turns with: a wash that glows in from the card's corner,
+ *  and an ink for its icon, edge and chips. */
 const TINTS = [
-  { wash: "#F1ECFF", ink: "#7C5CF0" },
-  { wash: "#E8F3FF", ink: "#2F7BEA" },
-  { wash: "#FFF4DE", ink: "#D98A0B" },
-  { wash: "#FFEDF4", ink: "#E0457B" },
-  { wash: "#E9F8F0", ink: "#14A267" },
+  { wash: "#E6DDFF", ink: "#7C5CF0" },
+  { wash: "#D9E9FF", ink: "#2F7BEA" },
+  { wash: "#FFE9BF", ink: "#D98A0B" },
+  { wash: "#FFDCEA", ink: "#E0457B" },
+  { wash: "#D5F3E3", ink: "#14A267" },
 ] as const;
 
 export function tint(i: number, dark: boolean) {
   const t = TINTS[i % TINTS.length];
   // A pastel card turns into a glare on a dark theme, so there it becomes a faint wash of the ink.
-  return { wash: dark ? `${t.ink}22` : t.wash, ink: t.ink, chip: dark ? `${t.ink}33` : `${t.ink}1A` };
+  return { wash: dark ? `${t.ink}22` : t.wash, ink: t.ink, chip: dark ? `${t.ink}33` : `${t.ink}1A`, edge: dark ? `${t.ink}40` : `${t.ink}33` };
 }
 
 function Chip({ icon, text, color, bg }: { icon: IconName; text: string; color: string; bg: string }) {
@@ -80,7 +82,7 @@ function Chip({ icon, text, color, bg }: { icon: IconName; text: string; color: 
   );
 }
 
-/** A page as a soft coloured card: its mark and title, the start of the page, and chips for when it
+/** A page as a coloured card: its mark and title, the start of the page, and chips for when it
  *  changed and its first tag. `wide` cards fill the row; the others sit in a sideways list. */
 export function NoteCard({ page, index, wide, onPress, onLongPress }: { page: Page; index: number; wide?: boolean; onPress: () => void; onLongPress: () => void }) {
   const p = usePalette();
@@ -97,25 +99,34 @@ export function NoteCard({ page, index, wide, onPress, onLongPress }: { page: Pa
       }}
       onLongPress={onLongPress}
       delayLongPress={350}
-      style={({ pressed }) => [styles.note, wide ? { alignSelf: "stretch" } : { width: 248 }, { backgroundColor: c.wash, transform: [{ scale: pressed ? 0.985 : 1 }] }, p.dark && lift(p)]}
+      // The shadow sits out here, so the inner view can clip the corner glow and the mark. Android only
+      // draws a shadow under a view with a background, hence the panel colour on this one too.
+      style={({ pressed }) => [styles.noteShell, wide ? { alignSelf: "stretch" } : { width: 248 }, { transform: [{ scale: pressed ? 0.985 : 1 }] }, !p.dark && [lift(p), { borderWidth: 0, backgroundColor: p.panel }]]}
     >
-      {/* The page's mark, large and faint in the corner, like an illustration. */}
-      <T style={[styles.noteArt, { color: c.ink }]} accessibilityElementsHidden importantForAccessibility="no">
-        {page.mark}
-      </T>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <T style={{ fontSize: 17, color: c.ink }}>{page.mark}</T>
-        <T v="headline" numberOfLines={1} style={{ flex: 1, fontWeight: "700" }}>
-          {displayTitle(page)}
+      <View style={[styles.note, { backgroundColor: p.dark ? c.wash : p.panel, borderColor: c.edge }]}>
+        {/* On light themes the card is white, with its colour glowing in from the top corner, so it stands
+            off the coloured background instead of melting into it. */}
+        {!p.dark && <LinearGradient colors={[c.wash, `${c.wash}00`]} start={{ x: 0, y: 0 }} end={{ x: 0.85, y: 1 }} style={StyleSheet.absoluteFill} />}
+        {/* The page's mark, large and faint in the corner, like an illustration. */}
+        <T style={[styles.noteArt, { color: c.ink }]} accessibilityElementsHidden importantForAccessibility="no">
+          {page.mark}
         </T>
-        {page.favorite ? <Icon name="star" size={14} color={p.warn} /> : null}
-      </View>
-      <T v="footnote" tone="ink2" numberOfLines={wide ? 2 : 1} style={{ marginTop: 6 }}>
-        {line || "Empty page"}
-      </T>
-      <View style={{ flexDirection: "row", gap: 6, marginTop: space.md }}>
-        <Chip icon="calendar-clear-outline" text={timeAgo(page.updatedAt)} color={c.ink} bg={c.chip} />
-        {tag ? <Chip icon="pricetag-outline" text={tag} color="#fff" bg={p.dark ? `${c.ink}AA` : c.ink} /> : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View style={[styles.noteMark, { backgroundColor: p.dark ? c.chip : "#FFFFFF", borderColor: c.edge }]}>
+            <T style={{ fontSize: 16, lineHeight: 20, color: c.ink }}>{page.mark}</T>
+          </View>
+          <T v="headline" numberOfLines={1} style={{ flex: 1, fontWeight: "700" }}>
+            {displayTitle(page)}
+          </T>
+          {page.favorite ? <Icon name="star" size={15} color={p.warn} /> : null}
+        </View>
+        <T v="footnote" tone="ink2" numberOfLines={wide ? 2 : 1} style={{ marginTop: 8 }}>
+          {line || "Empty page"}
+        </T>
+        <View style={{ flexDirection: "row", gap: 6, marginTop: space.md }}>
+          <Chip icon="calendar-clear-outline" text={timeAgo(page.updatedAt)} color={c.ink} bg={c.chip} />
+          {tag ? <Chip icon="pricetag-outline" text={tag} color="#fff" bg={p.dark ? `${c.ink}AA` : c.ink} /> : null}
+        </View>
       </View>
     </Pressable>
   );
@@ -274,7 +285,9 @@ export function ViewToggle({ grid, onChange }: { grid: boolean; onChange: (grid:
 
 const styles = StyleSheet.create({
   favorite: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md + 2, borderRadius: 18 },
-  note: { padding: space.lg, borderRadius: 24, overflow: "hidden" },
+  noteShell: { borderRadius: 24 },
+  note: { padding: space.lg, borderRadius: 24, borderWidth: 1, overflow: "hidden" },
+  noteMark: { width: 32, height: 32, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   noteArt: { position: "absolute", right: -6, bottom: -22, fontSize: 96, lineHeight: 110, opacity: 0.08 },
   chip: { flexDirection: "row", alignItems: "center", gap: 4, height: 24, paddingHorizontal: 9, borderRadius: 8, maxWidth: 150 },
   toggle: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },

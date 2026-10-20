@@ -101,8 +101,11 @@ function Shortcut({ icon, label, color, wash, badge, onPress }: { icon: IconName
       }}
       style={({ pressed }) => [{ flex: 1, alignItems: "center", gap: 8, transform: [{ scale: pressed ? 0.94 : 1 }] }]}
     >
-      <View style={[styles.shortcut, { backgroundColor: p.dark ? `${color}26` : wash }]}>
-        <Icon name={icon} size={26} color={color} />
+      {/* On light themes a white tile lifts off the coloured background; the colour sits on the icon's pad. */}
+      <View style={[styles.shortcut, p.dark ? { backgroundColor: `${color}26` } : [{ backgroundColor: p.panel }, lift(p)]]}>
+        <View style={[styles.shortcutPad, { backgroundColor: p.dark ? "transparent" : wash }]}>
+          <Icon name={icon} size={24} color={color} />
+        </View>
       </View>
       <T v="footnote" tone="ink2" numberOfLines={1} style={{ fontWeight: "600" }}>
         {label}
@@ -321,14 +324,14 @@ export function HomeScreen() {
             {/* Shortcuts */}
             <Heading title="Shortcuts" />
             <View style={{ flexDirection: "row", gap: space.sm }}>
-              <Shortcut icon="sunny" label="Journal" color="#F59E0B" wash="#FFF3D9" onPress={() => openJournal(open)} />
-              <Shortcut icon="color-palette" label="Whiteboard" color="#3B82F6" wash="#E5F0FF" onPress={() => open(store.createPage({ kind: "board" }))} />
-              <Shortcut icon="albums" label="Templates" color="#8B5CF6" wash="#F0EAFF" onPress={() => router.push("/templates")} />
+              <Shortcut icon="sunny" label="Journal" color="#F59E0B" wash="#FFEBC2" onPress={() => openJournal(open)} />
+              <Shortcut icon="color-palette" label="Whiteboard" color="#3B82F6" wash="#D9E8FF" onPress={() => open(store.createPage({ kind: "board" }))} />
+              <Shortcut icon="albums" label="Templates" color="#8B5CF6" wash="#E7DEFF" onPress={() => router.push("/templates")} />
               <Shortcut
                 icon="trash"
                 label="Trash"
                 color="#EC4899"
-                wash="#FFE8F2"
+                wash="#FFDDEB"
                 badge={trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "empty"}
                 onPress={() => router.push("/trash")}
               />
@@ -504,6 +507,7 @@ const styles = StyleSheet.create({
 
   heading: { flexDirection: "row", alignItems: "flex-end", marginTop: space.xl + 4, marginBottom: space.md, paddingHorizontal: 2 },
   shortcut: { width: "100%", aspectRatio: 1, maxWidth: 84, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  shortcutPad: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 
   tag: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 999 },
   allHeader: { flexDirection: "row", alignItems: "center", marginTop: space.xl + 4, marginBottom: space.md, paddingHorizontal: 2 },

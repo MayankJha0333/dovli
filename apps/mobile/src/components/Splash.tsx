@@ -12,7 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as SplashScreen from "expo-splash-screen";
 
 /** Must match the expo-splash-screen settings in app.json. */
-export const SPLASH = { light: "#EDEFF4", dark: "#08090B", imageWidth: 200 } as const;
+export const SPLASH = { light: "#F1F0F8", dark: "#08090B", imageWidth: 200 } as const;
 
 // Its class typings fail React 19's JSX element check; the component itself works.
 const MaskedView = MaskedViewNative as unknown as ComponentType<ViewProps & { maskElement: ReactElement }>;

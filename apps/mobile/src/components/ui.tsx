@@ -131,9 +131,12 @@ export function Label({ children, style }: { children: ReactNode; style?: StyleP
 /** Depth for a raised surface: a soft shadow in light themes, a hairline edge in dark ones. */
 export function lift(p: Palette, level: 1 | 2 = 1): ViewStyle {
   if (p.dark) return { borderWidth: StyleSheet.hairlineWidth, borderColor: p.lineStrong };
+  // Glass themes get the bright rim their web cards have, so a card reads as frosted glass.
+  const glass = p.t.blur.panel > 0;
   return {
-    shadowColor: "#1B1E2E",
-    shadowOpacity: level === 1 ? 0.06 : 0.12,
+    ...(glass && { borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(255,255,255,0.95)" }),
+    shadowColor: glass ? "#323C6E" : "#28206E",
+    shadowOpacity: level === 1 ? 0.07 : 0.13,
     shadowRadius: level === 1 ? 12 : 24,
     shadowOffset: { width: 0, height: level === 1 ? 4 : 12 },
     elevation: level === 1 ? 2 : 6,
