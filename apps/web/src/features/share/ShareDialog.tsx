@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { displayTitle, type Page } from "@dovli/core";
-import { Button, Dialog, Icon, Input, MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger, Segmented, Spinner, Switch, cn, toast, type IconName } from "@dovli/ui";
+import { Button, Dialog, Icon, Input, MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger, Segmented, Spinner, Switch, cn, modKey, toast, type IconName } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
 import { linkUrl, share, sharingOn, type SharePerson, type ShareRole, type ShareSettings } from "@/lib/share";
 import { useStore } from "@/lib/store";
@@ -103,8 +103,6 @@ function SharePanel({ page }: { page: Page }) {
       </div>
     );
 
-  const link = s?.link;
-  const linkOn = !!link?.enabled;
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim());
 
   return (
@@ -162,71 +160,135 @@ function SharePanel({ page }: { page: Page }) {
 
       {/* Invitation link */}
       {s && (
-        <section aria-labelledby="share-link" className="flex flex-col gap-3 rounded-lg bg-well p-4">
-          <div className="flex items-start gap-3">
-            <span className="mt-0.5 grid size-8 flex-none place-items-center rounded-md bg-accent-soft text-accent" aria-hidden="true">
-              <Icon name="link" size={16} />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h3 id="share-link" className="m-0 text-base font-semibold text-ink">
-                Invitation link
-              </h3>
-              <p className="m-0 text-sm text-ink-3">
-                {!linkOn ? "Off. Only the people above can open this page." : link!.role === "editor" ? "Anyone with the link can edit. Editing needs a Dovli account." : "Anyone with the link can view. No account needed."}
-              </p>
-            </div>
-            <Switch
-              label="Invitation link"
-              checked={linkOn}
-              disabled={busy === "link"}
-              onCheckedChange={async (v) => {
-                const l = await run("link", () => share.setLink(page.id, { enabled: v }));
-                if (l) setS({ ...s, link: l });
-              }}
-            />
-          </div>
-          {linkOn && link && (
-            <div className="flex flex-wrap items-center gap-2 pl-11">
-              <RoleMenu
-                value={link.role}
-                label="What people with the link can do"
-                onChange={async (r) => {
-                  if (!r) return;
-                  const l = await run("link", () => share.setLink(page.id, { role: r }));
-                  if (l) setS({ ...s, link: l });
-                }}
-              />
-              <Button
-                icon="copy"
-                onClick={async () => {
-                  await navigator.clipboard?.writeText(linkUrl(link.id)).catch(() => {});
-                  toast("Link copied");
-                }}
-              >
-                Copy link
-              </Button>
-              <button
-                type="button"
-                className="ml-auto rounded-sm text-sm font-semibold text-accent hover:underline"
-                onClick={async () => {
-                  const l = await run("link", () => share.setLink(page.id, { reset: true }));
-                  if (l) {
-                    setS({ ...s, link: l });
-                    toast("New link made. The old one no longer works.");
-                  }
-                }}
-              >
-                Make a new link
-              </button>
-            </div>
-          )}
-        </section>
+        <LinkSection
+          link={s.link}
+          busy={busy === "link"}
+          onChange={async (change) => {
+            const l = await run("link", () => share.setLink(page.id, change));
+            if (l) setS({ ...s, link: l });
+            return !!l;
+          }}
+        />
       )}
 
       <p role="alert" aria-live="assertive" className="m-0 text-sm text-danger empty:hidden">
         {error}
       </p>
     </div>
+  );
+}
+
+type LinkChange = { enabled?: boolean; role?: ShareRole; reset?: boolean };
+
+/** The invitation link: on or off, what it lets people do, the link itself to copy, and a way to replace it. */
+function LinkSection({ link, busy, onChange }: { link: ShareSettings["link"]; busy: boolean; onChange: (c: LinkChange) => Promise<boolean> }) {
+  const on = !!link?.enabled;
+  const url = link ? linkUrl(link.id) : "";
+  const [copied, setCopied] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const field = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 1800);
+    return () => clearTimeout(t);
+  }, [copied]);
+  useEffect(() => setConfirmReset(false), [on]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+    } catch {
+      // No clipboard access (an insecure page, or the browser said no): select it to copy by hand.
+      field.current?.select();
+      toast(`Couldn't copy it. The link is selected, so press ${modKey()}C.`);
+    }
+  }
+
+  return (
+    <section aria-labelledby="share-link" className="flex flex-col gap-3 rounded-lg bg-well p-4">
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 grid size-8 flex-none place-items-center rounded-md bg-accent-soft text-accent" aria-hidden="true">
+          <Icon name="link" size={16} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 id="share-link" className="m-0 text-base font-semibold text-ink">
+            Invitation link
+          </h3>
+          <p className="m-0 text-sm text-ink-3">{on ? "Anyone with the link can open this page." : "Off. Only the people above can open this page."}</p>
+        </div>
+        <Switch label="Invitation link" checked={on} disabled={busy} onCheckedChange={(v) => void onChange({ enabled: v })} />
+      </div>
+
+      {on && link && (
+        <div className="flex flex-col gap-2.5 pl-11 max-[640px]:pl-0">
+          <div className="flex h-10 items-center gap-1 rounded-md bg-panel pl-3 pr-1 shadow-[inset_0_0_0_1px_var(--d-line)] has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-accent">
+            <input
+              ref={field}
+              readOnly
+              value={url}
+              aria-label="Invitation link"
+              onFocus={(e) => e.currentTarget.select()}
+              className="min-w-0 flex-1 truncate bg-transparent text-sm text-ink-2 outline-none"
+            />
+            <Button
+              size="sm"
+              variant={copied ? "ghost" : "secondary"}
+              icon={copied ? "check" : "copy"}
+              onClick={() => void copy()}
+              aria-live="polite"
+              className={cn("flex-none", copied && "text-accent")}
+            >
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
+
+          {confirmReset ? (
+            <div role="group" aria-label="Reset the link" className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="flex min-w-0 flex-[1_1_220px] items-start gap-2 text-sm text-ink-2">
+                <Icon name="alert" size={15} className="mt-0.5 flex-none text-danger" />
+                The current link will stop working for everyone who has it.
+              </span>
+              <span className="ml-auto flex gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setConfirmReset(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={busy}
+                  onClick={async () => {
+                    if (await onChange({ reset: true })) {
+                      setConfirmReset(false);
+                      toast("New link made. The old one no longer works.");
+                    }
+                  }}
+                >
+                  {busy ? "Resetting…" : "Reset link"}
+                </Button>
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <RoleMenu
+                value={link.role}
+                size="sm"
+                withIcon
+                disabled={busy}
+                className="-ml-2 flex-none font-semibold text-ink"
+                label="What people with the link can do"
+                onChange={(r) => r && void onChange({ role: r })}
+              />
+              <span className="min-w-0 flex-1 text-xs leading-snug text-ink-3">{link.role === "editor" ? "Editing needs a Dovli account" : "No account needed"}</span>
+              <Button size="sm" variant="ghost" className="-mr-2 flex-none text-ink-3" disabled={busy} onClick={() => setConfirmReset(true)}>
+                Reset link
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -259,11 +321,13 @@ function PersonRow({ person: p, you, busy, onRole }: { person: SharePerson; you:
   );
 }
 
-function RoleMenu({ value, onChange, label, removable }: { value: ShareRole; onChange: (r: ShareRole | null) => void; label: string; removable?: boolean }) {
+/** `withIcon` shows the role's icon (an eye or a pencil) before its name. */
+function RoleMenu({ value, onChange, label, removable, size, disabled, className, withIcon }: { value: ShareRole; onChange: (r: ShareRole | null) => void; label: string; removable?: boolean; size?: "sm" | "md"; disabled?: boolean; className?: string; withIcon?: boolean }) {
   return (
     <MenuRoot>
-      <MenuTrigger asChild>
-        <Button variant="ghost" aria-label={`${label}: ${ROLE_TEXT[value]}`} className="gap-1 whitespace-nowrap">
+      <MenuTrigger asChild disabled={disabled}>
+        <Button variant="ghost" size={size} aria-label={`${label}: ${ROLE_TEXT[value]}`} className={cn("gap-1 whitespace-nowrap", className)}>
+          {withIcon && <Icon name={value === "viewer" ? "eye" : "pencil"} size={14} className="text-ink-3" />}
           {ROLE_TEXT[value]}
           <Icon name="chevronDown" size={14} className="text-ink-3" />
         </Button>
