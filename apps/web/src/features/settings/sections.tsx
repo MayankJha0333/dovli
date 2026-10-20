@@ -358,6 +358,15 @@ export function SyncBackups() {
 /* Import and export                                                   */
 /* ------------------------------------------------------------------ */
 
+/** How to get pages out of each app, in a form the importer reads. */
+const EXPORT_STEPS = [
+  ["Notion", "Settings → Export all workspace content, as “Markdown & CSV” or HTML. Drop the .zip here."],
+  ["Evernote", "Select notes or a notebook → Export → ENEX (.enex). Drop one or more .enex files."],
+  ["Confluence", "Space settings → Export space → HTML. Drop the .zip here."],
+  ["Craft", "Export a document or folder as Markdown or TextBundle. Drop the files or the .zip."],
+  ["OneNote", "On Windows: File → Export → Page or Section, as Word (.docx) or Single File Web Page (.mht)."],
+] as const;
+
 export function Data() {
   const [busy, setBusy] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
@@ -385,7 +394,7 @@ export function Data() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Group title="Import" description="Bring pages in from Notion, Obsidian or any Markdown files. Pictures come along.">
+      <Group title="Import" description="Bring pages in from Notion, Evernote, Confluence, Craft, OneNote, Obsidian, Word or Markdown. Pictures and files come along.">
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -409,7 +418,7 @@ export function Data() {
               <Icon name="importIcon" size={24} className="text-ink-3" />
               <p className="m-0 text-base font-medium text-ink">Drop files here</p>
               <p className="m-0 max-w-[48ch] text-sm text-ink-3">
-                A Notion export (.zip, choose “Markdown & CSV”), Markdown files (.md), CSV tables (.csv), a folder of them, or a Dovli backup (.json).
+                An export from another app (below), Markdown (.md), Word (.docx), web pages (.html), CSV tables, a folder or .zip of them, or a Dovli backup (.json).
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 <Button variant="primary" icon="upload" onClick={() => files.current?.click()}>
@@ -421,7 +430,7 @@ export function Data() {
               </div>
             </>
           )}
-          <input ref={files} type="file" multiple accept=".md,.markdown,.txt,.zip,.json,.csv" className="sr-only" onChange={(e) => void run([...(e.target.files ?? [])]).then(() => (e.target.value = ""))} />
+          <input ref={files} type="file" multiple accept=".md,.markdown,.txt,.zip,.json,.csv,.html,.htm,.docx,.mht,.mhtml,.doc,.enex" className="sr-only" onChange={(e) => void run([...(e.target.files ?? [])]).then(() => (e.target.value = ""))} />
           <input
             ref={folder}
             type="file"
@@ -431,6 +440,13 @@ export function Data() {
             onChange={(e) => void run([...(e.target.files ?? [])]).then(() => (e.target.value = ""))}
           />
         </div>
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-sm text-ink-3">
+          {EXPORT_STEPS.map(([app, how]) => (
+            <li key={app}>
+              <span className="font-medium text-ink-2">{app}:</span> {how}
+            </li>
+          ))}
+        </ul>
       </Group>
       <Group title="Export" description="Your pages are yours. Take them anywhere, any time.">
         <Row label="Everything" hint="A ZIP with every page as Markdown and as a web page, your pictures and files, and a full backup.">

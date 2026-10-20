@@ -1,14 +1,16 @@
 // Moving pages in and out of Dovli.
 // Export: one page as Markdown or HTML, or the whole workspace as a ZIP (Markdown + HTML + files +
 // a full backup). PDF export is in ./pdf.
-// Import: Markdown files, folders of them, Notion exports (ZIP), and Dovli backups.
+// Import: Markdown, CSV, web pages, Word documents and web archives (and folders and ZIPs of them),
+// which covers Notion, Craft and OneNote exports; Evernote (.enex); Confluence space exports; Dovli backups.
 
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from "fflate";
 import { nanoid } from "nanoid";
-import { displayTitle, childrenOf, fileIdFromUrl, type Page } from "@dovli/core";
+import { displayTitle, childrenOf, fileIdFromUrl, withBlockIds, type Page } from "@dovli/core";
 import { getStyle } from "@dovli/theme";
 import { backupFile, parseBackupFile } from "./backups";
 import { getFile, saveFile } from "./files";
+import { confluencePage, confluenceTree, finishBlocks, isConfluencePage, mhtPart, parseEnex, parseHtml, parseMht, tidy } from "./importers";
 import { store } from "./store";
 
 const convert = () => import("@dovli/editor/convert");
@@ -345,16 +347,23 @@ export interface ImportResult {
   pages: number;
   files: number;
   rootId: string | null;
-  kind: "markdown" | "notion" | "backup";
+  kind: "files" | "notion" | "evernote" | "confluence" | "onenote" | "backup";
 }
 
+const FROM: Partial<Record<ImportResult["kind"], string>> = { notion: "Notion", evernote: "Evernote", confluence: "Confluence", onenote: "OneNote" };
+
 const NOTION_ID = /\s+[0-9a-f]{32}$/i;
+/** Files that become pages. A .doc counts only when it's a web archive (as Confluence's "Export to Word" makes). */
+const DOC = /\.(md|markdown|txt|csv|html?|docx|mht|mhtml|doc)$/i;
 const titleFromPath = (path: string) => {
-  const base = path.split("/").pop()!.replace(/\.(md|markdown|txt|csv)$/i, "");
+  const base = withoutExt(path.split("/").pop()!);
   return base.replace(NOTION_ID, "").trim() || "Untitled";
 };
 const dirOf = (path: string) => path.split("/").slice(0, -1).join("/");
-const withoutExt = (path: string) => path.replace(/\.(md|markdown|txt)$/i, "");
+const withoutExt = (path: string) => path.replace(/\.(md|markdown|txt|csv|html?|docx|mht|mhtml|doc|enex)$/i, "");
+/** Where a document's page sits in the tree. A TextBundle (Craft, Bear) is a folder holding text.md and its pictures. */
+const keyOf = (path: string) => withoutExt(path.replace(/\.textbundle\/text\.(md|markdown|txt)$/i, ""));
+const isWebArchive = (bytes: Uint8Array) => /^(MIME-Version|Content-Type|From|Subject|Date):/im.test(strFromU8(bytes.subarray(0, 600), true));
 
 function normalizePath(path: string) {
   const out: string[] = [];
@@ -362,6 +371,24 @@ function normalizePath(path: string) {
     if (part === "..") out.pop();
     else if (part && part !== ".") out.push(part);
   }
+  return out.join("/");
+}
+
+const decodePath = (s: string) => {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+};
+/** A link or src in a file, as the path of the file it points at. */
+const resolvePath = (from: string, ref: string) => normalizePath(`${dirOf(from)}/${decodePath(ref.replace(/[?#].*$/, ""))}`);
+
+/** The folder every path is in (none when they don't share one). */
+function commonDir(paths: string[]) {
+  const parts = paths.map((p) => dirOf(p).split("/"));
+  const out: string[] = [];
+  for (let i = 0; parts.every((p) => p[i] && p[i] === parts[0][i]); i++) out.push(parts[0][i]);
   return out.join("/");
 }
 
@@ -433,6 +460,115 @@ async function collect(files: File[]): Promise<Map<string, Uint8Array>> {
 }
 
 const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", svg: "image/svg+xml", pdf: "application/pdf", mp4: "video/mp4", mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav" };
+const mimeOf = (name: string) => MIME[name.split(".").pop()!.toLowerCase()] ?? "application/octet-stream";
+
+/** One import's stored files: each stored once, with its name kept for file blocks. */
+function session(entries: Map<string, Uint8Array>) {
+  const names = new Map<string, string>();
+  const saved = new Map<string, Promise<string | null>>();
+  let files = 0;
+  const save = (key: string, bytes: Uint8Array, name: string, type?: string) => {
+    if (!saved.has(key))
+      saved.set(
+        key,
+        saveFile(new Blob([bytes as BlobPart], { type: type || mimeOf(name) }), name).then(
+          (url) => {
+            names.set(url, name);
+            files++;
+            return url;
+          },
+          // Too big for Dovli: the rest of the import goes on without it.
+          () => null,
+        ),
+      );
+    return saved.get(key)!;
+  };
+  return {
+    names,
+    save,
+    /** A file from the export by its path. Pages are never stored as files. */
+    asset: (path: string) => {
+      const bytes = entries.get(path);
+      return bytes && !DOC.test(path) ? save(path, bytes, path.split("/").pop()!) : Promise.resolve(null);
+    },
+    get files() {
+      return files;
+    },
+  };
+}
+type Session = ReturnType<typeof session>;
+
+/**
+ * HTML as blocks. `asset` stores a picture or file the page uses and gives its address (null leaves it out);
+ * `page` gives the id of another imported page a link points at.
+ */
+async function htmlBlocks(html: string, ses: Session, asset: (src: string) => Promise<string | null>, page: (href: string, link: Element) => string | null | undefined = () => null) {
+  const { htmlToBlocks } = await convert();
+  const doc = parseHtml(html);
+  for (const el of [...doc.body.querySelectorAll("img,audio,video,embed,source")]) {
+    const src = el.getAttribute("src") ?? "";
+    if (/^(https?:|data:|dovli-file:)/i.test(src)) continue;
+    const url = src ? await asset(src) : null;
+    if (url) el.setAttribute("src", url);
+    else el.remove();
+  }
+  for (const a of [...doc.body.querySelectorAll("a[href]")]) {
+    const href = a.getAttribute("href")!;
+    if (/^(https?:|mailto:|tel:|#)/i.test(href)) continue;
+    const id = page(href, a);
+    if (id) {
+      a.setAttribute("href", `#p-${id}`);
+      continue;
+    }
+    const url = /^[a-z][\w+.-]*:/i.test(href) && !/^(file|cid):/i.test(href) ? null : await asset(href);
+    if (!url) continue;
+    // A link to an attached file becomes the file itself; a picture that links to its original stays a picture.
+    if (a.querySelector("img")) a.replaceWith(...a.childNodes);
+    else {
+      const embed = doc.createElement("embed");
+      embed.setAttribute("src", url);
+      const name = a.textContent?.trim();
+      if (name && /\.\w{2,5}$/.test(name)) ses.names.set(url, name);
+      a.replaceWith(embed);
+    }
+  }
+  tidy(doc.body);
+  return finishBlocks(htmlToBlocks(doc.body.innerHTML), ses.names);
+}
+
+interface Draft {
+  key: string;
+  parent: string | null;
+  title: string;
+  blocks: any[];
+  createdAt?: number;
+}
+
+/** The imported pages, all inside one new page so they land in one tidy place. */
+function addDrafts(kind: ImportResult["kind"], drafts: Draft[], idFor: Map<string, string>, ses: Session): ImportResult {
+  const root = store.createPage({ title: FROM[kind] ? `Imported from ${FROM[kind]}, ${today()}` : `Imported, ${today()}`, mark: "⇣" });
+  const now = Date.now();
+  const made: Page[] = drafts.map((d, i) => {
+    const id = idFor.get(d.key)!;
+    return {
+      id,
+      parentId: (d.parent && idFor.get(d.parent)) || root.id,
+      kind: "doc",
+      title: d.title,
+      mark: "¶",
+      blocks: withBlockIds(d.blocks, id),
+      createdAt: d.createdAt ?? now,
+      updatedAt: now,
+      order: i,
+    };
+  });
+  // Open every imported page that has pages inside, so the new tree is visible straight away.
+  const parents = new Set(made.map((p) => p.parentId));
+  for (const p of made) if (parents.has(p.id)) p.expanded = true;
+  store.addPages(made);
+  store.updatePage(root.id, { expanded: true }, false);
+  return { pages: made.length, files: ses.files, rootId: root.id, kind };
+}
 
 export async function importFiles(files: File[], onProgress?: (msg: string) => void): Promise<ImportResult> {
   // A Dovli backup on its own.
@@ -451,84 +587,174 @@ export async function importFiles(files: File[], onProgress?: (msg: string) => v
     return { pages: Object.keys(pages).length, files: 0, rootId: null, kind: "backup" };
   }
 
-  const mdPaths = [...entries.keys()].filter((k) => /\.(md|markdown|txt)$/i.test(k)).sort();
-  const csvPaths = [...entries.keys()].filter((k) => /\.csv$/i.test(k) && !/_all\.csv$/i.test(k));
-  if (!mdPaths.length && !csvPaths.length) throw new Error("No Markdown, CSV or Dovli backup files found. Choose .md files, a folder of them, or a Notion export (.zip).");
-  const notion = [...entries.keys()].some((k) => NOTION_ID.test(withoutExt(k.split("/").pop()!)));
+  const ses = session(entries);
+  const paths = [...entries.keys()];
+  if (paths.some((k) => /\.enex$/i.test(k))) return importEvernote(entries, ses, onProgress);
+  const space = paths.find(
+    (k) => /(^|\/)index\.html$/i.test(k) && paths.some((p) => p !== k && dirOf(p) === dirOf(k) && /\.html$/i.test(p) && isConfluencePage(strFromU8(entries.get(p)!))),
+  );
+  if (space) return importConfluence(entries, ses, space, onProgress);
+  return importDocuments(entries, ses, onProgress);
+}
+
+/** Markdown, CSV, web pages, Word and web archives, with folders as the page tree: Notion, Craft, Obsidian, OneNote… */
+async function importDocuments(entries: Map<string, Uint8Array>, ses: Session, onProgress?: (msg: string) => void): Promise<ImportResult> {
+  const docs = [...entries.keys()].filter((k) => DOC.test(k) && !/_all\.csv$/i.test(k) && (!/\.doc$/i.test(k) || isWebArchive(entries.get(k)!))).sort();
+  if (!docs.length)
+    throw new Error("Nothing to import here. Choose a Notion, Evernote, Confluence or Craft export, Markdown, Word or web page files, a folder of them, or a Dovli backup.");
+  const notion = docs.some((k) => NOTION_ID.test(keyOf(k).split("/").pop()!));
   const { markdownToBlocks } = await convert();
 
-  // One page to hold everything that was imported, so it lands in one tidy place.
-  const root = store.createPage({ title: notion ? `Imported from Notion, ${today()}` : `Imported, ${today()}`, mark: "⇣" });
-  const idFor = new Map<string, string>(); // path without extension → page id
-  for (const p of [...mdPaths, ...csvPaths]) idFor.set(withoutExt(p).replace(/\.csv$/i, ""), nanoid(10));
+  const idFor = new Map<string, string>(); // page key (path without extension) → page id
+  for (const p of docs) idFor.set(keyOf(p), nanoid(10));
+  // A folder without a page of its own (in a Craft or Obsidian export) becomes one, so the tree stays.
+  // The folder around everything doesn't.
+  const top = commonDir(docs.map(keyOf));
+  const drafts: Draft[] = [];
+  for (const p of docs)
+    for (let d = dirOf(keyOf(p)); d.length > top.length && !idFor.has(d); d = dirOf(d)) {
+      idFor.set(d, nanoid(10));
+      drafts.push({ key: d, parent: dirOf(d), title: titleFromPath(d), blocks: [] });
+    }
 
-  let fileCount = 0;
-  const fileCache = new Map<string, string>();
-  const storeAsset = async (path: string): Promise<string | null> => {
-    if (fileCache.has(path)) return fileCache.get(path)!;
-    const bytes = entries.get(path);
-    if (!bytes) return null;
-    const ext = path.split(".").pop()!.toLowerCase();
-    const url = await saveFile(new Blob([bytes as BlobPart], { type: MIME[ext] ?? "application/octet-stream" }), path.split("/").pop()!);
-    fileCache.set(path, url);
-    fileCount++;
-    return url;
+  const linkedPage = (from: string) => (href: string) => {
+    const target = resolvePath(from, href);
+    return DOC.test(target) ? idFor.get(keyOf(target)) : null;
   };
-
-  const now = Date.now();
-  const made: Page[] = [];
-  const all = [...mdPaths, ...csvPaths];
-  for (let i = 0; i < all.length; i++) {
-    const path = all[i];
-    onProgress?.(`Importing ${i + 1} of ${all.length}`);
-    const key = withoutExt(path).replace(/\.csv$/i, "");
-    const title = titleFromPath(path);
-    const parentKey = dirOf(path);
-    const parentId = idFor.get(parentKey) ?? root.id;
+  let onenote = false;
+  for (let i = 0; i < docs.length; i++) {
+    const path = docs[i];
+    onProgress?.(`Importing ${i + 1} of ${docs.length}`);
+    const key = keyOf(path);
+    const title = titleFromPath(key);
+    const bytes = entries.get(path)!;
     let blocks: any[];
     if (/\.csv$/i.test(path)) {
-      blocks = [csvToTableBlock(parseCsv(strFromU8(entries.get(path)!)))];
-    } else {
-      let md = strFromU8(entries.get(path)!);
+      blocks = [csvToTableBlock(parseCsv(strFromU8(bytes)))];
+    } else if (/\.(md|markdown|txt)$/i.test(path)) {
+      let md = strFromU8(bytes);
       // Pictures and files next to the Markdown come along.
       const refs = [...md.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)].map((m) => m[1]);
       for (const ref of refs) {
         if (/^(https?:|data:|mailto:|#)/i.test(ref)) continue;
-        const target = normalizePath(`${dirOf(path)}/${decodeURIComponent(ref)}`);
-        if (/\.(md|markdown|csv)$/i.test(target)) {
-          const linked = idFor.get(withoutExt(target).replace(/\.csv$/i, ""));
+        const target = resolvePath(path, ref);
+        if (DOC.test(target)) {
+          const linked = idFor.get(keyOf(target));
           if (linked) md = md.split(`(${ref})`).join(`(#p-${linked})`);
           continue;
         }
-        const url = await storeAsset(target);
+        const url = await ses.asset(target);
         if (url) md = md.split(`(${ref})`).join(`(${url})`);
       }
-      // Notion repeats the title as the first heading.
-      md = md.replace(/^\uFEFF?#\s+(.+)\n+/, (m, h) => (h.trim() === title ? "" : m));
+      // Notion and Craft repeat the title as the first heading.
+      md = md.replace(/^﻿?#\s+(.+)\n+/, (m, h) => (h.trim() === title ? "" : m));
       // Pictures inside a sentence would be dropped: give each its own line, so it becomes an image block.
       md = md
         .replace(/([^\n])[ \t]*(!\[[^\]]*\]\([^)]+\))/g, "$1\n\n$2")
         .replace(/(!\[[^\]]*\]\([^)]+\))[ \t]*([^\n])/g, "$1\n\n$2");
-      blocks = markdownToBlocks(md);
+      blocks = finishBlocks(markdownToBlocks(md), ses.names);
+    } else if (/\.html?$/i.test(path)) {
+      const doc = parseHtml(strFromU8(bytes));
+      // Notion's HTML export keeps the page itself in .page-body, after a header with the title.
+      const body = doc.querySelector(".page-body") ?? doc.body;
+      const first = body.firstElementChild;
+      if (first?.tagName === "H1" && first.textContent?.trim() === title) first.remove();
+      blocks = await htmlBlocks(body.innerHTML, ses, (src) => ses.asset(resolvePath(path, src)), linkedPage(path));
+    } else if (/\.docx$/i.test(path)) {
+      blocks = await docxBlocks(bytes, ses);
+    } else {
+      const archive = parseMht(bytes);
+      if (/onenote/i.test(archive.generator)) onenote = true;
+      blocks = await htmlBlocks(archive.html, ses, async (src) => {
+        const part = mhtPart(archive.parts, src, archive.location);
+        if (!part) return null;
+        const name = decodePath(part.location.split(/[\\/]/).pop() || "file");
+        return ses.save(`${path}|${part.location || part.cid}`, part.bytes, name, part.type);
+      });
     }
-    made.push({
-      id: idFor.get(key)!,
-      parentId,
-      kind: "doc",
-      title,
-      mark: "¶",
-      blocks,
-      createdAt: now,
-      updatedAt: now,
-      order: i,
-    });
+    drafts.push({ key, parent: dirOf(key), title, blocks });
   }
-  // Open every imported page that has pages inside, so the new tree is visible straight away.
-  const parents = new Set(made.map((p) => p.parentId));
-  for (const p of made) if (parents.has(p.id)) p.expanded = true;
-  store.addPages(made);
-  store.updatePage(root.id, { expanded: true }, false);
-  return { pages: made.length, files: fileCount, rootId: root.id, kind: notion ? "notion" : "markdown" };
+  return addDrafts(onenote ? "onenote" : notion ? "notion" : "files", drafts, idFor, ses);
+}
+
+/** A Word document (OneNote exports pages and sections as these too). */
+async function docxBlocks(bytes: Uint8Array, ses: Session) {
+  const mammoth = await import("mammoth");
+  const { value } = await mammoth.convertToHtml(
+    { arrayBuffer: bytes.slice().buffer },
+    {
+      convertImage: mammoth.images.imgElement(async (image) => {
+        const type = image.contentType;
+        const url = await ses.save(nanoid(), new Uint8Array(await image.readAsArrayBuffer()), `picture.${type.split("/")[1] ?? "png"}`, type);
+        return { src: url ?? "" };
+      }),
+    },
+  );
+  return htmlBlocks(value, ses, async () => null);
+}
+
+/** Evernote: one or more .enex files, one per notebook. With several, each notebook becomes a page holding its notes. */
+async function importEvernote(entries: Map<string, Uint8Array>, ses: Session, onProgress?: (msg: string) => void): Promise<ImportResult> {
+  const books = [...entries.keys()].filter((k) => /\.enex$/i.test(k)).sort();
+  const idFor = new Map<string, string>();
+  const drafts: Draft[] = [];
+  if (books.length > 1)
+    for (const b of books) {
+      idFor.set(b, nanoid(10));
+      drafts.push({ key: b, parent: null, title: titleFromPath(b), blocks: [] });
+    }
+  const notes = books.flatMap((book) => parseEnex(strFromU8(entries.get(book)!)).map((note, i) => ({ book, note, key: `${book}#${i}` })));
+  if (!notes.length) throw new Error("No notes found in that Evernote export.");
+  // Links between notes are evernote:// addresses an export can't follow, so they're matched by the note's title.
+  const byTitle = new Map<string, string>();
+  for (const n of notes) {
+    idFor.set(n.key, nanoid(10));
+    if (!byTitle.has(n.note.title.toLowerCase())) byTitle.set(n.note.title.toLowerCase(), idFor.get(n.key)!);
+  }
+  for (let i = 0; i < notes.length; i++) {
+    const { book, note, key } = notes[i];
+    onProgress?.(`Importing ${i + 1} of ${notes.length}`);
+    const byHash = new Map(note.resources.map((r) => [r.hash, r]));
+    const blocks = await htmlBlocks(
+      note.html,
+      ses,
+      async (src) => {
+        const r = byHash.get(src.replace(/^enex:/, ""));
+        return r ? ses.save(`enex:${r.hash}`, r.bytes, r.name, r.mime) : null;
+      },
+      (href, a) => (/^evernote:/i.test(href) ? byTitle.get(a.textContent?.trim().toLowerCase() ?? "") : null),
+    );
+    // Dovli tags are written in the text.
+    const tags = note.tags.map((t) => `#${t.replace(/\s+/g, "-")}`).filter((t) => /^#\p{L}/u.test(t));
+    if (tags.length) blocks.push({ type: "paragraph", content: [{ type: "text", text: tags.join(" "), styles: {} }], children: [] });
+    drafts.push({ key, parent: books.length > 1 ? book : null, title: note.title, blocks, createdAt: note.created });
+  }
+  return addDrafts("evernote", drafts, idFor, ses);
+}
+
+/** Confluence: an HTML export of a space. The page tree comes from its index.html, or else each page's breadcrumbs. */
+async function importConfluence(entries: Map<string, Uint8Array>, ses: Session, index: string, onProgress?: (msg: string) => void): Promise<ImportResult> {
+  const dir = dirOf(index);
+  const at = (href: string) => resolvePath(index, href);
+  const tree = new Map([...confluenceTree(strFromU8(entries.get(index)!))].map(([page, parent]) => [at(page), parent && at(parent)]));
+  const inTree = [...tree.keys()].filter((p) => entries.has(p));
+  const rest = [...entries.keys()].filter((k) => dirOf(k) === dir && /\.html$/i.test(k) && k !== index && !tree.has(k)).sort();
+  const files = [...inTree, ...rest];
+  const idFor = new Map(files.map((f) => [f, nanoid(10)]));
+  const drafts: Draft[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const path = files[i];
+    onProgress?.(`Importing ${i + 1} of ${files.length}`);
+    const { title, parent, body } = confluencePage(strFromU8(entries.get(path)!));
+    const blocks = await htmlBlocks(
+      body,
+      ses,
+      (src) => ses.asset(resolvePath(path, src)),
+      (href) => idFor.get(resolvePath(path, href)),
+    );
+    drafts.push({ key: path, parent: tree.has(path) ? (tree.get(path) ?? null) : parent && at(parent), title, blocks });
+  }
+  return addDrafts("confluence", drafts, idFor, ses);
 }
 
 /** Is this address one of ours that points at a stored file? */

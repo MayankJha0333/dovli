@@ -59,7 +59,7 @@ export function CommandPalette() {
     { id: "trash", icon: "trash", title: "Open trash", keywords: "trash deleted restore bin", run: () => store.navigate({ name: "trash" }) },
     { id: "settings", icon: "settings", title: "Settings", keywords: "settings preferences options", shortcut: `${mod},`, run: () => ui.set({ settings: "appearance" }) },
     { id: "account", icon: "user", title: "Account and sign in", keywords: "account sign in login sync google apple email", run: () => ui.set({ settings: "account" }) },
-    { id: "import", icon: "importIcon", title: "Import from Notion or Markdown", keywords: "import notion markdown zip upload", run: () => ui.set({ settings: "data" }) },
+    { id: "import", icon: "importIcon", title: "Import from Notion, Evernote, Confluence…", keywords: "import notion evernote enex confluence craft onenote word docx markdown html zip upload", run: () => ui.set({ settings: "data" }) },
     { id: "export", icon: "download", title: "Export everything", keywords: "export download backup zip markdown html", run: () => void exportWorkspace() },
     { id: "shortcuts", icon: "keyboard", title: "Keyboard shortcuts", keywords: "keys shortcuts help", run: () => ui.set({ settings: "shortcuts" }) },
   ];
