@@ -41,7 +41,7 @@ function PdfView({ block, editor }: { block: any; editor: any }) {
   if (!url) {
     if (!editor.isEditable) return null;
     return (
-      <div className="my-1.5 flex w-full max-w-[540px] flex-col items-start gap-2.5 rounded-lg bg-well p-4 font-sans shadow-sm" contentEditable={false}>
+      <div data-print="hide" className="my-1.5 flex w-full max-w-[540px] flex-col items-start gap-2.5 rounded-lg bg-well p-4 font-sans shadow-sm" contentEditable={false}>
         <span className="flex items-center gap-2 text-sm font-semibold text-ink-2">
           <Icon name="pdf" size={15} />
           PDF

@@ -9,7 +9,7 @@
 
 @source "../";
 
-/* ---------- Print: "Export as PDF" prints just the page, in its style ---------- */
+/* ---------- Print: the browser's own Print (⌘P) prints just the page, in its style. Export as PDF is lib/pdf.ts ---------- */
 @media print {
   @page { margin: 16mm; }
   html, body { background: #fff !important; overflow: visible !important; height: auto !important; }

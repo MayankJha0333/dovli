@@ -239,7 +239,7 @@ function DataTableView({ block, editor }: { block: any; editor: any }) {
               );
             })}
             {editable && (
-              <th className="w-9 border-b border-line p-0">
+              <th className="w-9 border-b border-line p-0" data-print="hide">
                 <button type="button" onClick={addColumn} className="grid h-9 w-9 place-items-center text-ink-3 hover:bg-hover hover:text-ink" aria-label="Add column" title="Add column">
                   <Icon name="plus" size={14} />
                 </button>
@@ -256,7 +256,7 @@ function DataTableView({ block, editor }: { block: any; editor: any }) {
                 </td>
               ))}
               {editable && (
-                <td className="w-9 border-b border-line p-0">
+                <td className="w-9 border-b border-line p-0" data-print="hide">
                   <button
                     type="button"
                     onClick={() => removeRow(r.id)}
@@ -272,7 +272,7 @@ function DataTableView({ block, editor }: { block: any; editor: any }) {
         </tbody>
       </table>
       {editable && (
-        <button type="button" onClick={addRow} className="flex h-9 w-full items-center gap-2 px-3 text-sm text-ink-3 hover:bg-hover hover:text-ink">
+        <button type="button" onClick={addRow} data-print="hide" className="flex h-9 w-full items-center gap-2 px-3 text-sm text-ink-3 hover:bg-hover hover:text-ink">
           <Icon name="plus" size={13} />
           New row
         </button>

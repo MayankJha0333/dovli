@@ -1,6 +1,6 @@
 // Moving pages in and out of Dovli.
 // Export: one page as Markdown or HTML, or the whole workspace as a ZIP (Markdown + HTML + files +
-// a full backup). PDF export prints the page through the browser.
+// a full backup). PDF export is in ./pdf.
 // Import: Markdown files, folders of them, Notion exports (ZIP), and Dovli backups.
 
 import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from "fflate";
@@ -70,9 +70,55 @@ async function blobToDataUrl(blob: Blob) {
 const placeholder = (id: string) => `data:,dovli-file-${id}`;
 const fillPaths = (text: string, path: (id: string) => string) => text.replace(/data:,dovli-file-([\w-]+)/g, (_, id: string) => path(id));
 
-export async function pageMarkdown(page: Page, fileUrl: (id: string) => string = (id) => `files/${id}`): Promise<string> {
+/** A page in Dovli itself, for links to pages that aren't in the export. */
+const appLink = (id: string) => `${window.location.origin}/app#p-${id}`;
+
+/** Links to other pages come out of the converter as #p-<id>, which leads nowhere outside Dovli. */
+const linkPages = (text: string, to: (id: string) => string) => text.replace(/(\]\(|href=")#p-([\w-]+)/g, (_, lead: string, id: string) => lead + to(id));
+
+/** A relative path for a Markdown link or an href: each folder and name encoded, slashes kept. */
+const urlPath = (path: string) => path.split("/").map(encodeURIComponent).join("/");
+
+/** Every flowchart in the blocks drawn as SVG, by block id. Markdown, HTML and Word can't draw one themselves. */
+async function drawFlowcharts(blocks: any[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  const walk = async (list: any[]) => {
+    for (const b of list ?? []) {
+      if (b.type === "flowchart") {
+        await import("./excalidraw");
+        const { flowchartSvg } = await convert();
+        const svg = await flowchartSvg(b.props?.scene ?? "");
+        if (svg) out.set(b.id, svg);
+      }
+      await walk(b.children);
+    }
+  };
+  await walk(blocks);
+  return out;
+}
+
+/** Flowcharts swapped for pictures of themselves at `url(blockId)`. */
+function flowchartsAsPictures(blocks: any[], drawn: Map<string, string>, url: (id: string) => string): any[] {
+  if (!drawn.size) return blocks;
+  return (blocks ?? []).map((b) => {
+    const children = flowchartsAsPictures(b.children ?? [], drawn, url);
+    return b.type === "flowchart" && drawn.has(b.id) ? { id: b.id, type: "image", props: { url: url(b.id), name: "Flowchart", caption: "" }, children } : { ...b, children };
+  });
+}
+
+/**
+ * A page as Markdown. `fileUrl` places pictures and files (and drawn flowcharts, as "flowchart-<block id>"),
+ * `pageUrl` places links to other pages.
+ */
+export async function pageMarkdown(
+  page: Page,
+  fileUrl: (id: string) => string = (id) => `files/${id}`,
+  pageUrl: (id: string) => string = appLink,
+  drawn: Map<string, string> = new Map(),
+): Promise<string> {
   const { blocksToMarkdown } = await convert();
-  const body = page.kind === "doc" ? fillPaths(blocksToMarkdown(swapFileUrls(page.blocks ?? [], placeholder)), fileUrl) : "_This is a whiteboard. It is exported as an .excalidraw file next to this one._\n";
+  const blocks = flowchartsAsPictures(swapFileUrls(page.blocks ?? [], placeholder), drawn, (id) => placeholder(`flowchart-${id}`));
+  const body = page.kind === "doc" ? linkPages(fillPaths(blocksToMarkdown(blocks), fileUrl), pageUrl) : "_This is a whiteboard. It is exported as an .excalidraw file next to this one._\n";
   return `# ${displayTitle(page)}\n\n${body}`.trimEnd() + "\n";
 }
 
@@ -82,6 +128,8 @@ function htmlDocument(page: Page, bodyHtml: string) {
   const ink = s?.ink ?? "#15171d";
   const accent = s?.accent ?? "#5146d9";
   const title = displayTitle(page).replace(/</g, "&lt;");
+  // Lines are drawn in the page's own ink, faintly, so they show on dark page styles too.
+  const line = "color-mix(in srgb,currentColor 18%,transparent)";
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title>
@@ -89,15 +137,30 @@ function htmlDocument(page: Page, bodyHtml: string) {
 body{margin:0;background:${s ? "#eee" : paper};color:${ink};font:16px/1.7 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 main{max-width:720px;margin:40px auto;padding:56px 60px;background:${paper};border-radius:20px}
 h1,h2,h3{line-height:1.25}h1.page-title{font-size:2.4rem;margin:0 0 24px}
-a{color:${accent}}img,video{max-width:100%;border-radius:10px}
+a{color:${accent}}img,video,svg{max-width:100%;height:auto;border-radius:10px}
 blockquote{border-left:3px solid ${accent};margin:8px 0;padding:4px 14px;color:inherit;opacity:.9}
-pre,code{font-family:ui-monospace,Menlo,monospace}pre{background:rgba(0,0,0,.05);padding:14px;border-radius:10px;overflow:auto}
-table{border-collapse:collapse;width:100%}td,th{border:1px solid rgba(0,0,0,.12);padding:6px 10px;text-align:left}
+pre,code{font-family:ui-monospace,Menlo,monospace}pre{background:${line.replace("18%", "7%")};padding:14px;border-radius:10px;overflow:auto}
+table{border-collapse:collapse;width:100%}td,th{border:1px solid ${line};padding:6px 10px;text-align:left;vertical-align:top}th{font-weight:600}
+td p,th p,li>p,summary>p{margin:0}li{margin:.2em 0}
+li:has(>input[type=checkbox]){list-style:none;display:flex;gap:.55em;align-items:baseline;margin-left:-1.3em}
+li[data-checked="true"]>p{text-decoration:line-through;opacity:.6}
+li:has(>details){list-style:none;margin-left:-1.3em}summary>p{display:inline}
+hr{border:0;border-top:1px solid ${line};margin:20px 0}
 @media (max-width:640px){main{margin:0;padding:28px 18px;border-radius:0}}
 </style></head>
 <body><main><h1 class="page-title">${page.mark ? `${page.mark} ` : ""}${title}</h1>
 ${bodyHtml}
 </main></body></html>`;
+}
+
+/** A whiteboard for an HTML export: its drawing, inline. */
+async function boardBody(page: Page) {
+  const { boardSvg } = await import("./pdf");
+  try {
+    return (await boardSvg(page)) || "<p>This whiteboard is empty.</p>";
+  } catch {
+    return "<p>This whiteboard couldn't be drawn.</p>";
+  }
 }
 
 /** One page as a single HTML file, with its images inside it, so it opens anywhere. */
@@ -108,15 +171,23 @@ export async function exportPageHtml(page: Page) {
     const f = await getFile(id);
     if (f) map[id] = await blobToDataUrl(f.blob);
   }
-  const html = page.kind === "doc" ? blocksToHTML(swapFileUrls(page.blocks ?? [], (id) => map[id] ?? "")) : "<p>This is a whiteboard.</p>";
+  let html: string;
+  if (page.kind === "doc") {
+    const drawn = await drawFlowcharts(page.blocks ?? []);
+    const pictures: Record<string, string> = {};
+    for (const [id, svg] of drawn) pictures[id] = await blobToDataUrl(new Blob([svg], { type: "image/svg+xml" }));
+    const blocks = flowchartsAsPictures(swapFileUrls(page.blocks ?? [], (id) => map[id] ?? ""), drawn, (id) => pictures[id]);
+    html = linkPages(blocksToHTML(blocks), appLink);
+  } else html = await boardBody(page);
   download(new Blob([htmlDocument(page, html)], { type: "text/html" }), `${fileName(displayTitle(page))}.html`);
 }
 
-/** One page as Markdown. With pictures or files, it becomes a ZIP so they come along. */
+/** One page as Markdown. With pictures, files or flowcharts, it becomes a ZIP so they come along. */
 export async function exportPageMarkdown(page: Page) {
   const ids = fileIds(page);
+  const drawn = page.kind === "doc" ? await drawFlowcharts(page.blocks ?? []) : new Map<string, string>();
   const name = fileName(displayTitle(page));
-  if (!ids.length) {
+  if (!ids.length && !drawn.size) {
     download(new Blob([await pageMarkdown(page)], { type: "text/markdown" }), `${name}.md`);
     return;
   }
@@ -128,13 +199,13 @@ export async function exportPageMarkdown(page: Page) {
     names[id] = `files/${id}-${fileName(f.name)}`;
     zip[names[id]] = new Uint8Array(await f.blob.arrayBuffer());
   }
-  zip[`${name}.md`] = strToU8(await pageMarkdown(page, (id) => names[id] ?? `files/${id}`));
+  let n = 0;
+  for (const [id, svg] of drawn) {
+    names[`flowchart-${id}`] = `files/flowchart-${++n}.svg`;
+    zip[names[`flowchart-${id}`]] = strToU8(svg);
+  }
+  zip[`${name}.md`] = strToU8(await pageMarkdown(page, (id) => urlPath(names[id] ?? `files/${id}`), appLink, drawn));
   download(new Blob([zipSync(zip) as BlobPart], { type: "application/zip" }), `${name}.zip`);
-}
-
-/** Export as PDF: the browser's print window, set up to print only the page. */
-export function exportPagePdf() {
-  window.print();
 }
 
 /**
@@ -173,23 +244,35 @@ export async function exportPageDocx(page: Page) {
   download(await pageDocx(page), `${fileName(displayTitle(page))}.docx`);
 }
 
+// Stands in for a picture another site won't let the page read (no CORS), so one blocked picture
+// doesn't fail the whole export.
+const BLANK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
+
 /**
- * The open page as a picture (.png), exactly as it looks, at twice the screen's sharpness.
- * The page must be open (the Share window is, so it is).
+ * A page as a picture (.png), as it looks, at twice the screen's sharpness. A document is drawn from
+ * the same copy of the page its PDF is printed from (opening the page if needed); a whiteboard on its own.
  */
 export async function exportPageImage(page: Page) {
-  const sheet = document.querySelector<HTMLElement>('[data-print="sheet"]');
-  if (!sheet) throw new Error("Open the page first, then export it as an image.");
-  const { toBlob } = await import("html-to-image");
-  const bg = getComputedStyle(sheet).backgroundColor;
-  const blob = await toBlob(sheet, {
-    pixelRatio: 2,
-    cacheBust: true,
-    fontEmbedCSS: await embeddedFonts(sheet),
-    backgroundColor: bg && bg !== "rgba(0, 0, 0, 0)" ? bg : getComputedStyle(document.body).backgroundColor,
-    // Leave out buttons and menus that only make sense on screen.
-    filter: (n) => !(n instanceof HTMLElement && (n.dataset.print === "hide" || n.classList.contains("bn-side-menu") || n.classList.contains("bn-toolbar"))),
-  });
+  let blob: Blob | null = null;
+  if (page.kind === "board") {
+    const { boardSvg } = await import("./pdf");
+    const { svgToPng } = await import("./raster");
+    const svg = await boardSvg(page);
+    if (!svg) throw new Error("This whiteboard is empty.");
+    blob = (await svgToPng(svg))?.png ?? null;
+  } else {
+    const { openPageCopy } = await import("./pdf");
+    const { toBlob } = await import("html-to-image");
+    const { root, close } = await openPageCopy(page, 860);
+    try {
+      blob = await toBlob(root, { pixelRatio: 2, cacheBust: true, imagePlaceholder: BLANK, fontEmbedCSS: await embeddedFonts(root) });
+    } catch {
+      // html-to-image rejects with a bare event, which says nothing useful.
+      blob = null;
+    } finally {
+      close();
+    }
+  }
   if (!blob) throw new Error("Couldn't make the picture. Please try again.");
   download(blob, `${fileName(displayTitle(page))}.png`);
 }
@@ -211,24 +294,42 @@ export async function exportWorkspace(onProgress?: (done: number, total: number)
     zip[fileNames[id]] = new Uint8Array(await f.blob.arrayBuffer());
   }
 
-  const walk = async (parentId: string | null, folder: string) => {
+  // Every page's place in the export first, so links between pages can point at each other's files.
+  const paths = new Map<string, string>();
+  const place = (parentId: string | null, folder: string) => {
     const used = new Set<string>();
     for (const p of childrenOf(pages, parentId)) {
-      const name = fileName(displayTitle(p), used);
-      const depth = folder.split("/").filter(Boolean).length;
-      const up = "../".repeat(depth + 1);
-      zip[`Markdown/${folder}${name}.md`] = strToU8(await pageMarkdown(p, (id) => (fileNames[id] ? `${up}${fileNames[id]}` : "")));
-      const html = p.kind === "doc" ? fillPaths(blocksToHTML(swapFileUrls(p.blocks ?? [], placeholder)), (id) => (fileNames[id] ? `${up}${fileNames[id]}` : "")) : "<p>This is a whiteboard.</p>";
-      zip[`HTML/${folder}${name}.html`] = strToU8(htmlDocument(p, html));
-      if (p.kind === "board")
-        zip[`Markdown/${folder}${name}.excalidraw`] = strToU8(
-          JSON.stringify({ type: "excalidraw", version: 2, source: "dovli", elements: p.board?.elements ?? [], appState: {}, files: p.board?.files ?? {} }),
-        );
-      onProgress?.(++done, all.length);
-      if (childrenOf(pages, p.id).length) await walk(p.id, `${folder}${name}/`);
+      const path = `${folder}${fileName(displayTitle(p), used)}`;
+      paths.set(p.id, path);
+      place(p.id, `${path}/`);
     }
   };
-  await walk(null, "");
+  place(null, "");
+
+  for (const p of all) {
+    const path = paths.get(p.id);
+    if (!path) continue;
+    const depth = path.split("/").length - 1;
+    const up = "../".repeat(depth + 1); // to the top of the ZIP, where files/ is
+    const toPage = (ext: string) => (id: string) => (paths.has(id) ? `${"../".repeat(depth)}${urlPath(paths.get(id)!)}.${ext}` : appLink(id));
+    const toFile = (id: string) => (fileNames[id] ? `${up}${urlPath(fileNames[id])}` : "");
+    const drawn = p.kind === "doc" ? await drawFlowcharts(p.blocks ?? []) : new Map<string, string>();
+    for (const [id, svg] of drawn) {
+      fileNames[`flowchart-${id}`] = `files/flowchart-${id}.svg`;
+      zip[fileNames[`flowchart-${id}`]] = strToU8(svg);
+    }
+    zip[`Markdown/${path}.md`] = strToU8(await pageMarkdown(p, toFile, toPage("md"), drawn));
+    const html =
+      p.kind === "doc"
+        ? linkPages(fillPaths(blocksToHTML(flowchartsAsPictures(swapFileUrls(p.blocks ?? [], placeholder), drawn, (id) => placeholder(`flowchart-${id}`))), toFile), toPage("html"))
+        : await boardBody(p);
+    zip[`HTML/${path}.html`] = strToU8(htmlDocument(p, html));
+    if (p.kind === "board")
+      zip[`Markdown/${path}.excalidraw`] = strToU8(
+        JSON.stringify({ type: "excalidraw", version: 2, source: "dovli", elements: p.board?.elements ?? [], appState: {}, files: p.board?.files ?? {} }),
+      );
+    onProgress?.(++done, all.length);
+  }
   zip["dovli-backup.json"] = new Uint8Array(await backupFile(pages).arrayBuffer());
   zip["README.txt"] = strToU8(
     `Dovli export, ${today()}\n\nMarkdown/  every page as Markdown, in folders that follow your page tree\nHTML/      every page as a web page you can open in any browser\nfiles/     pictures and files from your pages\ndovli-backup.json  everything, to restore in Dovli (Settings → Import & export → Restore a backup)\n`,

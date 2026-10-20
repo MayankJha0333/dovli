@@ -223,7 +223,7 @@ function EmbedView({ block, editor }: { block: any; editor: any }) {
     <div className="group/embed relative my-1.5 w-full max-w-[540px]" contentEditable={false}>
       {body}
       {editor.isEditable && (
-        <div className="absolute right-2.5 top-2.5 flex gap-1 opacity-0 transition-opacity group-hover/embed:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+        <div data-print="hide" className="absolute right-2.5 top-2.5 flex gap-1 opacity-0 transition-opacity group-hover/embed:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
           <Button
             size="sm"
             className="surface-raised"
@@ -336,7 +336,7 @@ function FlowchartView({ block, editor }: { block: any; editor: any }) {
           Flowchart
         </span>
         {editor.isEditable && (
-          <Button size="sm" onClick={open}>
+          <Button size="sm" onClick={open} data-print="hide">
             Edit
           </Button>
         )}

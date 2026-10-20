@@ -1,11 +1,14 @@
 import type { ReactElement } from "react";
 import type { Page } from "@dovli/core";
-import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, modKey } from "@dovli/ui";
+import { MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuSub, MenuSubContent, MenuSubTrigger, MenuTrigger, modKey, toast } from "@dovli/ui";
 import { store } from "@/lib/store";
-import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
+import { exportPagePdf } from "@/lib/pdf";
+import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown } from "@/lib/transfer";
 import { ui } from "@/lib/ui";
 import { summarizePage } from "@/features/ai/AIPanel";
 import { copyLink, duplicate, moveWithPicker, newPage, trashWithUndo } from "@/features/pages/actions";
+
+const failed = (e: unknown) => toast(e instanceof Error ? e.message : "Couldn't export the page. Please try again.", { tone: "danger" });
 
 /** Everything you can do with a page, in one menu. Used in the sidebar and in the page's top bar. */
 export function PageMenu({ page, trigger, onFind }: { page: Page; trigger: ReactElement; onFind?: () => void }) {
@@ -49,32 +52,20 @@ export function PageMenu({ page, trigger, onFind }: { page: Page; trigger: React
         <MenuItem icon="move" onSelect={() => void moveWithPicker(page)}>
           Move to…
         </MenuItem>
-        {isDoc && (
-          <MenuSub>
-            <MenuSubTrigger icon="download">Export</MenuSubTrigger>
-            <MenuSubContent>
-              <MenuItem onSelect={() => void exportPageDocx(page)}>Word (.docx)</MenuItem>
-              <MenuItem onSelect={() => void exportPageMarkdown(page)}>Markdown (.md)</MenuItem>
-              <MenuItem
-                onSelect={() => {
-                  if (store.get().route.name !== "page" || (store.get().route as any).id !== page.id) store.navigate({ name: "page", id: page.id });
-                  setTimeout(() => void exportPageImage(page).catch(() => {}), 500);
-                }}
-              >
-                Image (.png)
-              </MenuItem>
-              <MenuItem onSelect={() => void exportPageHtml(page)}>Web page (.html)</MenuItem>
-              <MenuItem
-                onSelect={() => {
-                  if (store.get().route.name !== "page" || (store.get().route as any).id !== page.id) store.navigate({ name: "page", id: page.id });
-                  setTimeout(exportPagePdf, 400);
-                }}
-              >
-                PDF (print)
-              </MenuItem>
-            </MenuSubContent>
-          </MenuSub>
-        )}
+        <MenuSub>
+          <MenuSubTrigger icon="download">Export</MenuSubTrigger>
+          <MenuSubContent>
+            <MenuItem onSelect={() => void exportPagePdf(page).catch(failed)}>PDF</MenuItem>
+            <MenuItem onSelect={() => void exportPageImage(page).catch(failed)}>Image (.png)</MenuItem>
+            {isDoc && (
+              <>
+                <MenuItem onSelect={() => void exportPageDocx(page).catch(failed)}>Word (.docx)</MenuItem>
+                <MenuItem onSelect={() => void exportPageMarkdown(page).catch(failed)}>Markdown (.md)</MenuItem>
+                <MenuItem onSelect={() => void exportPageHtml(page).catch(failed)}>Web page (.html)</MenuItem>
+              </>
+            )}
+          </MenuSubContent>
+        </MenuSub>
         <MenuSeparator />
         <MenuItem icon="trash" danger onSelect={() => trashWithUndo(page)}>
           Move to trash

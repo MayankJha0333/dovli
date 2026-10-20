@@ -5,8 +5,9 @@ import { displayTitle, type Page } from "@dovli/core";
 import { Button, Dialog, Icon, Input, MenuContent, MenuItem, MenuRoot, MenuSeparator, MenuTrigger, Segmented, Spinner, Switch, cn, toast, type IconName } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
 import { linkUrl, share, sharingOn, type SharePerson, type ShareRole, type ShareSettings } from "@/lib/share";
-import { store, useStore } from "@/lib/store";
-import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
+import { useStore } from "@/lib/store";
+import { exportPagePdf } from "@/lib/pdf";
+import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown } from "@/lib/transfer";
 import { ui, useUI } from "@/lib/ui";
 
 const errText = (e: unknown) => (e instanceof Error ? e.message : "Something went wrong. Please try again.");
@@ -293,21 +294,13 @@ function RoleMenu({ value, onChange, label, removable }: { value: ShareRole; onC
 function ExportPanel({ page, note }: { page: Page; note?: string }) {
   const [busy, setBusy] = useState("");
   const doc = page.kind === "doc";
-  const open = () => {
-    const r = store.get().route;
-    if (r.name !== "page" || r.id !== page.id) store.navigate({ name: "page", id: page.id });
-  };
   const formats: { id: string; icon: IconName; name: string; hint: string; run: () => Promise<void> | void; docOnly?: boolean }[] = [
     {
       id: "pdf",
       icon: "pdf",
       name: "PDF",
-      hint: "For printing or sending. Choose “Save as PDF” in the print window.",
-      run: () => {
-        open();
-        ui.set({ share: null });
-        setTimeout(exportPagePdf, 400);
-      },
+      hint: "The page as it looks, with its pictures and drawings. Choose “Save as PDF” in the print window.",
+      run: () => exportPagePdf(page),
     },
     { id: "docx", icon: "file", name: "Word (.docx)", hint: "Edit it in Word, Pages or Google Docs.", run: () => exportPageDocx(page), docOnly: true },
     { id: "md", icon: "code", name: "Markdown (.md)", hint: "Plain text with formatting marks. Pictures come in a ZIP.", run: () => exportPageMarkdown(page), docOnly: true },
@@ -316,11 +309,7 @@ function ExportPanel({ page, note }: { page: Page; note?: string }) {
       icon: "image",
       name: "Image (.png)",
       hint: "A picture of the page, just as it looks.",
-      run: async () => {
-        open();
-        await new Promise((r) => setTimeout(r, 300));
-        await exportPageImage(page);
-      },
+      run: () => exportPageImage(page),
     },
     { id: "html", icon: "link", name: "Web page (.html)", hint: "One file that opens in any browser.", run: () => exportPageHtml(page), docOnly: true },
   ];

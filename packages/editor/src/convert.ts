@@ -22,6 +22,17 @@ export function blocksToHTML(blocks: any[]): string {
   return editor().blocksToHTMLLossy(blocks);
 }
 
+/** A flowchart block's drawing as SVG markup, light, for exports. "" when it's empty or can't be drawn. */
+export async function flowchartSvg(scene: string): Promise<string> {
+  if (!scene) return "";
+  try {
+    const kit = await import("./excalidrawKit");
+    return await kit.renderSvg(scene, false);
+  } catch {
+    return "";
+  }
+}
+
 export function markdownToBlocks(markdown: string): any[] {
   return editor().tryParseMarkdownToBlocks(markdown);
 }

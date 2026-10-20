@@ -8,7 +8,8 @@ import { useAuth } from "@/lib/auth";
 import { store, useStore } from "@/lib/store";
 import { ui } from "@/lib/ui";
 import { toast } from "@dovli/ui";
-import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown, exportPagePdf } from "@/lib/transfer";
+import { exportPagePdf } from "@/lib/pdf";
+import { exportPageDocx, exportPageHtml, exportPageImage, exportPageMarkdown } from "@/lib/transfer";
 import { copyLink, duplicate, moveWithPicker, trashWithUndo } from "@/features/pages/actions";
 import { reviewPage, summarizePage, type ReviewFocus } from "@/features/ai/AIPanel";
 import { scrollToBlock } from "../PageInfo";
@@ -218,7 +219,7 @@ export function InfoPanel({ page, onFind, onPresent, close }: { page: Page; onFi
               <div className="grid grid-cols-3 gap-1.5">
                 {(
                   [
-                    ["PDF", () => setTimeout(exportPagePdf, 250)],
+                    ["PDF", () => void exportPagePdf(page).catch((e) => toast(e.message, { tone: "danger" }))],
                     ["Word", () => void exportPageDocx(page).catch((e) => toast(e.message, { tone: "danger" }))],
                     ["Markdown", () => void exportPageMarkdown(page)],
                     ["Image", () => void exportPageImage(page).catch((e) => toast(e.message, { tone: "danger" }))],

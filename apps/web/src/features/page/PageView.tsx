@@ -222,6 +222,7 @@ export function PageView({ id }: { id: string }) {
           {!style && page.cover && <Cover page={page} editable={!presenting} />}
           <article
             data-print="sheet"
+            data-page-id={page.id}
             data-divider={look?.divider}
             className={cn(
               "mx-auto w-full px-6 pb-[120px] max-[640px]:px-4",

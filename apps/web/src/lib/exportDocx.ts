@@ -1,11 +1,13 @@
 // One page as a Word document (.docx), built in the browser with the `docx` library.
 // Headings, bold/italic/underline/strike/code, colours, links, bullet and numbered lists, to-dos,
-// quotes, callouts, code blocks, tables, pictures and dividers. Blocks Word has no match for
-// (embeds, whiteboards inside pages) become a short line saying what was there.
+// quotes, callouts, code blocks, tables, pictures, flowcharts (as pictures) and dividers. Blocks
+// Word has no match for (videos, files) become a short line saying what was there.
 
 import type { Page } from "@dovli/core";
 import { displayTitle, fileIdFromUrl } from "@dovli/core";
 import { getFile } from "./files";
+import { svgToPng } from "./raster";
+import { store } from "./store";
 
 type Docx = typeof import("docx");
 
@@ -26,19 +28,18 @@ function runs(d: Docx, content: any, extra: Record<string, unknown> = {}): any[]
   for (const c of content) {
     if (c?.type === "text") {
       const s = c.styles ?? {};
-      out.push(
-        new d.TextRun({
-          text: c.text ?? "",
-          bold: !!s.bold,
-          italics: !!s.italic,
-          underline: s.underline ? {} : undefined,
-          strike: !!s.strike,
-          font: s.code ? "Consolas" : undefined,
-          color: COLOURS[s.textColor] ?? undefined,
-          highlight: HIGHLIGHT[s.backgroundColor] as any,
-          ...extra,
-        }),
-      );
+      // Only what's on: Word reads an explicit "off" fine, but TextEdit and Quick Look show it as on.
+      const look: Record<string, unknown> = {};
+      if (s.bold) look.bold = true;
+      if (s.italic) look.italics = true;
+      if (s.underline) look.underline = {};
+      if (s.strike) look.strike = true;
+      if (s.code) look.font = "Consolas";
+      if (COLOURS[s.textColor]) look.color = COLOURS[s.textColor];
+      if (HIGHLIGHT[s.backgroundColor]) look.highlight = HIGHLIGHT[s.backgroundColor];
+      out.push(new d.TextRun({ text: c.text ?? "", ...look, ...extra }));
+    } else if (c?.type === "pageLink") {
+      out.push(new d.TextRun({ text: pageTitle(c.props?.pageId, c.props?.title), ...extra }));
     } else if (c?.type === "link") {
       out.push(new d.ExternalHyperlink({ link: c.href, children: runs(d, c.content, { style: "Hyperlink", ...extra }) }));
     } else if (typeof c?.text === "string") {
@@ -46,6 +47,12 @@ function runs(d: Docx, content: any, extra: Record<string, unknown> = {}): any[]
     }
   }
   return out;
+}
+
+/** A linked page's title as it is now, or as it was when linked. */
+function pageTitle(id: string | undefined, fallback?: string) {
+  const page = id ? store.get().pages[id] : undefined;
+  return page && !page.deletedAt ? displayTitle(page) : fallback || "Page";
 }
 
 const plain = (content: any): string =>
@@ -68,8 +75,43 @@ async function picture(d: Docx, url: string): Promise<any | null> {
   }
 }
 
-async function blocksToDocx(d: Docx, blocks: any[], level = 0): Promise<any[]> {
+/** A flowchart as a picture (PNG on white), at most a page wide. */
+async function flowchartPicture(d: Docx, scene: string): Promise<any | null> {
+  try {
+    await import("./excalidraw");
+    const { flowchartSvg } = await import("@dovli/editor/convert");
+    const drawn = await svgToPng(await flowchartSvg(scene));
+    if (!drawn) return null;
+    const scale = Math.min(1, 600 / drawn.width);
+    const size = { width: Math.round(drawn.width * scale), height: Math.round(drawn.height * scale) };
+    return new d.Paragraph({ children: [new d.ImageRun({ type: "png", data: new Uint8Array(await drawn.png.arrayBuffer()), transformation: size } as any)] });
+  } catch {
+    return null;
+  }
+}
+
+/** A table block from the table editor (columns with types, rows of values) as a Word table. */
+function dataTable(d: Docx, raw: string): any | null {
+  try {
+    const t = JSON.parse(raw);
+    const columns: { id: string; name: string; type: string }[] = t.columns ?? [];
+    if (!columns.length) return null;
+    const show = (type: string, v: unknown) => (type === "checkbox" ? (v ? "☑" : "☐") : Array.isArray(v) ? v.join(", ") : String(v ?? ""));
+    const row = (cells: string[], head: boolean) =>
+      new d.TableRow({ tableHeader: head, children: cells.map((text) => new d.TableCell({ children: [new d.Paragraph({ children: [new d.TextRun({ text, ...(head ? { bold: true } : {}) })] })] })) });
+    return new d.Table({
+      width: { size: 100, type: d.WidthType.PERCENTAGE },
+      rows: [row(columns.map((c) => c.name), true), ...(t.rows ?? []).map((r: any) => row(columns.map((c) => show(c.type, r.cells?.[c.id])), false))],
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function blocksToDocx(d: Docx, blocks: any[], level = 0, lists = { count: 0 }): Promise<any[]> {
   const out: any[] = [];
+  // Each run of numbered items is its own list in Word, counting from 1.
+  let list = 0;
   for (const b of blocks ?? []) {
     const p = b.props ?? {};
     const align = p.textAlignment === "center" ? d.AlignmentType.CENTER : p.textAlignment === "right" ? d.AlignmentType.RIGHT : p.textAlignment === "justify" ? d.AlignmentType.JUSTIFIED : undefined;
@@ -83,7 +125,8 @@ async function blocksToDocx(d: Docx, blocks: any[], level = 0): Promise<any[]> {
         out.push(new d.Paragraph({ bullet: { level: Math.min(level, 8) }, children: runs(d, b.content) }));
         break;
       case "numberedListItem":
-        out.push(new d.Paragraph({ numbering: { reference: "numbers", level: Math.min(level, 8) }, children: runs(d, b.content) }));
+        list ||= ++lists.count;
+        out.push(new d.Paragraph({ numbering: { reference: "numbers", level: Math.min(level, 8), instance: list }, children: runs(d, b.content) }));
         break;
       case "checkListItem":
         out.push(new d.Paragraph({ indent: { left: 360 * level }, children: [new d.TextRun({ text: p.checked ? "☑ " : "☐ " }), ...runs(d, b.content, p.checked ? { strike: true, color: "787774" } : {})] }));
@@ -132,6 +175,22 @@ async function blocksToDocx(d: Docx, blocks: any[], level = 0): Promise<any[]> {
         if (p.caption) out.push(new d.Paragraph({ alignment: d.AlignmentType.CENTER, children: [new d.TextRun({ text: p.caption, italics: true, color: "787774", size: 20 })] }));
         break;
       }
+      case "subpage":
+        out.push(new d.Paragraph({ children: [new d.TextRun({ text: `→ ${pageTitle(p.pageId)}`, bold: true })] }));
+        break;
+      case "embed":
+        if (p.link) out.push(new d.Paragraph({ children: [new d.ExternalHyperlink({ link: p.link, children: [new d.TextRun({ text: p.title || p.link, style: "Hyperlink" })] })] }));
+        break;
+      case "flowchart": {
+        const img = await flowchartPicture(d, p.scene);
+        out.push(img ?? new d.Paragraph({ children: [new d.TextRun({ text: "[Flowchart]", color: "787774", italics: true })] }));
+        break;
+      }
+      case "dataTable": {
+        const table = dataTable(d, p.data);
+        if (table) out.push(table);
+        break;
+      }
       case "divider":
         out.push(new d.Paragraph({ border: { bottom: { style: d.BorderStyle.SINGLE, size: 6, color: "D0D0D8", space: 1 } }, children: [] }));
         break;
@@ -146,7 +205,8 @@ async function blocksToDocx(d: Docx, blocks: any[], level = 0): Promise<any[]> {
         out.push(new d.Paragraph({ children: [new d.TextRun({ text: `[${label}${text ? `: ${text}` : ""}]`, color: "787774", italics: true })] }));
       }
     }
-    if (b.children?.length) out.push(...(await blocksToDocx(d, b.children, level + 1)));
+    if (b.type !== "numberedListItem") list = 0;
+    if (b.children?.length) out.push(...(await blocksToDocx(d, b.children, level + 1, lists)));
   }
   return out;
 }
