@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_THEME, type ThemePreference } from "@dovli/theme";
-import { DovliLogo, DovliMark, Icon, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
+import { DovliLogo, DovliMark, Icon, Kbd, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
@@ -425,21 +425,15 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
   );
 }
 
-/* ---------- Closing: one last invitation, and what Dovli promises ---------- */
+/* ---------- Closing: one last invitation, written as a blank page ---------- */
 
-function Pledge({ icon, title, t, children }: { icon: IconName; title: string; t: Tone; children: ReactNode }) {
-  return (
-    <li className="flex flex-col gap-2">
-      <span className="flex items-center gap-2.5">
-        <span className="grid size-8 flex-none place-items-center rounded-md" style={{ background: tone(t).bg, color: tone(t).ink }} aria-hidden="true">
-          <Icon name={icon} size={15} />
-        </span>
-        <span className="text-md font-semibold text-ink">{title}</span>
-      </span>
-      <p className="m-0 text-base leading-relaxed text-ink-2">{children}</p>
-    </li>
-  );
-}
+// What Dovli promises, as a checklist on that page: every one ticked, since each is true today.
+const pledges: { title: string; text: string }[] = [
+  { title: "Works offline", text: "Pages save on your device first, then sync when you're back online." },
+  { title: "Private by default", text: "Each account sees only its own workspace. Nothing is shared until you share it." },
+  { title: "Share your way", text: "Send a link people can read, or let the people you pick edit with you." },
+  { title: "Take it with you", text: "Bring pages in from Notion, Evernote or Obsidian, and export to Word, PDF or Markdown." },
+];
 
 function Closing({ free, start }: { free: boolean; start: Start }) {
   return (
@@ -449,18 +443,21 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
         <div aria-hidden="true" className="lp-ruled absolute inset-0" />
         <div className={cn(container, "relative py-10 sm:py-16")}>
           <Sheet fold={72} sheetClassName="rounded-[32px] bg-panel">
-            <div className="px-6 py-10 sm:px-14 sm:py-14">
-              <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-                <div>
-                  <DovliMark size={40} />
-                  <h2 id="cta-title" className="m-0 mt-6 max-w-[760px] text-balance font-serif text-[40px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[60px]">
-                    Start with a blank page.
-                  </h2>
-                  <p className={cn(leadClass, "mt-4 max-w-[500px]")}>
-                    {free ? "Free on the web and on Android. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them, on the web and on your phone."}
-                  </p>
-                </div>
-                <div className="flex flex-none flex-wrap items-center gap-3">
+            <div className="grid grid-cols-1 gap-12 px-6 py-10 sm:px-14 sm:py-14 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-14">
+              <div className="flex flex-col items-start">
+                <DovliMark size={40} />
+                <h2 id="cta-title" className="m-0 mt-6 max-w-[760px] text-balance font-serif text-[40px] font-semibold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[60px]">
+                  Start with a blank page.
+                  <span aria-hidden="true" className="lp-caret ml-1.5 inline-block h-[0.8em] w-[3px] translate-y-[0.1em] rounded-full bg-accent" />
+                </h2>
+                {/* The empty page's own hint, the way the editor shows it. */}
+                <p aria-hidden="true" className="m-0 mt-4 text-lg leading-relaxed text-ink-4">
+                  Type <Kbd className="mx-0.5 h-6 min-w-6 align-[0.1em] text-sm">/</Kbd> for to-dos, tables, whiteboards and more
+                </p>
+                <p className={cn(leadClass, "mt-8 max-w-[500px]")}>
+                  {free ? "Free on the web and on Android. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them, on the web and on your phone."}
+                </p>
+                <div className="mt-6 flex flex-wrap items-center gap-3">
                   <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
                     {start.label}
                   </Link>
@@ -468,21 +465,20 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                 </div>
               </div>
 
-              <div className="mt-10 border-t border-line pt-8 sm:mt-12">
+              <div className="border-t border-line pt-10 lg:border-l lg:border-t-0 lg:pl-14 lg:pt-1">
                 <h3 className="m-0 text-sm font-semibold text-ink-3">Private, offline, and yours</h3>
-                <ul className="m-0 mt-5 grid list-none gap-x-8 gap-y-7 p-0 sm:grid-cols-2 lg:grid-cols-4">
-                  <Pledge icon="cloudOff" t="sky" title="Works offline">
-                    Pages save on your device first, then sync when you&apos;re back online.
-                  </Pledge>
-                  <Pledge icon="lock" t="lilac" title="Private by default">
-                    Each account sees only its own workspace. Nothing is shared until you share it.
-                  </Pledge>
-                  <Pledge icon="share" t="mint" title="Share your way">
-                    Send a link people can read, or let the people you pick edit with you.
-                  </Pledge>
-                  <Pledge icon="download" t="butter" title="Take it with you">
-                    Bring pages in from Notion, Evernote or Obsidian, and export to Word, PDF or Markdown.
-                  </Pledge>
+                <ul className="m-0 mt-5 flex list-none flex-col gap-5 p-0">
+                  {pledges.map((p) => (
+                    <li key={p.title} className="flex gap-3">
+                      <span aria-hidden="true" className="mt-[3px] grid size-[18px] flex-none place-items-center rounded-[5px] bg-accent text-accent-ink">
+                        <Icon name="check" size={12} />
+                      </span>
+                      <span>
+                        <span className="block text-md font-semibold text-ink">{p.title}</span>
+                        <span className="mt-0.5 block text-base leading-relaxed text-ink-2">{p.text}</span>
+                      </span>
+                    </li>
+                  ))}
                 </ul>
               </div>
             </div>

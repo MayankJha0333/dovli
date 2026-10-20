@@ -53,9 +53,13 @@ Help: support@dovli.in
 
 **Graphics** (in this folder)
 - Store icon: `../icons/128.png` (128×128)
-- Screenshots: the `0*-*.png` files (1280×800), in file order
-- Small promo tile: `promo-tile-440x280.png`
-- Marquee promo tile (optional): `marquee-1400x560.png`, if present
+- Screenshots: the five `0*-*.png` files (1280×800), in file order
+- Small promo tile: `small-promo-tile-440x280.png`
+- Marquee promo tile (optional): `marquee-1400x560.png`
+
+The screenshots show the extension's real popup, drawer, clip outline and highlighter, fed made-up demo
+data (account "Jamie", the invented site windowsill.example). The browser frame and the right-click menu
+are drawn. The source files to make them again are not kept in the repo.
 
 **Additional fields**
 - Homepage URL: `https://dovli.in`

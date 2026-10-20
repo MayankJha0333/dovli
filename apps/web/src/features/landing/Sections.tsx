@@ -2,11 +2,12 @@
 
 // The landing page's bigger sections: the features, templates, AI (the assistant, and your own AI
 // apps through MCP), and what's coming next (the browser extension). Landing.tsx puts them in
-// order; the Android section lives in Android.tsx.
+// order; the Android section lives in Android.tsx and "Wherever you work" in Platforms.tsx.
 
 import Link from "next/link";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { templates } from "@dovli/core";
+import { getStyle } from "@dovli/theme";
 import { DovliMark, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { BlocksPicture, BoardPicture, FindPicture, LooksPicture, NestedPicture } from "./Pictures";
 import { SIGNUP_PATH } from "@/lib/authGate";
@@ -315,130 +316,134 @@ export function Templates({ start }: { start: { href: string; label: string } })
 
 /* ---------- AI: the assistant beside your page, and your own AI apps through MCP ---------- */
 
+const seq = (d: number) => ({ "--d": `${d}s` }) as CSSProperties;
+
 // The changes the assistant suggests, worded the way the app words them (lib/assistantCore.ts).
+// The page beside the assistant shows each one once it's applied.
 const suggestions: { icon: IconName; label: string; preview?: string }[] = [
-  { icon: "summary", label: "Add a summary at the top", preview: "Beta opens 14 November. Three to-dos left before then." },
-  { icon: "pencil", label: "Fix the wording", preview: "“recieve” → “receive”" },
+  { icon: "summary", label: "Add a summary at the top", preview: "Beta opens 14 November. Three to-dos left." },
+  { icon: "pencil", label: "Fix the wording", preview: "“trip on” → “trip over”" },
   { icon: "board", label: "Turn a block into a flowchart" },
 ];
 
-function AssistantPicture() {
+const flowSteps: { label: string; t: Tone }[] = [
+  { label: "Invite", t: "blue" },
+  { label: "Listen", t: "lilac" },
+  { label: "Fix", t: "mint" },
+];
+
+/** A page with the assistant open beside it: three suggestions, applied, and the page showing them. */
+function AssistantScene() {
   return (
     <Sheet
-      fold={36}
-      sheetClassName="rounded-[22px] bg-raised"
-      label="The assistant beside a page. Asked to tidy the page and add a summary, it suggests three changes to check before applying: a summary at the top, a spelling fix, and a flowchart."
+      fold={40}
+      sheetClassName="rounded-[22px] bg-panel"
+      label="A Dovli page called Launch plan with the assistant open beside it. Asked to tidy the page, the assistant suggests a summary, a wording fix and a flowchart. Once they're applied, the page shows a summary at the top, the fixed sentence and a small flowchart."
     >
-      <div className="flex items-center gap-2.5 border-b border-line px-4 py-3 sm:px-5">
-        <span className="grid size-7 place-items-center rounded-md bg-accent-soft text-accent">
-          <Icon name="sparkles" size={14} />
-        </span>
-        <span className="text-sm font-semibold text-ink">Assistant</span>
-        <span className="ml-auto mr-6 flex rounded-full bg-well p-0.5 text-xs font-medium">
-          <span className="rounded-full bg-panel px-2.5 py-1 text-ink shadow-sm">Suggest</span>
-          <span className="px-2.5 py-1 text-ink-3">Edit</span>
-        </span>
-      </div>
-      <div className="flex flex-col gap-3 p-4 sm:p-5">
-        <p className="lp-seq m-0 ml-auto max-w-[85%] rounded-[16px] rounded-br-md bg-accent px-3.5 py-2 text-sm text-accent-ink" style={{ "--d": "0.25s" } as CSSProperties}>
-          Tidy this page and add a short summary at the top.
-        </p>
-        <p className="lp-seq m-0 text-sm text-ink-2" style={{ "--d": "0.8s" } as CSSProperties}>
-          Here&apos;s what I&apos;d change. Check each one, then apply.
-        </p>
-        <ul className="m-0 flex list-none flex-col gap-2 p-0">
-          {suggestions.map((s, i) => (
-            <li key={s.label} className="lp-seq flex items-center gap-3 rounded-[14px] bg-well px-3 py-2.5" style={{ "--d": `${1.15 + i * 0.3}s` } as CSSProperties}>
-              <span className="grid size-7 flex-none place-items-center rounded-md bg-panel text-accent shadow-sm">
-                <Icon name={s.icon} size={14} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-ink">{s.label}</span>
-                {s.preview && <span className="block truncate text-xs text-ink-3">{s.preview}</span>}
-              </span>
-              <span className="grid size-6 flex-none place-items-center rounded-full bg-[var(--lp-mint)] text-[var(--lp-mint-ink)]">
-                <Icon name="check" size={12} />
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="lp-seq flex items-center gap-3 pt-1" style={{ "--d": "2.2s" } as CSSProperties}>
-          <span className={cn(buttonStyles({ variant: "primary", size: "sm" }), "rounded-full px-3.5")}>Apply all</span>
-          <span className="text-xs text-ink-3">One undo takes it all back</span>
+      <div className="grid sm:grid-cols-2">
+        <div className="hidden min-w-0 px-6 pb-8 pt-7 sm:block">
+          <div className="flex items-center gap-1.5 text-xs text-ink-3">
+            <Icon name="page" size={12} />
+            Launch plan
+          </div>
+          <p className="m-0 mt-2 font-serif text-[24px] font-bold leading-tight tracking-[-0.01em] text-ink">Launch plan</p>
+          <div className="lp-seq lp-applied mt-4 flex gap-2.5 rounded-[12px] bg-accent-soft px-3.5 py-3 text-[13px] leading-snug text-ink" style={seq(2.6)}>
+            <Icon name="callout" size={14} className="mt-px flex-none text-accent" />
+            <span>
+              <span className="font-semibold">Summary.</span> Beta opens 14 November. Three to-dos left before then.
+            </span>
+          </div>
+          <p className="m-0 mt-3 text-[13px] leading-relaxed text-ink-2">
+            Keep the first week quiet, and fix what people{" "}
+            <span className="lp-seq rounded-[3px] bg-[var(--lp-mint)] px-0.5 text-ink" style={seq(2.9)}>
+              trip over
+            </span>
+            .
+          </p>
+          <div className="lp-seq mt-4 flex items-center gap-1.5" style={seq(3.2)}>
+            {flowSteps.map((s, i) => (
+              <Fragment key={s.label}>
+                {i > 0 && (
+                  <svg width="18" height="10" viewBox="0 0 18 10" className="flex-none text-ink-4" aria-hidden="true">
+                    <path d="M1 5h14m-4-4 4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+                <span className="rounded-[8px] px-2.5 py-1.5 text-[12px] font-semibold" style={{ background: tone(s.t).bg, color: tone(s.t).ink }}>
+                  {s.label}
+                </span>
+              </Fragment>
+            ))}
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-[13px] text-ink">
+            <span className="size-[15px] flex-none rounded-[4px] shadow-[inset_0_0_0_1.5px_var(--d-line-strong)]" />
+            Invite the first 200 people
+          </div>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-3 bg-well/60 p-4 sm:border-l sm:border-line sm:p-5">
+          {/* The right margin keeps the mode switch clear of the folded corner. */}
+          <div className="flex items-center gap-2 pr-7">
+            <span className="grid size-7 flex-none place-items-center rounded-md bg-accent-soft text-accent">
+              <Icon name="sparkles" size={14} />
+            </span>
+            <span className="min-w-0 truncate text-sm font-semibold text-ink lg:max-xl:hidden">Assistant</span>
+            <span className="ml-auto flex flex-none rounded-full bg-panel p-0.5 text-[11px] font-medium shadow-sm">
+              <span className="rounded-full bg-accent-soft px-2 py-0.5 text-accent">Suggest</span>
+              <span className="px-2 py-0.5 text-ink-3">Edit</span>
+            </span>
+          </div>
+          <p className="lp-seq m-0 ml-auto max-w-[90%] rounded-[16px] rounded-br-md bg-accent px-3.5 py-2 text-[13px] leading-snug text-accent-ink" style={seq(0.25)}>
+            Tidy this page and add a short summary at the top.
+          </p>
+          <p className="lp-seq m-0 text-[13px] text-ink-2" style={seq(0.8)}>
+            Here&apos;s what I&apos;d change:
+          </p>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {suggestions.map((s, i) => (
+              <li key={s.label} className="lp-seq flex items-center gap-2.5 rounded-[12px] bg-panel px-3 py-2 shadow-sm" style={seq(1.15 + i * 0.3)}>
+                <Icon name={s.icon} size={14} className="flex-none text-accent" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-semibold text-ink">{s.label}</span>
+                  {s.preview && <span className="block truncate text-[11px] text-ink-3">{s.preview}</span>}
+                </span>
+                <span className="grid size-5 flex-none place-items-center rounded-full" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
+                  <Icon name="check" size={11} />
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="lp-seq flex items-center gap-2.5 pt-0.5" style={seq(2.2)}>
+            <span className={cn(buttonStyles({ variant: "primary", size: "sm" }), "rounded-full px-3.5")}>Apply all</span>
+            <span className="text-[11px] text-ink-3">One undo takes it all back</span>
+          </div>
         </div>
       </div>
     </Sheet>
   );
 }
 
-const aiApps: { name: string; icon: IconName; x: number; y: number }[] = [
-  { name: "Claude Desktop", icon: "monitor", x: 20, y: 14 },
-  { name: "Claude Code", icon: "keyboard", x: 80, y: 14 },
-  { name: "Codex", icon: "code", x: 18, y: 86 },
-  { name: "Any MCP app", icon: "plug", x: 82, y: 86 },
+const assistantCan: { icon: IconName; text: string }[] = [
+  { icon: "summary", text: "Summaries, written as a callout at the top" },
+  { icon: "check", text: "Reviews for spelling, clarity, structure and tone" },
+  { icon: "board", text: "Lists turned into flowcharts you can edit" },
+  { icon: "restore", text: "Suggest or Edit mode, and one undo for it all" },
 ];
 
-function McpPicture() {
-  return (
-    <div className="flex flex-col gap-4">
-      {/* Hub: Dovli in the middle, AI apps around it, with data flowing along the lines. */}
-      <div className="relative aspect-[5/2] w-full" role="img" aria-label="Dovli in the middle, connected to Claude Desktop, Claude Code, Codex and any other MCP app.">
-        <svg viewBox="0 0 110 90" className="absolute inset-0 size-full" fill="none" aria-hidden="true" preserveAspectRatio="none">
-          {aiApps.map((a) => (
-            <path
-              key={a.name}
-              d={`M55 45 C ${55 + (a.x * 1.1 - 55) * 0.2} ${45 + (a.y * 0.9 - 45) * 0.9}, ${a.x * 1.1 + (55 - a.x * 1.1) * 0.6} ${a.y * 0.9}, ${a.x * 1.1} ${a.y * 0.9}`}
-              className="lp-flow"
-              stroke="rgba(255,255,255,0.45)"
-              vectorEffect="non-scaling-stroke"
-              style={{ strokeWidth: 1.5 }}
-              strokeLinecap="round"
-            />
-          ))}
-        </svg>
-        <div aria-hidden="true" className="absolute left-1/2 top-1/2 grid size-[88px] -translate-x-1/2 -translate-y-1/2 place-items-center sm:size-[104px]">
-          <span className="lp-pulse absolute inset-0 rounded-full bg-[#a592ff]/40" />
-          <span className="absolute inset-[9px] rounded-full bg-white/10 ring-1 ring-white/25 backdrop-blur-sm" />
-          <DovliMark size={44} className="relative" />
-        </div>
-        {aiApps.map((a, i) => (
-          <div
-            key={a.name}
-            aria-hidden="true"
-            className="lp-seq absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-white/10 px-2.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/20 backdrop-blur-md sm:px-3 sm:text-sm"
-            style={{ left: `${a.x}%`, top: `${a.y}%`, "--d": `${0.15 + i * 0.12}s` } as CSSProperties}
-          >
-            <Icon name={a.icon} size={14} />
-            {a.name}
-          </div>
-        ))}
-      </div>
-
-      {/* A short chat, played in when you reach it. */}
-      <div className="flex flex-col gap-3 rounded-[18px] bg-white/[0.06] p-4 ring-1 ring-white/10 sm:p-5">
-        <p className="lp-seq m-0 ml-auto max-w-[85%] rounded-[18px] rounded-br-md bg-white/15 px-4 py-2.5 text-base text-white" style={{ "--d": "0.7s" } as CSSProperties}>
-          Turn today&apos;s meeting notes into to-dos on Launch plan.
-        </p>
-        <p className="lp-seq m-0 flex items-center gap-2 text-sm text-white/75" style={{ "--d": "1.3s" } as CSSProperties}>
-          <DovliMark size={14} />
-          Searched your pages, read Meeting notes, added 3 to-dos
-        </p>
-        <p className="lp-seq m-0 max-w-[92%] text-base leading-relaxed text-white/90" style={{ "--d": "1.9s" } as CSSProperties}>
-          Done. Launch plan now has three new to-dos: send the press kit, book the demo room, and invite the first 200 people.
-        </p>
-      </div>
-    </div>
-  );
-}
+const aiApps: { name: string; icon: IconName }[] = [
+  { name: "Claude Desktop", icon: "monitor" },
+  { name: "Claude Code", icon: "keyboard" },
+  { name: "Codex", icon: "code" },
+  { name: "Any MCP app", icon: "plug" },
+];
 
 export function Ai() {
-  const { ref } = useInView<HTMLDivElement>(0.25);
+  const { ref } = useInView<HTMLDivElement>(0.2);
   return (
     <section id="mcp" aria-labelledby="ai-title" className="px-2 sm:px-4">
       <div className="lp-starlight overflow-hidden rounded-[28px] sm:rounded-[44px]">
         <div ref={ref} className={cn(container, "py-16 sm:py-24")}>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between lg:gap-16">
-            <div className="max-w-[620px]">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
+            <div>
               <span className="inline-flex h-7 items-center gap-2 rounded-full bg-white/10 px-3 text-sm font-semibold text-white ring-1 ring-white/15">
                 <Icon name="sparkles" size={13} aria-hidden="true" />
                 AI, when you ask for it
@@ -446,29 +451,59 @@ export function Ai() {
               <h2 id="ai-title" className={cn(h2Class, "mt-6 text-white")}>
                 AI that works in your pages
               </h2>
+              <p className="m-0 mt-5 max-w-[460px] text-lg leading-relaxed text-white/80">
+                An assistant sits beside every page. Ask it to summarise, review or restructure, and check each change before it lands.
+              </p>
+              <ul className="m-0 mt-8 flex list-none flex-col gap-3.5 p-0">
+                {assistantCan.map((c) => (
+                  <li key={c.text} className="flex items-center gap-3 text-md text-white/90">
+                    <span className="grid size-8 flex-none place-items-center rounded-[10px] bg-white/10 ring-1 ring-white/15" aria-hidden="true">
+                      <Icon name={c.icon} size={15} />
+                    </span>
+                    {c.text}
+                  </li>
+                ))}
+              </ul>
+              <p className="m-0 mt-7 max-w-[440px] text-sm leading-relaxed text-white/65">
+                A monthly AI allowance comes with your account, or bring your own OpenAI, Anthropic, Groq or OpenRouter key.
+              </p>
             </div>
-            <p className="m-0 max-w-[460px] text-lg leading-relaxed text-white/80">
-              Ask the assistant beside your page, or connect the AI app you already use. In Suggest mode, every change waits for your OK.
-            </p>
+            <AssistantScene />
           </div>
 
-          <div className="mt-12 grid grid-cols-1 gap-14 lg:mt-14 lg:grid-cols-2 lg:gap-12">
-            <div className="flex flex-col">
-              <h3 className="m-0 text-xl font-semibold text-white">An assistant beside every page</h3>
-              <p className="m-0 mt-2 max-w-[500px] text-md leading-relaxed text-white/75">
-                Summarise a page, check its spelling, clarity and tone, or turn a list into a flowchart. A monthly AI allowance comes with your account, or use your own OpenAI, Anthropic, Groq or OpenRouter key.
+          {/* The other way in: the AI app someone already uses, connected over MCP. */}
+          <div className="mt-14 grid grid-cols-1 items-center gap-8 rounded-[24px] bg-white/[0.06] p-6 ring-1 ring-white/10 sm:p-8 lg:mt-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-14">
+            <div>
+              <span className="flex items-center gap-2 text-sm font-semibold text-white/70">
+                <Icon name="plug" size={14} aria-hidden="true" />
+                Works with MCP
+              </span>
+              <h3 className="m-0 mt-3 text-xl font-semibold text-white sm:text-2xl">Bring the AI app you already use</h3>
+              <p className="m-0 mt-2 max-w-[460px] text-md leading-relaxed text-white/75">
+                Claude Desktop, Claude Code, Codex or any MCP app can search, write, tick off and tidy your pages. Nothing connects until you add it in Settings.
               </p>
-              <div className="mt-7">
-                <AssistantPicture />
-              </div>
             </div>
-            <div className="flex flex-col">
-              <h3 className="m-0 text-xl font-semibold text-white">Your AI apps, through MCP</h3>
-              <p className="m-0 mt-2 max-w-[500px] text-md leading-relaxed text-white/75">
-                Connect Claude Desktop, Claude Code, Codex or any MCP app, and ask it to search, write, tick off or tidy your pages in plain words. Nothing connects until you add it in Settings.
-              </p>
-              <div className="mt-7">
-                <McpPicture />
+            <div className="flex min-w-0 flex-col gap-4">
+              <ul aria-label="AI apps that work with Dovli" className="m-0 flex list-none flex-wrap gap-2 p-0">
+                {aiApps.map((a, i) => (
+                  <li
+                    key={a.name}
+                    className="lp-seq flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-white ring-1 ring-white/15"
+                    style={seq(0.2 + i * 0.1)}
+                  >
+                    <Icon name={a.icon} size={14} aria-hidden="true" />
+                    {a.name}
+                  </li>
+                ))}
+              </ul>
+              <div aria-hidden="true" className="flex flex-col gap-2.5 rounded-[18px] bg-black/20 p-4 ring-1 ring-white/10">
+                <p className="lp-seq m-0 ml-auto max-w-[88%] rounded-[16px] rounded-br-md bg-white/15 px-3.5 py-2 text-base text-white" style={seq(0.7)}>
+                  Turn today&apos;s meeting notes into to-dos on Launch plan.
+                </p>
+                <p className="lp-seq m-0 flex items-center gap-2 text-sm text-white/80" style={seq(1.2)}>
+                  <DovliMark size={14} />
+                  Searched your pages, read Meeting notes, added 3 to-dos
+                </p>
               </div>
             </div>
           </div>
@@ -480,64 +515,73 @@ export function Ai() {
 
 /* ---------- Coming next: the browser extension ---------- */
 
-function BrowserDemo({ replay, inViewRef }: { replay: () => void; inViewRef: React.RefObject<HTMLDivElement | null> }) {
+// Morning Sky, one of the page styles, behind the card in light themes (landing.css keeps the deep
+// sky tone in dark ones).
+const morningSky = { "--s-backdrop": getStyle("sunrise")!.backdrop } as CSSProperties;
+
+// The kinds of clip, named as the extension's clipper names them (apps/extension/README.md).
+const clipKinds = ["AI notes", "Article", "Full page", "Selection", "Bookmark"];
+
+/** A web article, a passage highlighted, the clipper with it, then "Saved". It rises out of the card's bottom edge. */
+function BrowserDemo({ inViewRef }: { inViewRef: React.RefObject<HTMLDivElement | null> }) {
   return (
-    <>
-      <div
-        ref={inViewRef}
-        className="relative overflow-hidden rounded-[18px] bg-panel shadow-pop"
-        role="img"
-        aria-label="A web article in the browser. A sentence is highlighted, the Dovli clipper opens with the quote and Reading notes chosen, and a message says it was saved to Reading notes."
-      >
-        <div aria-hidden="true" className="flex h-11 items-center gap-3 border-b border-line bg-well px-4">
-          <span className="flex gap-1.5">
-            {[0, 1, 2].map((i) => (
-              <span key={i} className="size-2.5 rounded-full bg-line-strong" />
-            ))}
-          </span>
-          <span className="mx-auto flex h-7 min-w-0 max-w-[300px] flex-1 items-center gap-2 rounded-md bg-panel px-3 text-xs text-ink-3 shadow-sm">
-            <Icon name="lock" size={11} />
-            <span className="truncate">fieldnotes.blog/why-the-tide-turns</span>
-          </span>
-          <span className="grid size-7 place-items-center rounded-md bg-panel shadow-sm">
-            <DovliMark size={15} />
-          </span>
+    <div
+      ref={inViewRef}
+      className="relative overflow-hidden rounded-t-[18px] bg-panel shadow-pop"
+      role="img"
+      aria-label="A web article in the browser. A sentence is highlighted, the Dovli clipper opens with the quote, Selection chosen and Reading notes picked as the page, and a message says it was saved to Reading notes."
+    >
+      <div aria-hidden="true" className="flex h-11 items-center gap-3 border-b border-line bg-well px-4">
+        <span className="flex gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <span key={i} className="size-2.5 rounded-full bg-line-strong" />
+          ))}
+        </span>
+        <span className="mx-auto flex h-7 min-w-0 max-w-[300px] flex-1 items-center gap-2 rounded-md bg-panel px-3 text-xs text-ink-3 shadow-sm">
+          <Icon name="lock" size={11} />
+          <span className="truncate">fieldnotes.blog/why-the-tide-turns</span>
+        </span>
+        <span className="grid size-7 place-items-center rounded-md bg-panel shadow-sm ring-2 ring-accent/40">
+          <DovliMark size={15} />
+        </span>
+      </div>
+      <div aria-hidden="true" className="px-5 pb-20 pt-7 sm:px-8">
+        <div className="text-xs text-ink-3">Field notes, 8 min read</div>
+        <div className="mt-2 max-w-[260px] font-serif text-[22px] font-semibold leading-tight tracking-[-0.015em] text-ink sm:text-[26px]">Why the tide turns twice a day</div>
+        <p className="m-0 mt-4 font-serif text-[15px] leading-[1.75] text-ink-2">
+          The moon pulls the sea towards it, but that&apos;s only half the story.{" "}
+          <span className="lp-hl text-ink">The Earth is pulled too, so the water on the far side gets left behind</span>, and that second bulge is why there are two high tides.
+        </p>
+      </div>
+      <div aria-hidden="true" className="lp-clipper absolute right-3 top-14 w-[216px] rounded-xl p-3 surface-raised">
+        <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <DovliMark size={16} />
+          Clip to Dovli
         </div>
-        <div aria-hidden="true" className="px-5 pb-24 pt-7 sm:px-8 sm:pb-24">
-          <div className="text-xs text-ink-3">Field notes, 8 min read</div>
-          <div className="mt-2 max-w-[260px] font-serif text-[22px] font-semibold leading-tight tracking-[-0.015em] text-ink sm:text-[26px]">Why the tide turns twice a day</div>
-          <p className="m-0 mt-4 font-serif text-[15px] leading-[1.75] text-ink-2">
-            The moon pulls the sea towards it, but that&apos;s only half the story.{" "}
-            <span className="lp-hl text-ink">The Earth is pulled too, so the water on the far side gets left behind</span>, and that second bulge is why there are two high tides.
-          </p>
-        </div>
-        <div aria-hidden="true" className="lp-clipper absolute right-3 top-14 w-[208px] rounded-xl p-3 surface-raised">
-          <div className="flex items-center gap-2 text-sm font-semibold text-ink">
-            <DovliMark size={16} />
-            Clip to Dovli
-          </div>
-          <p className="m-0 mt-3 border-l-2 border-accent pl-3 font-serif text-[13px] italic leading-snug text-ink-2">The Earth is pulled too, so the water on the far side gets left behind</p>
-          <div className="mt-3 flex h-9 items-center gap-2 rounded-md bg-well px-2.5 text-sm text-ink shadow-sm">
-            <Icon name="page" size={14} className="text-accent" />
-            Reading notes
-            <Icon name="chevronDown" size={13} className="ml-auto text-ink-3" />
-          </div>
-          <div className={cn(buttonStyles({ variant: "primary", size: "md", block: true }), "lp-clip-btn mt-3")}>Save clip</div>
-        </div>
-        <div aria-hidden="true" className="absolute inset-x-0 bottom-5 flex justify-center px-4">
-          <div className="lp-saved flex items-center gap-2.5 rounded-full bg-ink py-2 pl-3 pr-4 text-sm font-medium text-bg shadow-pop">
-            <span className="grid size-5 place-items-center rounded-full bg-[var(--lp-mint-ink)] text-white">
-              <Icon name="check" size={12} />
+        <div className="mt-2.5 flex gap-1 text-[11px] font-semibold">
+          {["Article", "Selection", "AI notes"].map((k) => (
+            <span key={k} className={cn("rounded-full px-2 py-1", k === "Selection" ? "bg-accent-soft text-accent" : "bg-well text-ink-3")}>
+              {k}
             </span>
-            Saved to Reading notes
-          </div>
+          ))}
+        </div>
+        <p className="m-0 mt-2.5 border-l-2 border-accent pl-3 font-serif text-[13px] italic leading-snug text-ink-2">The Earth is pulled too, so the water on the far side gets left behind</p>
+        <div className="mt-3 flex h-9 items-center gap-2 rounded-md bg-well px-2.5 text-sm text-ink shadow-sm">
+          <Icon name="page" size={14} className="text-accent" />
+          Reading notes
+          <Icon name="chevronDown" size={13} className="ml-auto text-ink-3" />
+        </div>
+        <div className={cn(buttonStyles({ variant: "primary", size: "md", block: true }), "lp-clip-btn mt-3")}>Save clip</div>
+      </div>
+      <div aria-hidden="true" className="absolute inset-x-0 bottom-5 flex justify-center px-4">
+        <div className="lp-saved flex items-center gap-2.5 rounded-full bg-ink py-2 pl-3 pr-4 text-sm font-medium text-bg shadow-pop">
+          <span className="grid size-5 place-items-center rounded-full bg-[var(--lp-mint-ink)] text-white">
+            <Icon name="check" size={12} />
+          </span>
+          Saved to Reading notes
         </div>
       </div>
-      <button type="button" onClick={replay} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "lp-motion-only mx-auto mt-3 rounded-full")}>
-        <Icon name="restore" size={15} />
-        Play the demo again
-      </button>
-    </>
+    </div>
   );
 }
 
@@ -545,19 +589,33 @@ export function Coming() {
   const { ref, replay } = useInView<HTMLDivElement>(0.45);
   return (
     <section id="coming" aria-labelledby="coming-title" className={container}>
-      <div className="grid grid-cols-1 items-center overflow-hidden rounded-[28px] sm:rounded-[36px] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" style={{ background: tone("sky").bg }}>
-        <div className="px-6 pt-8 sm:px-10 sm:pt-10 lg:py-14 lg:pl-14 lg:pr-4">
-          <Status t="sky">Browser extension, coming soon</Status>
-          <h2 id="coming-title" className={cn(h3Class, "mt-5 text-ink")}>
+      <div className="lp-clouds grid grid-cols-1 overflow-clip rounded-[28px] sm:rounded-[36px] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" style={morningSky}>
+        <div className="flex flex-col items-start px-6 pt-8 sm:px-10 sm:pt-10 lg:py-12 lg:pl-12 lg:pr-4">
+          <Status t="sky">Browser extension · coming soon</Status>
+          <h2 id="coming-title" className={cn(h3Class, "mt-5 text-ink sm:text-[34px]")}>
             Clip the web into Dovli
           </h2>
           <p className="m-0 mt-3 max-w-[440px] text-md leading-relaxed text-ink-2">
-            Highlight a passage while you read, pick a page, and it&apos;s saved, with a link back to where you found it. Everything you write today will be there when it lands.
+            Save what you&apos;re reading as an article, the whole page, a selection or a bookmark, or let AI turn it into notes. Pick the page it goes in, and it keeps a link back.
           </p>
-          <Ticks t="sky" items={["Save a quote, a link, an image or the whole article", "Choose which page each clip goes to"]} className="mt-5 text-ink-2" />
+          <ul aria-label="What you can clip" className="m-0 mt-5 flex list-none flex-wrap gap-2 p-0">
+            {clipKinds.map((k) => (
+              <li key={k} className="rounded-full bg-panel/80 px-2.5 py-1 text-[13px] font-semibold text-ink shadow-sm">
+                {k}
+              </li>
+            ))}
+          </ul>
+          <p className="m-0 mt-5 flex items-start gap-2.5 text-md leading-snug text-ink-2">
+            <Icon name="panelRight" size={16} className="mt-0.5 flex-none" style={{ color: tone("sky").ink }} aria-hidden="true" />
+            And a Dovli page beside any website, to write in while you read.
+          </p>
+          <button type="button" onClick={replay} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "lp-motion-only -ml-3 mt-4 rounded-full")}>
+            <Icon name="restore" size={15} aria-hidden="true" />
+            Play the demo again
+          </button>
         </div>
-        <div className="flex flex-col px-4 pb-5 pt-8 sm:px-10 sm:pb-8 lg:py-12 lg:pl-6 lg:pr-12">
-          <BrowserDemo replay={replay} inViewRef={ref} />
+        <div className="flex flex-col justify-end px-4 pt-8 sm:px-10 lg:pl-4 lg:pr-12 lg:pt-12">
+          <BrowserDemo inViewRef={ref} />
         </div>
       </div>
     </section>

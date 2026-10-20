@@ -226,6 +226,11 @@
     linear-gradient(160deg, #17163a 0%, #231d55 55%, #34226a 100%);
 }
 
+/* ---------- Browser extension: the Morning Sky page style behind the card (Sections.tsx sets it) ----------
+   It's a light picture, so dark themes keep their own deep sky tone instead. */
+.lp-clouds { background: var(--s-backdrop); }
+:root[data-scheme="dark"] .lp-clouds { background: var(--lp-sky); }
+
 /* ---------- Template marquee ---------- */
 /* With less motion the row simply scrolls sideways, and only one copy of the cards is shown. */
 .lp-marquee { overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent); }
@@ -277,11 +282,10 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
     .lp-marquee:hover .lp-marquee-track,
     .lp-marquee:focus-within .lp-marquee-track { animation-play-state: paused; }
 
-    /* AI section: data flows along the lines, the chats play in. */
-    .lp-flow { stroke-dasharray: 3 9; animation: lp-flow 1.6s linear 3; }
-    .lp-pulse { animation: lp-pulse 2.4s var(--lp-ease) 2; transform-origin: center; transform-box: fill-box; }
+    /* AI section: the chats play in, and the page glows once where the assistant's summary lands. */
     [data-inview="false"] .lp-seq { opacity: 0; transform: translateY(12px); }
     .lp-seq { transition: opacity 0.6s var(--lp-ease), transform 0.6s var(--lp-ease); transition-delay: var(--d, 0s); }
+    [data-inview="true"] .lp-applied { animation: lp-applied 1.4s var(--lp-ease) 3s; }
 
     /* Browser extension: a passage gets highlighted, the clipper opens, then "Saved". */
     .lp-hl { transition: background-size 1.1s var(--lp-ease) 0.4s, box-shadow 0.4s var(--lp-ease) 1.3s; }
@@ -341,8 +345,10 @@ html:has(.lp-root) { scroll-padding-top: 6rem; }
 @keyframes lp-caret { 50% { opacity: 0; } }
 @keyframes lp-acc { to { transform: scaleX(1); } }
 @keyframes lp-marquee { to { transform: translateX(calc(-50% - 8px)); } }
-@keyframes lp-flow { to { stroke-dashoffset: -24; } }
-@keyframes lp-pulse { 0%, 100% { transform: scale(1); opacity: 0.55; } 50% { transform: scale(1.12); opacity: 0.2; } }
+@keyframes lp-applied {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--d-accent) 45%, transparent); }
+  to { box-shadow: 0 0 0 12px transparent; }
+}
 @keyframes lp-press { 50% { transform: scale(0.94); } }
 @keyframes lp-tilt {
   from { transform: perspective(1800px) rotateX(18deg) scale(0.92); }
