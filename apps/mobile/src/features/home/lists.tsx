@@ -1,12 +1,12 @@
-// Page lists shared by Home, Favourites and All pages: a favourite card, the page tree and grid,
-// the list/grid switch, and the Show more button.
+// Page lists shared by Home, Favourites and All pages: a favourite card, Home's note cards, the page
+// tree and grid, the list/grid switch, and the Show more button.
 
 import { useState } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
-import { displayTitle, previewLines, timeAgo, type Page, type SearchHit } from "@dovli/core";
+import { displayTitle, pageTags, previewLines, timeAgo, type Page, type SearchHit } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { MarkTile, PageRow } from "@/components/Pages";
-import { Card, Icon, T, lift, tap, usePalette } from "@/components/ui";
+import { Card, Icon, T, lift, tap, usePalette, type IconName } from "@/components/ui";
 import { store } from "@/lib/store";
 
 /** A few lines from the start of a page, joined into one: "Agenda • Action items • Follow ups". */
@@ -50,6 +50,73 @@ export function FavoriteCard({ page, onPress, onLongPress }: { page: Page; onPre
         </T>
       </View>
       <Icon name="star" size={16} color={p.warn} style={{ alignSelf: "flex-start" }} />
+    </Pressable>
+  );
+}
+
+/** Soft card colours that Home's note cards take turns with: a wash for the card and an ink for its chips. */
+const TINTS = [
+  { wash: "#F1ECFF", ink: "#7C5CF0" },
+  { wash: "#E8F3FF", ink: "#2F7BEA" },
+  { wash: "#FFF4DE", ink: "#D98A0B" },
+  { wash: "#FFEDF4", ink: "#E0457B" },
+  { wash: "#E9F8F0", ink: "#14A267" },
+] as const;
+
+export function tint(i: number, dark: boolean) {
+  const t = TINTS[i % TINTS.length];
+  // A pastel card turns into a glare on a dark theme, so there it becomes a faint wash of the ink.
+  return { wash: dark ? `${t.ink}22` : t.wash, ink: t.ink, chip: dark ? `${t.ink}33` : `${t.ink}1A` };
+}
+
+function Chip({ icon, text, color, bg }: { icon: IconName; text: string; color: string; bg: string }) {
+  return (
+    <View style={[styles.chip, { backgroundColor: bg }]}>
+      <Icon name={icon} size={11} color={color} />
+      <T v="caption" numberOfLines={1} style={{ color, fontSize: 11, flexShrink: 1 }}>
+        {text}
+      </T>
+    </View>
+  );
+}
+
+/** A page as a soft coloured card: its mark and title, the start of the page, and chips for when it
+ *  changed and its first tag. `wide` cards fill the row; the others sit in a sideways list. */
+export function NoteCard({ page, index, wide, onPress, onLongPress }: { page: Page; index: number; wide?: boolean; onPress: () => void; onLongPress: () => void }) {
+  const p = usePalette();
+  const c = tint(index, p.dark);
+  const line = preview(page);
+  const tag = pageTags(page)[0];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${displayTitle(page)}${page.favorite ? ", favourite" : ""}. Edited ${timeAgo(page.updatedAt)}`}
+      onPress={() => {
+        tap("select");
+        onPress();
+      }}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      style={({ pressed }) => [styles.note, wide ? { alignSelf: "stretch" } : { width: 248 }, { backgroundColor: c.wash, transform: [{ scale: pressed ? 0.985 : 1 }] }, p.dark && lift(p)]}
+    >
+      {/* The page's mark, large and faint in the corner, like an illustration. */}
+      <T style={[styles.noteArt, { color: c.ink }]} accessibilityElementsHidden importantForAccessibility="no">
+        {page.mark}
+      </T>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <T style={{ fontSize: 17, color: c.ink }}>{page.mark}</T>
+        <T v="headline" numberOfLines={1} style={{ flex: 1, fontWeight: "700" }}>
+          {displayTitle(page)}
+        </T>
+        {page.favorite ? <Icon name="star" size={14} color={p.warn} /> : null}
+      </View>
+      <T v="footnote" tone="ink2" numberOfLines={wide ? 2 : 1} style={{ marginTop: 6 }}>
+        {line || "Empty page"}
+      </T>
+      <View style={{ flexDirection: "row", gap: 6, marginTop: space.md }}>
+        <Chip icon="calendar-clear-outline" text={timeAgo(page.updatedAt)} color={c.ink} bg={c.chip} />
+        {tag ? <Chip icon="pricetag-outline" text={tag} color="#fff" bg={p.dark ? `${c.ink}AA` : c.ink} /> : null}
+      </View>
     </Pressable>
   );
 }
@@ -207,6 +274,9 @@ export function ViewToggle({ grid, onChange }: { grid: boolean; onChange: (grid:
 
 const styles = StyleSheet.create({
   favorite: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md + 2, borderRadius: 18 },
+  note: { padding: space.lg, borderRadius: 24, overflow: "hidden" },
+  noteArt: { position: "absolute", right: -6, bottom: -22, fontSize: 96, lineHeight: 110, opacity: 0.08 },
+  chip: { flexDirection: "row", alignItems: "center", gap: 4, height: 24, paddingHorizontal: 9, borderRadius: 8, maxWidth: 150 },
   toggle: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
   toggleBtn: { width: 36, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm + 2 },

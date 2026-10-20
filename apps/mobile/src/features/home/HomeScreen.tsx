@@ -1,21 +1,21 @@
-// Home: a greeting, search, quick ways to start, your favourites, what you opened lately, every
-// page as a tree or a grid (pages inside pages, like the web sidebar), tags, and the trash.
+// Home: a greeting, search, two big ways to start, how your to-dos are going, shortcuts, your
+// favourites, what you opened lately, tags, and every page as a tree or a grid (pages inside pages,
+// like the web sidebar). A dock at the bottom keeps New page and the main lists in reach.
 
 import { useMemo, useRef, useState } from "react";
-import { Animated, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { favoritePages, pagesWithTag, recentPages, searchPages, tagIndex, templates, trashRoots, type Page } from "@dovli/core";
+import { favoritePages, pagesWithTag, recentPages, searchPages, tagIndex, templates, todoItems, trashRoots, type Page } from "@dovli/core";
 import { space } from "@dovli/theme";
 import { Background } from "@/components/Background";
-import { GradientText } from "@/components/GradientText";
 import { PageRow, openPageActions } from "@/components/Pages";
-import { Avatar, BrandMark, Card, Icon, IconButton, SectionHeader, T, lift, tap, usePalette, type IconName } from "@/components/ui";
+import { Avatar, Card, Icon, IconButton, T, lift, tap, usePalette, type IconName } from "@/components/ui";
 import { firstName, usePhoneAuth } from "@/lib/auth";
 import { store, usePages } from "@/lib/store";
 import { useSyncStatus } from "@/lib/sync";
-import { FavoriteCard, PageGrid, PageTree, ViewAllButton, ViewToggle, childIndex, treeRows } from "./lists";
+import { NoteCard, PageGrid, PageTree, ViewAllButton, ViewToggle, childIndex, treeRows } from "./lists";
 
 function greeting() {
   const h = new Date().getHours();
@@ -34,64 +34,110 @@ function openJournal(open: (p: Page) => void) {
   open(existing ?? store.createPage({ kind: t.kind, title: built.title, mark: t.mark, blocks: built.blocks }));
 }
 
-/** Stacked picture cards with a sparkle, beside the greeting. Decoration only. */
-function HeroArt() {
-  const p = usePalette();
-  const back = p.dark ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.55)";
-  return (
-    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.art}>
-      <View style={[styles.artCard, { backgroundColor: back, borderColor: p.line, transform: [{ rotate: "-14deg" }], left: 4, top: 22 }]} />
-      <View style={[styles.artCard, { backgroundColor: back, borderColor: p.line, transform: [{ rotate: "18deg" }], left: 44, top: 30 }]} />
-      <View style={[styles.artCard, styles.artFront, { backgroundColor: p.raised, borderColor: p.line }, lift(p, 2)]}>
-        <View style={styles.artPhoto}>
-          {/* Dawn over the mountains. */}
-          <LinearGradient colors={p.dark ? ["#3A4A8C", "#6A4A8E", "#9A5A86"] : ["#8FB8F8", "#C7B6F6", "#F7C3D9"]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-          <View style={[styles.peak, { left: -10, top: 58, backgroundColor: p.dark ? "#4A3F86" : "#9AA6EE" }]} />
-          <View style={[styles.peak, { left: 26, top: 46, width: 72, height: 72, backgroundColor: p.dark ? "#3A3570" : "#6F86E6" }]} />
-          <View style={[styles.peak, { left: 58, top: 66, width: 50, height: 50, backgroundColor: p.dark ? "#2E2C60" : "#5470DA" }]} />
-          <LinearGradient colors={["rgba(255,255,255,0)", p.dark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.75)"]} style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 26 }} />
-        </View>
-      </View>
-      <Icon name="sparkles" size={13} color={p.dark ? "#9CC6FF" : "#8AB4FF"} style={{ position: "absolute", left: -18, top: 10 }} />
-      <Icon name="sparkles" size={10} color="#B9A8FF" style={{ position: "absolute", left: 0, bottom: 4 }} />
-      <View style={styles.artNote}>
-        <T style={[styles.hand, { color: p.ink2 }]}>{"Big ideas\nstart here"}</T>
-        <Icon name="arrow-undo-outline" size={18} color={p.accent} style={{ transform: [{ rotate: "-70deg" }], marginTop: 2, marginRight: 14 }} />
-      </View>
-    </View>
-  );
-}
+const newTodoList = () => store.createPage({ title: "To-do list", mark: "☑", blocks: [{ type: "checkListItem", props: { checked: false }, content: [] }] });
 
-function QuickAction({ icon, label, hint, onPress, colors }: { icon: IconName; label: string; hint: string; onPress: () => void; colors: [string, string] }) {
+/** A round button in the top bar. */
+function RoundButton({ icon, label, color, onPress }: { icon: IconName; label: string; color?: string; onPress: () => void }) {
   const p = usePalette();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${label}. ${hint}`}
+      accessibilityLabel={label}
       onPress={() => {
         tap();
         onPress();
       }}
-      style={({ pressed }) => [styles.quick, { backgroundColor: p.panel, transform: [{ scale: pressed ? 0.96 : 1 }] }, lift(p)]}
+      hitSlop={4}
+      style={({ pressed }) => [styles.round, { backgroundColor: p.panel, borderColor: p.line, opacity: pressed ? 0.7 : 1 }]}
     >
-      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickIcon}>
-        <Icon name={icon} size={19} color="#fff" />
-      </LinearGradient>
-      <T v="subhead" style={{ fontWeight: "700", marginTop: space.sm + 2 }} numberOfLines={1}>
-        {label}
-      </T>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 2, marginTop: 1 }}>
-        <T v="caption" tone="ink3" numberOfLines={1} style={{ fontWeight: "400", fontSize: 11, flexShrink: 1 }}>
-          {hint}
+      <Icon name={icon} size={20} color={color ?? p.ink} />
+    </Pressable>
+  );
+}
+
+/** One of the two big coloured cards: "Create / New page". The shapes behind the text are decoration. */
+function CreateCard({ label, colors, onPress }: { label: string; colors: [string, string]; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Create ${label}`}
+      onPress={() => {
+        tap();
+        onPress();
+      }}
+      style={({ pressed }) => [styles.create, { shadowColor: colors[1], transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+    >
+      <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { borderRadius: 26 }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: 26, overflow: "hidden" }]}>
+        <View style={[styles.shape, { right: -26, bottom: -30, width: 110, height: 110, transform: [{ rotate: "28deg" }] }]} />
+        <View style={[styles.shape, { right: 30, bottom: -46, width: 80, height: 80, transform: [{ rotate: "-18deg" }] }]} />
+        <View style={[styles.shape, { right: 18, top: 16, width: 26, height: 26, borderRadius: 13 }]} />
+      </View>
+      <View style={styles.plus}>
+        <Icon name="add" size={22} color="#fff" />
+      </View>
+      <View style={{ marginTop: "auto" }}>
+        <T v="subhead" style={{ color: "rgba(255,255,255,0.85)", fontWeight: "500" }}>
+          Create
         </T>
-        <Icon name="chevron-forward" size={11} color={p.ink4} />
+        <T numberOfLines={1} adjustsFontSizeToFit style={{ color: "#fff", fontSize: 24, lineHeight: 29, fontWeight: "800", letterSpacing: -0.6 }}>
+          {label}
+        </T>
       </View>
     </Pressable>
   );
 }
 
+/** A pastel tile with its name underneath, in the Shortcuts row. */
+function Shortcut({ icon, label, color, wash, badge, onPress }: { icon: IconName; label: string; color: string; wash: string; badge?: string; onPress: () => void }) {
+  const p = usePalette();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={badge ? `${label}, ${badge}` : label}
+      onPress={() => {
+        tap("select");
+        onPress();
+      }}
+      style={({ pressed }) => [{ flex: 1, alignItems: "center", gap: 8, transform: [{ scale: pressed ? 0.94 : 1 }] }]}
+    >
+      <View style={[styles.shortcut, { backgroundColor: p.dark ? `${color}26` : wash }]}>
+        <Icon name={icon} size={26} color={color} />
+      </View>
+      <T v="footnote" tone="ink2" numberOfLines={1} style={{ fontWeight: "600" }}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
+/** A section title with a count under it and an optional action on the right ("See all"). */
+function Heading({ title, count, action, onAction }: { title: string; count?: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={styles.heading}>
+      <View style={{ flex: 1 }}>
+        <T v="title" accessibilityRole="header" style={{ fontSize: 22, fontWeight: "800" }}>
+          {title}
+        </T>
+        {count ? (
+          <T v="footnote" tone="ink3" style={{ marginTop: 1 }}>
+            {count}
+          </T>
+        ) : null}
+      </View>
+      {action && onAction ? (
+        <Pressable accessibilityRole="button" hitSlop={8} onPress={onAction}>
+          <T v="subhead" tone="accent" style={{ fontWeight: "700" }}>
+            {action}
+          </T>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 // How much of each list Home shows. The rest is a tap away, on its own screen.
-const SHOWN = { favorites: 5, recent: 5, pages: 6 };
+const SHOWN = { favorites: 8, recent: 4, pages: 6 };
 
 export function HomeScreen() {
   const router = useRouter();
@@ -105,11 +151,12 @@ export function HomeScreen() {
   const [grid, setGrid] = useState(false);
   const [searching, setSearching] = useState(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const scroller = useRef<ScrollViewInstance>(null);
+  const searchBox = useRef<TextInputInstance>(null);
   const open = (page: Page) => router.push({ pathname: "/page/[id]", params: { id: page.id } });
   const actions = (page: Page) => openPageActions(router, page);
 
   const favorites = useMemo(() => favoritePages(pages), [pages]);
-  // One more than shown, to know whether there are more.
   const recent = useMemo(() => recentPages(pages, SHOWN.recent), [pages]);
   const liveCount = useMemo(() => Object.values(pages).filter((x) => !x.deletedAt).length, [pages]);
   const children = useMemo(() => childIndex(pages), [pages]);
@@ -121,7 +168,23 @@ export function HomeScreen() {
   const tagged = tag ? pagesWithTag(pages, tag) : [];
   const name = firstName(auth.account);
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
-  const title = { fontSize: 34, lineHeight: 40, fontWeight: "800" as const, letterSpacing: -1 };
+
+  // Every to-do on every page, and the latest-edited page that still has some left, to jump back into.
+  const todos = useMemo(() => {
+    let done = 0;
+    let total = 0;
+    let next: Page | null = null;
+    for (const page of Object.values(pages)) {
+      if (page.deletedAt || page.kind === "board") continue;
+      const items = todoItems(page);
+      const left = items.filter((x) => !x.checked).length;
+      total += items.length;
+      done += items.length - left;
+      if (left && (!next || page.updatedAt > next.updatedAt)) next = page;
+    }
+    return { done, total, next };
+  }, [pages]);
+  const progress = todos.total ? todos.done / todos.total : 0;
 
   const status: { icon: IconName; text: string; color: string } =
     sync.state === "synced"
@@ -134,10 +197,16 @@ export function HomeScreen() {
             ? { icon: "alert-circle-outline", text: "Sync paused", color: p.warn }
             : { icon: "phone-portrait-outline", text: "Saved on this phone", color: p.ink3 };
 
+  const focusSearch = () => {
+    scroller.current?.scrollTo({ y: 0, animated: true });
+    searchBox.current?.focus();
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <Background />
       <Animated.ScrollView
+        ref={scroller}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
         contentContainerStyle={{ paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + 120, paddingHorizontal: space.lg }}
@@ -145,62 +214,37 @@ export function HomeScreen() {
         keyboardDismissMode="on-drag"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top bar */}
-        <View style={styles.brandRow}>
-          <BrandMark size={26} />
-          <T v="headline" style={{ fontWeight: "800", fontSize: 20, letterSpacing: -0.5, flex: 1 }}>
-            Dovli
-          </T>
+        {/* Top bar: you, and the round buttons */}
+        <View style={styles.topBar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Settings and account"
-            onPress={() => router.push("/settings")}
-            hitSlop={8}
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            accessibilityLabel={`${name ? `Hi, ${name}. ` : ""}Open your account`}
+            onPress={() => router.push("/account")}
+            hitSlop={6}
+            style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1, opacity: pressed ? 0.7 : 1 }]}
           >
-            <Avatar name={auth.account?.name} email={auth.account?.email} photo={auth.account?.photoURL} size={38} ring />
+            <Avatar name={auth.account?.name} email={auth.account?.email} photo={auth.account?.photoURL} size={46} ring />
+            <T v="callout" numberOfLines={1} style={{ fontWeight: "600", flexShrink: 1 }}>
+              Hi{name ? `, ${name}` : " there"} 👋
+            </T>
           </Pressable>
+          <RoundButton icon={status.icon} label={`${status.text}. Open your account`} color={status.color} onPress={() => router.push("/account")} />
+          <RoundButton icon="settings-outline" label="Settings" onPress={() => router.push("/settings")} />
         </View>
 
-        {/* Greeting, with a little picture beside it */}
-        <View style={{ marginTop: space.xl }}>
-          <HeroArt />
-          <T v="footnote" tone="ink3" style={{ fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.6 }}>
-            {today}
-          </T>
-          <T accessibilityRole="header" style={[title, { color: p.ink, marginTop: 4 }]}>
-            {greeting()}
-            {name ? "," : ""}
-          </T>
-          {name ? (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }} accessible accessibilityLabel={name}>
-              <GradientText style={title} colors={p.dark ? ["#9CC6FF", "#B9A8FF"] : ["#4F6BF2", "#8B5CF6"]}>
-                {name}
-              </GradientText>
-              <T style={{ fontSize: 28 }}>👋</T>
-            </View>
-          ) : null}
-          <T v="callout" tone="ink3" style={{ marginTop: space.sm, maxWidth: "72%" }}>
-            Capture your thoughts, organize ideas and make progress.
-          </T>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`${status.text}. Open your account`}
-            onPress={() => router.push("/account")}
-            style={({ pressed }) => [styles.statusPill, { backgroundColor: p.panel, opacity: pressed ? 0.75 : 1 }, lift(p)]}
-          >
-            <Icon name={status.icon} size={15} color={status.color} />
-            <T v="footnote" tone="ink2" style={{ fontWeight: "500" }}>
-              {status.text}
-            </T>
-            <Icon name="chevron-forward" size={13} color={p.ink4} />
-          </Pressable>
-        </View>
+        {/* Greeting */}
+        <T accessibilityRole="header" style={[styles.title, { color: p.ink }]}>
+          {greeting()}
+        </T>
+        <T v="callout" tone="ink3" style={{ marginTop: 2 }}>
+          Today, {today}
+        </T>
 
         {/* Search */}
-        <View style={[styles.search, { backgroundColor: p.panel, borderColor: searching ? p.accent : "transparent", borderWidth: 1.5 }, lift(p)]}>
-          <Icon name="search" size={19} color={searching ? p.accent : p.ink3} />
+        <View style={[styles.search, { backgroundColor: p.panel, borderColor: searching ? p.accent : p.line }, lift(p)]}>
+          <Icon name="search" size={20} color={searching ? p.accent : p.ink3} />
           <TextInput
+            ref={searchBox}
             value={q}
             onChangeText={(v) => {
               setQ(v);
@@ -208,7 +252,7 @@ export function HomeScreen() {
             }}
             onFocus={() => setSearching(true)}
             onBlur={() => setSearching(false)}
-            placeholder="Search pages and tasks…"
+            placeholder="Search pages, tasks, tags…"
             placeholderTextColor={p.ink4}
             accessibilityLabel="Search pages"
             returnKeyType="search"
@@ -222,7 +266,7 @@ export function HomeScreen() {
 
         {q.trim() ? (
           <>
-            <SectionHeader title={`${hits.length} ${hits.length === 1 ? "result" : "results"}`} />
+            <Heading title={`${hits.length} ${hits.length === 1 ? "result" : "results"}`} />
             {hits.length ? (
               <Card>
                 {hits.map((h, i) => (
@@ -235,49 +279,91 @@ export function HomeScreen() {
           </>
         ) : (
           <>
-            {/* Quick ways to start */}
-            <View style={{ flexDirection: "row", gap: space.sm, marginTop: space.lg }}>
-              <QuickAction icon="create-outline" label="New page" hint="Blank page" colors={["#A78BFA", "#7C5CF0"]} onPress={() => open(store.createPage())} />
-              <QuickAction
-                icon="checkbox-outline"
-                label="To-do list"
-                hint="Checklist"
-                colors={["#34D399", "#10B981"]}
-                onPress={() => open(store.createPage({ title: "To-do list", mark: "☑", blocks: [{ type: "checkListItem", props: { checked: false }, content: [] }] }))}
+            {/* Two big ways to start */}
+            <View style={{ flexDirection: "row", gap: space.md, marginTop: space.xl }}>
+              <CreateCard label="New Page" colors={["#B9A2FF", "#8A6CF4"]} onPress={() => open(store.createPage())} />
+              <CreateCard label="To-do List" colors={["#FFD574", "#F5AC2E"]} onPress={() => open(newTodoList())} />
+            </View>
+
+            {/* How your to-dos are going */}
+            {todos.total > 0 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`To-dos: ${todos.done} of ${todos.total} done.${todos.next ? " Open the latest list with some left." : ""}`}
+                disabled={!todos.next}
+                onPress={() => todos.next && open(todos.next)}
+                style={({ pressed }) => [styles.progressCard, { backgroundColor: p.panel, opacity: pressed ? 0.85 : 1 }, lift(p)]}
+              >
+                <View style={{ flex: 1 }}>
+                  <T v="headline" style={{ fontWeight: "700" }}>
+                    {todos.done === todos.total ? "All to-dos done" : "Your to-dos"}
+                  </T>
+                  <T v="footnote" tone="ink3" style={{ marginTop: 2 }}>
+                    {todos.total - todos.done ? `${todos.total - todos.done} left to tick off` : "Nice work"}
+                  </T>
+                </View>
+                <View style={{ width: "42%", alignItems: "flex-end", gap: 8 }}>
+                  <View style={[styles.track, { backgroundColor: p.well }]}>
+                    <LinearGradient
+                      colors={["#A592FF", "#E39AEC", "#FFC48A"]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={{ width: `${Math.max(progress * 100, 6)}%`, height: "100%", borderRadius: 999 }}
+                    />
+                  </View>
+                  <T v="subhead" style={{ fontWeight: "600" }}>
+                    {Math.round(progress * 100)}% Done
+                  </T>
+                </View>
+              </Pressable>
+            )}
+
+            {/* Shortcuts */}
+            <Heading title="Shortcuts" />
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              <Shortcut icon="sunny" label="Journal" color="#F59E0B" wash="#FFF3D9" onPress={() => openJournal(open)} />
+              <Shortcut icon="color-palette" label="Whiteboard" color="#3B82F6" wash="#E5F0FF" onPress={() => open(store.createPage({ kind: "board" }))} />
+              <Shortcut icon="albums" label="Templates" color="#8B5CF6" wash="#F0EAFF" onPress={() => router.push("/templates")} />
+              <Shortcut
+                icon="trash"
+                label="Trash"
+                color="#EC4899"
+                wash="#FFE8F2"
+                badge={trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "empty"}
+                onPress={() => router.push("/trash")}
               />
-              <QuickAction icon="sunny-outline" label="Journal" hint="Daily note" colors={["#FCD34D", "#F59E0B"]} onPress={() => openJournal(open)} />
-              <QuickAction icon="grid-outline" label="Templates" hint="Browse" colors={["#60A5FA", "#3B82F6"]} onPress={() => router.push("/templates")} />
             </View>
 
             {favorites.length > 0 && (
               <>
-                <SectionHeader
+                <Heading
                   title="Favourites"
-                  action={favorites.length > SHOWN.favorites ? `View all ${favorites.length}` : undefined}
+                  count={`${favorites.length} ${favorites.length === 1 ? "page" : "pages"}`}
+                  action="See all"
                   onAction={() => router.push("/favorites")}
                 />
-                <View style={{ gap: space.sm + 2 }}>
-                  {favorites.slice(0, SHOWN.favorites).map((f) => (
-                    <FavoriteCard key={f.id} page={f} onPress={() => open(f)} onLongPress={() => actions(f)} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -space.lg }} contentContainerStyle={{ gap: space.md, paddingHorizontal: space.lg, paddingBottom: 4 }}>
+                  {favorites.slice(0, SHOWN.favorites).map((f, i) => (
+                    <NoteCard key={f.id} page={f} index={i} onPress={() => open(f)} onLongPress={() => actions(f)} />
                   ))}
-                </View>
+                </ScrollView>
               </>
             )}
 
-            <SectionHeader title="Recent" />
+            <Heading title="Recent notes" count={recent.length ? undefined : "Nothing yet"} action={liveCount > SHOWN.recent ? "View all" : undefined} onAction={() => router.push("/pages")} />
             {recent.length ? (
-              <Card>
+              <View style={{ gap: space.md }}>
                 {recent.map((pg, i) => (
-                  <PageRow key={pg.id} page={pg} first={i === 0} onPress={() => open(pg)} onLongPress={() => actions(pg)} />
+                  <NoteCard key={pg.id} page={pg} index={i + 1} wide onPress={() => open(pg)} onLongPress={() => actions(pg)} />
                 ))}
-              </Card>
+              </View>
             ) : (
-              <Empty icon="document-text-outline" title="No pages yet" text="Tap New page to start writing." />
+              <Empty icon="document-text-outline" title="No pages yet" text="Tap New Page to start writing." />
             )}
 
             {tags.length > 0 && (
               <>
-                <SectionHeader title="Tags" action={tag ? "Clear" : undefined} onAction={() => setTag(null)} />
+                <Heading title="Tags" action={tag ? "Clear" : undefined} onAction={() => setTag(null)} />
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {tags.map((t) => {
                     const on = tag === t.tag;
@@ -313,7 +399,7 @@ export function HomeScreen() {
             )}
 
             <View style={styles.allHeader}>
-              <T v="title3" accessibilityRole="header" style={{ flex: 1 }}>
+              <T v="title" accessibilityRole="header" style={{ flex: 1, fontSize: 22, fontWeight: "800" }}>
                 All pages
               </T>
               <ViewToggle grid={grid} onChange={setGrid} />
@@ -324,23 +410,6 @@ export function HomeScreen() {
               <PageTree rows={rows.slice(0, SHOWN.pages)} open={open} actions={actions} />
             )}
             {(grid ? tops.length : rows.length) > SHOWN.pages && <ViewAllButton label={`View all ${liveCount} pages`} onPress={() => router.push("/pages")} />}
-
-            {/* The trash: at the end of the list, where it's out of the way. */}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Trash, ${trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "empty"}`}
-              onPress={() => router.push("/trash")}
-              style={({ pressed }) => [styles.trashRow, { backgroundColor: pressed ? p.hover : p.panel }, lift(p)]}
-            >
-              <Icon name="trash-outline" size={18} color={p.ink3} />
-              <T v="callout" tone="ink2" style={{ flex: 1 }}>
-                Trash
-              </T>
-              <T v="footnote" tone="ink3">
-                {trashed ? `${trashed} ${trashed === 1 ? "page" : "pages"}` : "Empty"}
-              </T>
-              <Icon name="chevron-forward" size={15} color={p.ink4} />
-            </Pressable>
           </>
         )}
       </Animated.ScrollView>
@@ -354,23 +423,47 @@ export function HomeScreen() {
         <LinearGradient colors={[p.bg, `${p.bg}00`]} locations={[0.6, 1]} style={StyleSheet.absoluteFill} />
       </Animated.View>
 
-      {/* New page floats at the bottom, over the list. */}
+      {/* The dock floats at the bottom, over the list. */}
       {!searching && !q.trim() && (
-        <View style={[styles.dock, { bottom: insets.bottom + space.md }]} pointerEvents="box-none">
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="New page"
-            onPress={() => {
-              tap();
-              open(store.createPage());
-            }}
-            style={({ pressed }) => [styles.newButton, { backgroundColor: p.primary, shadowColor: p.primary }, pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] }]}
-          >
-            <Icon name="create-outline" size={19} color={p.primaryInk} />
-            <T v="callout" style={{ color: p.primaryInk, fontWeight: "700" }}>
-              New page
-            </T>
-          </Pressable>
+        <View style={[styles.dockWrap, { bottom: insets.bottom + space.md }]} pointerEvents="box-none">
+          <View style={[styles.dock, { backgroundColor: p.dark ? p.raised : "#1F1840", borderColor: p.dark ? p.lineStrong : "transparent" }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="New page"
+              onPress={() => {
+                tap();
+                open(store.createPage());
+              }}
+              style={({ pressed }) => [styles.dockNew, pressed && { opacity: 0.88, transform: [{ scale: 0.97 }] }]}
+            >
+              <LinearGradient colors={["#A592FF", "#E39AEC", "#FFC48A"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.dockPlus}>
+                <Icon name="add" size={22} color="#fff" />
+              </LinearGradient>
+              <T v="subhead" style={{ color: "#1F1840", fontWeight: "700" }}>
+                New page
+              </T>
+            </Pressable>
+            {(
+              [
+                ["search", "Search", focusSearch],
+                ["star-outline", "Favourites", () => router.push("/favorites")],
+                ["documents-outline", "All pages", () => router.push("/pages")],
+              ] as const
+            ).map(([icon, label, go]) => (
+              <Pressable
+                key={label}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                onPress={() => {
+                  tap("select");
+                  go();
+                }}
+                style={({ pressed }) => [styles.dockBtn, { backgroundColor: pressed ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.08)" }]}
+              >
+                <Icon name={icon} size={20} color="rgba(255,255,255,0.9)" />
+              </Pressable>
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -397,30 +490,39 @@ function Empty({ icon, title, text }: { icon: IconName; title: string; text: str
 }
 
 const styles = StyleSheet.create({
-  brandRow: { flexDirection: "row", alignItems: "center", gap: space.sm + 2, minHeight: 44 },
+  topBar: { flexDirection: "row", alignItems: "center", gap: space.sm, minHeight: 52 },
+  round: { width: 46, height: 46, borderRadius: 23, borderWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center" },
+  title: { fontSize: 34, lineHeight: 40, fontWeight: "800", letterSpacing: -1, marginTop: space.xl },
+  search: { marginTop: space.lg, minHeight: 54, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: space.lg, paddingRight: 6, borderRadius: 999, borderWidth: 1 },
 
-  art: { position: "absolute", right: -4, top: -8, width: 150, height: 150 },
-  artCard: { position: "absolute", width: 96, height: 112, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth },
-  artFront: { left: 26, top: 14, padding: 7, transform: [{ rotate: "-6deg" }] },
-  artPhoto: { flex: 1, borderRadius: 12, overflow: "hidden" },
-  peak: { position: "absolute", width: 60, height: 60, transform: [{ rotate: "45deg" }] },
-  artNote: { position: "absolute", right: -2, top: -4, alignItems: "flex-end" },
-  hand: { fontFamily: Platform.select({ ios: "Noteworthy-Light", android: "casual" }), fontSize: 12, lineHeight: 15, textAlign: "right" },
+  create: { flex: 1, height: 168, padding: space.lg, borderRadius: 26, shadowOpacity: 0.35, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
+  shape: { position: "absolute", borderRadius: 22, backgroundColor: "rgba(255,255,255,0.16)" },
+  plus: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.28)" },
 
-  statusPill: { flexDirection: "row", alignItems: "center", gap: 7, alignSelf: "flex-start", marginTop: space.lg, paddingHorizontal: 13, height: 34, borderRadius: 999 },
-  search: { marginTop: space.lg, minHeight: 52, flexDirection: "row", alignItems: "center", gap: 10, paddingLeft: space.lg, paddingRight: 4, borderRadius: 18 },
-  quick: { flex: 1, paddingVertical: 11, paddingHorizontal: 9, borderRadius: 18 },
-  quickIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  favorite: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.md + 2, borderRadius: 18 },
+  progressCard: { marginTop: space.lg, flexDirection: "row", alignItems: "center", gap: space.md, padding: space.lg, borderRadius: 24 },
+  track: { width: "100%", height: 14, borderRadius: 999, overflow: "hidden" },
+
+  heading: { flexDirection: "row", alignItems: "flex-end", marginTop: space.xl + 4, marginBottom: space.md, paddingHorizontal: 2 },
+  shortcut: { width: "100%", aspectRatio: 1, maxWidth: 84, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+
   tag: { flexDirection: "row", alignItems: "center", gap: 6, height: 32, paddingHorizontal: 12, borderRadius: 999 },
-  allHeader: { flexDirection: "row", alignItems: "center", marginTop: space.xl, marginBottom: space.sm + 2, paddingHorizontal: 4 },
-  toggle: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
-  toggleBtn: { width: 36, height: 30, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: space.sm + 2 },
-  tile: { width: "48.5%", minHeight: 132, padding: 14, borderRadius: 18 },
-  dock: { position: "absolute", left: 0, right: 0, alignItems: "center" },
-  trashRow: { marginTop: space.xl, flexDirection: "row", alignItems: "center", gap: space.md, paddingHorizontal: space.lg, minHeight: 52, borderRadius: 16 },
-  more: { flexDirection: "row", justifyContent: "center", alignItems: "center", gap: space.sm, marginTop: space.md },
-  moreBtn: { flexDirection: "row", alignItems: "center", gap: 6, minHeight: 40, paddingHorizontal: space.lg, borderRadius: 999 },
-  newButton: { minHeight: 52, flexDirection: "row", gap: 7, paddingHorizontal: space.xl, borderRadius: 999, alignItems: "center", justifyContent: "center", shadowOpacity: 0.4, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 8 },
+  allHeader: { flexDirection: "row", alignItems: "center", marginTop: space.xl + 4, marginBottom: space.md, paddingHorizontal: 2 },
+
+  dockWrap: { position: "absolute", left: 0, right: 0, alignItems: "center" },
+  dock: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    padding: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: "#1F1840",
+    shadowOpacity: 0.3,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  dockNew: { flexDirection: "row", alignItems: "center", gap: 8, height: 48, paddingLeft: 5, paddingRight: 18, borderRadius: 999, backgroundColor: "#fff" },
+  dockPlus: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+  dockBtn: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
 });

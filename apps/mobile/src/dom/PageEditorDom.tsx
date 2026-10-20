@@ -21,6 +21,29 @@ if (typeof document !== "undefined") {
   if (viewport && !viewport.content.includes("interactive-widget")) viewport.content += ", interactive-widget=resizes-content";
 }
 
+// Android's DOM-component web view has DOM storage switched off, so window.localStorage is null, and
+// BlockNote's toggle blocks crash reading their open/closed state from it. Keep that state in memory.
+if (typeof window !== "undefined") {
+  let storage: Storage | null = null;
+  try {
+    storage = window.localStorage;
+  } catch {}
+  if (!storage) {
+    const mem = new Map<string, string>();
+    const memory: Storage = {
+      get length() {
+        return mem.size;
+      },
+      clear: () => mem.clear(),
+      getItem: (k) => mem.get(k) ?? null,
+      key: (i) => [...mem.keys()][i] ?? null,
+      removeItem: (k) => void mem.delete(k),
+      setItem: (k, v) => void mem.set(k, String(v)),
+    };
+    Object.defineProperty(window, "localStorage", { value: memory, configurable: true });
+  }
+}
+
 let pages: Record<string, Page> = {};
 const subs = new Set<() => void>();
 
