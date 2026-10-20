@@ -1,5 +1,5 @@
 // Notes from a link: read a web page and turn it into a Dovli page.
-// POST { url, mode: "notes" | "article", focus? } → { title, markdown, url, siteName, byline, published, … }
+// POST { url, mode: "notes" | "article", focus? } → { title, markdown, url, siteName, byline, published, style, … }
 //
 // "article" keeps the page's main text, cleaned up (no menus, ads or comments), with no AI. "notes"
 // has the AI write notes from it: the same AI as everywhere else (Dovli AI on Groq, or the person's
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
   if (!article || article.words < 40)
     return json({ error: "Dovli couldn't find the main text on that page. Pages that need a sign-in, or that build themselves with JavaScript, can't be read yet." }, 422);
 
-  const source = { url: page.url, title: article.title, siteName: article.siteName, byline: article.byline, published: article.published };
+  const source = { url: page.url, title: article.title, siteName: article.siteName, byline: article.byline, published: article.published, style: article.style };
   if (mode === "article") return json({ ...source, markdown: article.markdown, own: false });
 
   const { text, cut } = sourceForAI(article.markdown, maxSource(engine!.provider));

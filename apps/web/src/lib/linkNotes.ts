@@ -2,6 +2,7 @@
 // "notes" is written by AI; "article" is the page's own main text, cleaned up.
 
 import { inlineToMarkdown, markdownToBlocks, type Page } from "@dovli/core";
+import { DEFAULT_PAGE_STYLE, getStyle } from "@dovli/theme";
 import { AIError, aiHeaders, countUsage } from "./ai";
 import { store } from "./store";
 
@@ -14,6 +15,8 @@ interface Answer {
   byline: string;
   published: string;
   markdown: string;
+  /** A page style chosen from what the web page is about, or its brand colour. */
+  style?: string;
   own?: boolean;
   usage?: { input_tokens: number; output_tokens: number };
   used?: number;
@@ -52,6 +55,7 @@ export async function makePageFromLink(
     parentId,
     title: a.title,
     mark: "↗",
+    style: getStyle(a.style) ? a.style : DEFAULT_PAGE_STYLE,
     blocks: markdownToBlocks(`${sourceLine(a, mode)}\n\n${a.markdown}`),
   });
 }

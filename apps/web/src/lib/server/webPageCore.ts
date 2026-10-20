@@ -6,6 +6,7 @@ import { BlockList, isIP } from "node:net";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { classify, inlineToMarkdown } from "@dovli/core";
+import { pickStyle, type StyleSignals } from "./webPageStyle";
 
 /* ---------- Which addresses may be read ---------- */
 
@@ -88,6 +89,8 @@ export interface Article {
   published: string;
   markdown: string;
   words: number;
+  /** The Dovli page style that suits it (see webPageStyle.ts). */
+  style: string;
 }
 
 const SKIP = new Set(["script", "style", "noscript", "template", "svg", "math", "button", "form", "input", "select", "textarea", "nav", "canvas", "object", "map", "link", "meta", "head", "title"]);
@@ -451,8 +454,10 @@ export function readArticle(body: string, pageUrl: string, kind: "html" | "text"
     const paras = body.replace(/\r\n?/g, "\n").split(/\n{2,}/).map((p) => text(p).trim()).filter(Boolean);
     if (!paras.length) return null;
     const markdown = paras.map((p) => (LOOKS_LIKE_SYNTAX.test(p) ? `\\${p}` : p)).join("\n\n");
-    const name = decodeURIComponent(new URL(pageUrl).pathname.split("/").pop() || "");
-    return { title: name || host, siteName: host, byline: "", published: "", markdown, words: words(body).trim().split(" ").length };
+    const { pathname } = new URL(pageUrl);
+    const name = decodeURIComponent(pathname.split("/").pop() || "");
+    const style = pickStyle({ host, path: pathname, title: name, about: "", types: [], headings: "", body: markdown.slice(0, 8000), codeBlocks: 0, themeColor: "" });
+    return { title: name || host, siteName: host, byline: "", published: "", markdown, words: words(body).trim().split(" ").length, style };
   }
 
   const { document } = parseHTML(body);
@@ -467,6 +472,11 @@ export function readArticle(body: string, pageUrl: string, kind: "html" | "text"
   const siteMeta = meta(document, "og:site_name", "application-name");
   const fallbackTitle = meta(document, "og:title", "twitter:title") || words(document.querySelector("title")?.textContent ?? "").trim();
   const published = meta(document, "article:published_time", "date", "pubdate", "dc.date");
+  const signals = {
+    about: [meta(document, "description", "og:description"), meta(document, "keywords", "news_keywords"), meta(document, "article:section"), ...[...document.querySelectorAll('meta[property="article:tag"]')].map((m: Node) => m.getAttribute("content") ?? "")].join(" "),
+    types: [meta(document, "og:type"), ...schemaTypes(document)].filter(Boolean),
+    themeColor: meta(document, "theme-color", "msapplication-TileColor"),
+  };
 
   // Some sites hide the whole page until their script runs, so it doesn't flash unstyled (GeeksforGeeks
   // does). A reader sees it once the script has run, so Dovli shows it too. Small hidden things stay hidden.
@@ -483,14 +493,45 @@ export function readArticle(body: string, pageUrl: string, kind: "html" | "text"
   if (!markdown) return null;
   // Not Readability's guess at the site's name: that's often the publisher ("Wikimedia Foundation, Inc.").
   const siteName = siteMeta || host;
+  const title = cleanTitle(read.title || fallbackTitle || host, siteName, host);
+  const style = pickStyle({
+    ...signals,
+    host,
+    path: new URL(pageUrl).pathname,
+    title,
+    headings: markdown.match(/^\s*#{1,3} .*$/gm)?.join("\n") ?? "",
+    body: markdown.slice(0, 8000),
+    codeBlocks: Math.floor((markdown.match(/^\s*`{3,}/gm)?.length ?? 0) / 2),
+  } satisfies StyleSignals);
   return {
-    title: cleanTitle(read.title || fallbackTitle || host, siteName, host),
+    title,
     siteName: words(siteName).trim().slice(0, 120),
     byline: words(read.byline ?? "").trim().slice(0, 160),
     published: words(read.publishedTime || published).trim().slice(0, 60),
     markdown,
     words: count,
+    style,
   };
+}
+
+/** Every schema.org type the page declares in JSON-LD ("Recipe", "NewsArticle"…), including inside @graph. */
+function schemaTypes(doc: Node): string[] {
+  const out: string[] = [];
+  const walk = (v: any, depth: number) => {
+    if (!v || typeof v !== "object" || depth > 4 || out.length > 20) return;
+    if (Array.isArray(v)) return v.forEach((x) => walk(x, depth + 1));
+    for (const t of [v["@type"]].flat()) if (typeof t === "string") out.push(t);
+    if (v["@graph"]) walk(v["@graph"], depth + 1);
+    if (v.mainEntity) walk(v.mainEntity, depth + 1);
+  };
+  for (const script of doc.querySelectorAll('script[type="application/ld+json"]')) {
+    try {
+      walk(JSON.parse(script.textContent ?? ""), 0);
+    } catch {
+      /* broken JSON-LD is common; skip it */
+    }
+  }
+  return out;
 }
 
 /* ---------- For the AI ---------- */

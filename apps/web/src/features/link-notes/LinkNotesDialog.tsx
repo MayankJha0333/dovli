@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getStyle } from "@dovli/theme";
 import { Button, Dialog, Field, Input, Segmented, Spinner, toast, type IconName } from "@dovli/ui";
 import { aiLabel, allowanceLeft, useAIUsage } from "@/lib/ai";
 import { useAuth } from "@/lib/auth";
@@ -72,7 +73,10 @@ export function LinkNotesDialog() {
       const page = await makePageFromLink(url.trim(), { mode, focus: mode === "notes" ? focus : "", parentId: target?.parentId ?? null, signal: ctrl.signal });
       ui.set({ linkNotes: null });
       store.navigate({ name: "page", id: page.id });
-      toast(mode === "notes" ? `Notes ready: “${page.title}”` : `Saved “${page.title}”`);
+      const look = getStyle(page.style)?.name;
+      toast(`${mode === "notes" ? "Notes ready" : "Saved"}: “${page.title}”${look ? `, in the ${look} style` : ""}`, {
+        action: { label: "Change style", onClick: () => ui.set({ styleFor: page.id }) },
+      });
     } catch (e) {
       if (!ctrl.signal.aborted) setError(e instanceof Error ? e.message : "Something went wrong. Please try again.");
     } finally {
