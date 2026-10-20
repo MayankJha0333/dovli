@@ -20,9 +20,11 @@ export interface UIState {
   sidebarMode: "space" | "page";
   /** The assistant panel beside the page (⌘J). */
   assistant: boolean;
+  /** "Notes from a link": where the new page goes, and a link to start with. */
+  linkNotes: { parentId: string | null; url?: string } | null;
 }
 
-let state: UIState = { palette: false, settings: null, signIn: false, share: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space", assistant: false };
+let state: UIState = { palette: false, settings: null, signIn: false, share: null, picker: null, styleFor: null, nav: false, presenting: null, sidebarMode: "space", assistant: false, linkNotes: null };
 const listeners = new Set<() => void>();
 
 // A page made with "New page" should put the cursor in its title, ready to type.

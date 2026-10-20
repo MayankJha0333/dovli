@@ -272,6 +272,9 @@ export function Home() {
               <Quick icon="board" onClick={() => newPage("board")}>
                 New whiteboard
               </Quick>
+              <Quick icon="link" onClick={() => ui.set({ linkNotes: { parentId: null } })}>
+                Notes from a link
+              </Quick>
               <Quick icon="templates" onClick={() => store.navigate({ name: "templates" })}>
                 Use a template
               </Quick>

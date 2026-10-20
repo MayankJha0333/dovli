@@ -74,6 +74,12 @@ describe("explaining failures", () => {
     expect(explainError("groq", 429, { error: { message: "Rate limit reached" } }).kind).toBe("busy");
     expect(explainError("anthropic", 529, {}).kind).toBe("busy");
   });
+  it("says when one request is too big for the account", () => {
+    const groq = explainError("groq", 413, { error: { message: "Request too large for model `openai/gpt-oss-120b` … tokens per minute (TPM): Limit 8000" } });
+    expect(groq.status).toBe(413);
+    expect(groq.message).toMatch(/more text than Dovli AI can take at once.*connect your own AI key/);
+    expect(explainError("groqcloud", 413, {}).message).toBe("That's more text than Groq can take at once. Try something shorter.");
+  });
 });
 
 describe("making a call", () => {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Command } from "cmdk";
 import { Dialog as D } from "radix-ui";
-import { ancestors, displayTitle, recentPages, searchPages, tagIndex, templates } from "@dovli/core";
+import { ancestors, displayTitle, isLikelyUrl, normalizeUrl, recentPages, searchPages, tagIndex, templates } from "@dovli/core";
 import { APP_THEMES } from "@dovli/theme";
 import { Icon, Kbd, cn, modKey, type IconName } from "@dovli/ui";
 import { settings } from "@/lib/settings";
@@ -55,6 +55,7 @@ export function CommandPalette() {
     { id: "board", icon: "board", title: "New whiteboard", keywords: "create canvas draw board", run: () => newPage("board") },
     { id: "home", icon: "home", title: "Go to Home", keywords: "home start", run: () => store.navigate({ name: "home" }) },
     { id: "templates", icon: "templates", title: "Browse templates", keywords: "templates", run: () => store.navigate({ name: "templates" }) },
+    { id: "link", icon: "link", title: "Notes from a link", keywords: "web website url article clip save read summarise summarize notes link", run: () => ui.set({ linkNotes: { parentId: null } }) },
     { id: "trash", icon: "trash", title: "Open trash", keywords: "trash deleted restore bin", run: () => store.navigate({ name: "trash" }) },
     { id: "settings", icon: "settings", title: "Settings", keywords: "settings preferences options", shortcut: `${mod},`, run: () => ui.set({ settings: "appearance" }) },
     { id: "account", icon: "user", title: "Account and sign in", keywords: "account sign in login sync google apple email", run: () => ui.set({ settings: "account" }) },
@@ -132,6 +133,9 @@ export function CommandPalette() {
 
               {term && (
                 <Command.Group heading="Create" className={group}>
+                  {isLikelyUrl(q) && (
+                    <Row value="create-link-notes" icon="link" title="Make notes from this link" hint={q.trim()} onSelect={run(() => ui.set({ linkNotes: { parentId: null, url: normalizeUrl(q) } }))} />
+                  )}
                   <Row
                     value="create-page"
                     icon="pagePlus"

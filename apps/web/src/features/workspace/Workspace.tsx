@@ -14,6 +14,7 @@ import { AssistantButton } from "@/features/ai/AssistantButton";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { SignInDialog } from "@/features/auth/SignInDialog";
 import { Home } from "@/features/home/Home";
+import { LinkNotesDialog } from "@/features/link-notes/LinkNotesDialog";
 import { PageView } from "@/features/page/PageView";
 import { CommandPalette } from "@/features/palette/CommandPalette";
 import { PagePicker } from "@/features/pages/PagePicker";
@@ -50,7 +51,6 @@ export default function Workspace({ accountId }: { accountId?: string }) {
     void initStore().then(() => void autoBackup());
     initAuth();
     startSync();
-    void refreshUsage();
   }, []);
 
   // Back/forward buttons and links like #p-abc123 inside pages.
@@ -75,6 +75,12 @@ export default function Workspace({ accountId }: { accountId?: string }) {
     if (!authGateOn) return;
     if (authStatus === "signed-out" || (authStatus === "signed-in" && accountId && signedInAs !== accountId)) void auth.leaveForSignIn();
   }, [authStatus, signedInAs, accountId]);
+
+  // Ask which AI is ready only once sign-in has settled: asked earlier, the server sees no account
+  // yet and answers "sign in first", which would stick until something asked again.
+  useEffect(() => {
+    if (authStatus !== "loading") void refreshUsage();
+  }, [authStatus, signedInAs]);
 
   // The sidebar's two sides follow the route once the pages are loaded.
   useEffect(() => {
@@ -141,6 +147,7 @@ export default function Workspace({ accountId }: { accountId?: string }) {
       <SettingsDialog />
       <SignInDialog />
       <ShareDialog />
+      <LinkNotesDialog />
       <PagePicker />
       <StyleGallery />
       <Toaster />

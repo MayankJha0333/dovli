@@ -143,6 +143,10 @@ export function explainError(provider: ProviderId, status: number, data: any): A
   if (status === 400 && own && (msg.includes("credit") || msg.includes("billing"))) {
     return new AIProviderError(`Your ${name} account is out of credit. Add credit on ${name}'s website, or switch to Dovli AI.`, 402, "quota");
   }
+  // Groq answers 413 when one request is bigger than the account's tokens-per-minute limit.
+  if (status === 413 || msg.includes("request too large")) {
+    return new AIProviderError(`That's more text than ${own ? name : "Dovli AI"} can take at once. Try something shorter${own ? "" : ", or connect your own AI key in Settings → AI"}.`, 413, "other");
+  }
   if (status >= 500) return new AIProviderError(`${name} is having trouble right now. Try again in a moment.`, 502, "busy");
   return new AIProviderError("AI couldn't finish that. Please try again.", 502, "other");
 }
