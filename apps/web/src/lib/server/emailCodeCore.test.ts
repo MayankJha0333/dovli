@@ -27,6 +27,7 @@ let clock = 1_800_000_000_000;
 let nextCode = "123456";
 let sent: { to: string; code: string }[] = [];
 let failEmail = false;
+let review: { email: string; code: string } | null = null;
 let users: Map<string, { uid: string; emailVerified: boolean; disabled: boolean; name?: string }>;
 let mem: ReturnType<typeof memory>;
 let codes: ReturnType<typeof createEmailCodes>;
@@ -46,12 +47,14 @@ beforeEach(() => {
   nextCode = "123456";
   sent = [];
   failEmail = false;
+  review = null;
   users = new Map();
   mem = memory();
   codes = createEmailCodes({
     store: mem.store,
     now: () => clock,
     makeCode: () => nextCode,
+    reviewLogin: () => review,
     secret: () => "test-secret-that-is-long-enough-1234567890",
     sendEmail: async (to, code) => {
       if (failEmail) throw new Error("smtp down");
@@ -191,5 +194,37 @@ describe("checking a code", () => {
 
   it("without a code sent, says it has expired (and doesn't reveal accounts)", async () => {
     expect((await error(codes.verify("nobody@example.com", "123456"))).kind).toBe("expired");
+  });
+});
+
+describe("the store-review sign-in", () => {
+  beforeEach(() => {
+    review = { email: "review@dovli.in", code: "246810" };
+  });
+
+  it("gives the review email its fixed code, without sending an email", async () => {
+    expect(await codes.send("Review@Dovli.in", "ip")).toEqual({ resendAfter: 60, expiresIn: 600 });
+    expect(sent).toEqual([]);
+    expect(await codes.verify("review@dovli.in", "246810")).toEqual({ token: "token-for-uid-1" });
+  });
+
+  it("keeps the usual rules: one use, and a code must be asked for first", async () => {
+    expect((await error(codes.verify("review@dovli.in", "246810"))).kind).toBe("expired");
+    await codes.send("review@dovli.in", "ip");
+    await codes.verify("review@dovli.in", "246810");
+    expect((await error(codes.verify("review@dovli.in", "246810"))).kind).toBe("expired");
+  });
+
+  it("locks after too many wrong tries", async () => {
+    await codes.send("review@dovli.in", "ip");
+    for (let i = 0; i < 4; i++) await error(codes.verify("review@dovli.in", "000000"));
+    expect((await error(codes.verify("review@dovli.in", "000000"))).kind).toBe("locked");
+    expect((await error(codes.verify("review@dovli.in", "246810"))).kind).toBe("expired");
+  });
+
+  it("leaves every other email on random, emailed codes", async () => {
+    await codes.send("asha@example.com", "ip");
+    expect(sent).toEqual([{ to: "asha@example.com", code: "123456" }]);
+    expect((await error(codes.verify("asha@example.com", "246810"))).kind).toBe("wrong_code");
   });
 });

@@ -74,6 +74,8 @@ export interface CodeDeps {
   secret: () => string;
   now?: () => number;
   makeCode?: () => string;
+  /** A sign-in for app store reviewers, who can't read our inbox: this email's code is fixed and never sent. */
+  reviewLogin?: () => { email: string; code: string } | null;
 }
 
 interface CodeDoc {
@@ -129,7 +131,9 @@ export function createEmailCodes(deps: CodeDeps) {
       tx.set(LIMITS, ipId, { sends: [...sends, t], deleteAt: new Date(t + 2 * HOUR) });
     });
 
-    const code = makeCode();
+    const review = deps.reviewLogin?.();
+    const fixed = review?.email === email ? review.code : null;
+    const code = fixed ?? makeCode();
     await deps.store.transaction(async (tx) => {
       const prev = (await tx.get(CODES, key)) as CodeDoc | undefined;
       const sends = (prev?.sends ?? []).filter((x) => x > t - HOUR);
@@ -153,6 +157,7 @@ export function createEmailCodes(deps: CodeDeps) {
       tx.set(CODES, key, doc as unknown as Record<string, any>);
     });
 
+    if (fixed) return { resendAfter: RESEND_SECONDS, expiresIn: CODE_MINUTES * 60 };
     try {
       await deps.sendEmail(email, code, CODE_MINUTES);
     } catch (e) {

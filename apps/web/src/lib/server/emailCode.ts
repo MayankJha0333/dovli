@@ -64,6 +64,13 @@ function secret(): string {
   throw new CodeError("not_configured", "Email sign-in isn't set up on this server yet (AUTH_CODE_SECRET).", 503);
 }
 
+/** Play Store review sign-in: REVIEW_LOGIN_EMAIL always takes REVIEW_LOGIN_CODE. Off unless both are set. */
+function reviewLogin() {
+  const email = process.env.REVIEW_LOGIN_EMAIL?.trim().toLowerCase();
+  const code = process.env.REVIEW_LOGIN_CODE?.trim();
+  return email && code && /^\d{6}$/.test(code) ? { email, code } : null;
+}
+
 let codes: ReturnType<typeof createEmailCodes> | null = null;
 
 function emailCodes() {
@@ -95,6 +102,7 @@ function emailCodes() {
     },
     sendEmail: sendSignInCode,
     secret,
+    reviewLogin,
   });
   return codes;
 }
