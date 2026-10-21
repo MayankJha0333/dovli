@@ -1,11 +1,14 @@
 "use client";
 
-// The right half of the sign-in and sign-up pages: a picture of Dovli at work, drawn with the app's
-// own tokens (so it follows the theme), instead of empty space. A page with to-dos and a flowchart,
-// the assistant beside it, and a "synced" note. It's one picture to screen readers.
+// The right half of the sign-in and sign-up pages: the landing page's sky (with its drifting paper),
+// and a picture of Dovli at work, drawn with the app's own tokens so it follows the theme. A page
+// with to-dos and a flowchart, the same pages on the Android app, and a "synced" note between them.
+// It's one picture to screen readers.
 
 import type { CSSProperties } from "react";
 import { Icon, cn, type IconName } from "@dovli/ui";
+import { MiniPhone } from "@/features/landing/Android";
+import { Scene } from "@/features/landing/Scene";
 import { Sheet } from "@/features/landing/Sheet";
 
 const delay = (d: number) => ({ "--d": `${d}s` }) as CSSProperties;
@@ -42,46 +45,48 @@ function Arrow() {
 const features: { icon: IconName; text: string }[] = [
   { icon: "pagePlus", text: "Pages inside pages" },
   { icon: "board", text: "Whiteboards" },
+  { icon: "cloudOff", text: "Works offline" },
   { icon: "sparkles", text: "AI that edits with you" },
 ];
 
 export function AuthShowcase({ title, lead }: { title: string; lead: string }) {
   return (
-    <aside
-      aria-label="About Dovli"
-      className="relative isolate hidden flex-col overflow-hidden rounded-[28px] bg-[var(--lp-lilac)] xl:flex"
-    >
-      {/* The mark's colours as a soft wash, and a faint dot grid like the whiteboard. */}
-      <div aria-hidden="true" className="lp-wash absolute -inset-20 -z-10 opacity-70" />
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10 opacity-[0.35]"
-        style={{ backgroundImage: "radial-gradient(var(--d-line-strong) 1px, transparent 1px)", backgroundSize: "22px 22px" }}
-      />
+    <aside aria-label="About Dovli" className="lp-sky relative isolate hidden min-h-[640px] flex-col overflow-hidden rounded-[28px] lg:flex">
+      <div aria-hidden="true" className="lp-ruled absolute inset-0 -z-10" />
+      <Scene kind="paper" count={12} className="-z-10" />
 
-      <div className="px-14 pt-12">
-        <p className="lp-fade m-0 max-w-[520px] text-balance font-serif text-[44px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink 2xl:text-[52px]" style={delay(0.05)}>
+      <div className="px-10 pt-11 xl:px-14 xl:pt-12">
+        <p className="lp-fade m-0 max-w-[540px] text-balance font-serif text-[40px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink xl:text-[48px] 2xl:text-[54px]" style={delay(0.05)}>
           {title}
         </p>
-        <p className="lp-fade m-0 mt-4 max-w-[440px] text-[17px] leading-relaxed text-ink-2" style={delay(0.15)}>
+        <p className="lp-fade m-0 mt-4 max-w-[460px] text-[17px] leading-relaxed text-ink-2" style={delay(0.15)}>
           {lead}
         </p>
+        <ul className="m-0 mt-6 flex list-none flex-wrap gap-2 p-0">
+          {features.map((f, i) => (
+            <li key={f.text} className="lp-fade flex h-8 items-center gap-2 rounded-full bg-panel/80 px-3 text-[13px] font-medium text-ink-2 shadow-sm ring-1 ring-line" style={delay(0.25 + i * 0.06)}>
+              <Icon name={f.icon} size={13} className="text-accent" aria-hidden="true" />
+              {f.text}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {/* The picture */}
+      {/* The picture: the page on the web, and the same pages on the phone, rising out of the bottom edge. */}
       <div
         role="img"
-        aria-label="A Dovli page called Launch plan with ticked to-dos and a small flowchart, the assistant adding a summary beside it, and a note that the page is synced."
-        className="relative mx-14 my-auto h-[430px] flex-none pt-8"
+        aria-label="A Dovli page called Launch plan with a summary, ticked to-dos and a small flowchart, and Dovli's Android app beside it, with a note that the pages are saved on all your devices."
+        className="relative mt-8 min-h-[400px] flex-1"
       >
         <div aria-hidden="true" className="absolute inset-0">
-          <Sheet fold={44} className="lp-fade absolute left-0 top-0 w-[min(440px,82%)]" sheetClassName="rounded-[20px] bg-panel">
+          <div className="lp-rise absolute left-10 top-4 w-[min(440px,72%)] xl:left-14" style={delay(0.45)}>
+          <Sheet fold={44} sheetClassName="rounded-[22px] bg-panel">
             <div className="p-6">
               <div className="flex items-center gap-1.5 text-xs text-ink-3">
                 <Icon name="page" size={12} />
                 Launch plan
               </div>
-              <p className="m-0 mt-3 text-[22px] font-bold leading-tight tracking-tight text-ink">Launch plan</p>
+              <p className="m-0 mt-3 font-serif text-[24px] font-semibold leading-tight tracking-[-0.01em] text-ink">Launch plan</p>
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-accent-soft px-3 py-2.5 text-[13px] leading-snug text-ink">
                 <Icon name="sparkles" size={13} className="mt-0.5 flex-none text-accent" />
                 Beta opens on 14 November. Keep week one quiet and fix what people trip over.
@@ -116,34 +121,15 @@ export function AuthShowcase({ title, lead }: { title: string; lead: string }) {
               </div>
             </div>
           </Sheet>
-
-          {/* The assistant, beside the page */}
-          <div
-            className="lp-fade absolute right-0 top-[190px] w-[min(280px,50%)] rounded-[18px] bg-panel p-3.5 shadow-[0_24px_48px_-12px_rgba(21,23,29,0.25)] ring-1 ring-line"
-            style={delay(0.55)}
-          >
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-ink">
-              <Icon name="sparkles" size={13} className="text-accent" />
-              Assistant
-            </div>
-            <div className="ml-auto mt-2.5 w-fit max-w-[90%] rounded-[12px] bg-accent-soft px-3 py-2 text-[12.5px] text-ink">Sum up this page at the top</div>
-            <p className="m-0 mt-2.5 text-[12.5px] leading-snug text-ink-2">I'd add a two-line summary above the to-dos.</p>
-            <div className="mt-2.5 flex items-center justify-between rounded-[10px] bg-well px-2.5 py-2">
-              <span className="flex items-center gap-1.5 text-[12px] font-medium text-ink">
-                <Icon name="plus" size={12} className="text-ink-3" />
-                Add at the top
-              </span>
-              <span className="flex h-6 items-center gap-1 rounded-md bg-accent px-2 text-[11px] font-semibold text-accent-ink">
-                <Icon name="check" size={11} />
-                Apply
-              </span>
-            </div>
           </div>
 
-          {/* Synced */}
+          <div className="lp-rise absolute -bottom-2 right-6 w-[150px] xl:right-10 xl:w-[180px] min-[1400px]:right-12 min-[1400px]:w-[220px]" style={delay(1.15)}>
+            <MiniPhone />
+          </div>
+
           <div
-            className="lp-fade absolute bottom-2 left-6 flex items-center gap-2 rounded-full bg-panel py-1.5 pl-2 pr-3 text-[12px] font-medium text-ink shadow-[0_10px_24px_-8px_rgba(21,23,29,0.25)] ring-1 ring-line"
-            style={delay(0.8)}
+            className="lp-fade absolute bottom-16 right-[200px] hidden items-center min-[1400px]:flex gap-2 rounded-full bg-panel py-1.5 pl-2 pr-3 text-[12px] font-medium text-ink shadow-pop ring-1 ring-line min-[1400px]:right-[244px]"
+            style={delay(1.5)}
           >
             <span className="grid size-5 place-items-center rounded-full bg-[var(--lp-mint)] text-[var(--lp-mint-ink)]">
               <Icon name="cloudCheck" size={12} />
@@ -152,20 +138,6 @@ export function AuthShowcase({ title, lead }: { title: string; lead: string }) {
           </div>
         </div>
       </div>
-
-      <ul className="m-0 flex list-none flex-wrap gap-2 px-14 pb-10 pt-6">
-        {features.map((f, i) => (
-          <li
-            key={f.text}
-            className="lp-fade flex h-8 items-center gap-2 rounded-full bg-panel/70 px-3 text-[13px] font-medium text-ink-2 ring-1 ring-line backdrop-blur"
-            style={delay(1 + i * 0.08)}
-          >
-            <Icon name={f.icon} size={13} className="text-accent" />
-            {f.text}
-          </li>
-        ))}
-      </ul>
-
     </aside>
   );
 }

@@ -73,10 +73,10 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
   const switchHref = loginUrl(next, mode === "login" ? SIGNUP_PATH : LOGIN_PATH);
 
   return (
-    <div className="grid min-h-dvh bg-bg text-ink xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] xl:gap-3 xl:p-3">
+    <div className="grid min-h-dvh bg-bg text-ink lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-3 lg:p-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       {/* Left: the form, with nothing else competing for attention. */}
-      <div className="relative isolate flex min-h-dvh flex-col xl:min-h-0">
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden xl:hidden">
+      <div className="relative isolate flex min-h-dvh flex-col lg:min-h-0">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 overflow-hidden lg:hidden">
           <div className="lp-wash absolute -left-24 -right-24 -top-40 h-[340px] opacity-50" />
         </div>
 
@@ -122,8 +122,8 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
               )}
             </p>
 
-            {/* Why Dovli, in three lines. On phones this is the only picture of the product, so it stays. */}
-            <ul className="lp-fade m-0 mt-9 grid list-none gap-3 border-t border-line p-0 pt-6" style={delay(0.3)}>
+            {/* Why Dovli, in three lines: the only picture of the product where the showcase doesn't fit. */}
+            <ul className="lp-fade m-0 mt-9 grid list-none gap-3 border-t border-line p-0 pt-6 lg:hidden" style={delay(0.3)}>
               {points.map((p) => (
                 <li key={p.text} className="flex items-start gap-3">
                   <span className="grid size-8 flex-none place-items-center rounded-lg bg-well text-accent" aria-hidden="true">
@@ -151,7 +151,7 @@ export function AuthPage({ mode, next }: { mode: "login" | "signup"; next: strin
         </footer>
       </div>
 
-      {/* Right: what Dovli looks like (wide screens only; narrower screens get the form on its own). */}
+      {/* Right: what Dovli looks like (from laptop width; narrower screens get the form on its own). */}
       <AuthShowcase title={t.pitch} lead={t.pitchLead} />
     </div>
   );
