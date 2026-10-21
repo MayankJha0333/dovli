@@ -1,5 +1,6 @@
 import { Icon, cn, type IconName } from "@dovli/ui";
 import { useAuth } from "@/lib/auth";
+import { desktop } from "@/lib/desktop";
 import { useStore } from "@/lib/store";
 import { useSyncStatus } from "@/lib/sync";
 import { ui } from "@/lib/ui";
@@ -15,7 +16,9 @@ export function SyncNotice() {
   const account = useAuth((a) => a.account);
 
   let note: { icon: IconName; text: string; tone: "danger" | "warn" } | null = null;
-  if (save === "error") note = { icon: "alert", text: "Couldn't save. Storage is full or blocked", tone: "danger" };
+  // The desktop app shows all of this in its title bar, always in view.
+  if (desktop) note = null;
+  else if (save === "error") note = { icon: "alert", text: "Couldn't save. Storage is full or blocked", tone: "danger" };
   else if (sync.state === "error") note = { icon: "alert", text: "Sync paused. Retrying", tone: "danger" };
   else if (sync.state === "offline" && sync.pending)
     note = { icon: "cloudOff", text: `Offline. ${sync.pending} change${sync.pending > 1 ? "s" : ""} will sync later`, tone: "warn" };

@@ -75,6 +75,13 @@ describe("devices", () => {
     expect(get("users/u1/devices/dev-abc-12345")).toMatchObject({ platform: "web", installed: false });
     expect(get("users/u1/devices/dev-abc-12345")!.name.length).toBe(80);
   });
+
+  it("knows the desktop apps", async () => {
+    await cloud.checkIn("u1", { deviceId: "desktop-abc-12345", platform: "macos", name: "Dovli for Mac", installed: true });
+    await cloud.checkIn("u1", { deviceId: "desktop-xyz-98765", platform: "windows" });
+    expect(get("users/u1/devices/desktop-abc-12345")).toMatchObject({ platform: "macos", name: "Dovli for Mac", installed: true });
+    expect(get("users/u1/devices/desktop-xyz-98765")).toMatchObject({ platform: "windows", name: "Computer" });
+  });
 });
 
 describe("pages", () => {

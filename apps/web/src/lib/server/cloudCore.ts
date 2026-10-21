@@ -351,14 +351,17 @@ export function pageRecord(page: Page, json: string, rev: number, who: { workspa
   };
 }
 
+/** Where Dovli runs: a browser tab, the phone app, or the desktop app (apps/desktop). */
+const PLATFORMS = ["web", "ios", "android", "macos", "windows"] as const;
+
 function parseDevice(raw: Doc) {
   const deviceId = raw?.deviceId;
   if (typeof deviceId !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(deviceId)) throw new CloudError("bad_request", "That device id doesn't look right.", 400);
-  const platform: "web" | "ios" | "android" = raw.platform === "ios" || raw.platform === "android" ? raw.platform : "web";
+  const platform: (typeof PLATFORMS)[number] = PLATFORMS.includes(raw.platform) ? raw.platform : "web";
   return {
     deviceId,
     platform,
-    name: text(raw.name, 80)?.trim() || (platform === "web" ? "Web browser" : "Phone"),
+    name: text(raw.name, 80)?.trim() || (platform === "web" ? "Web browser" : platform === "macos" || platform === "windows" ? "Computer" : "Phone"),
     appVersion: text(raw.appVersion, 32) ?? "",
     installed: raw.installed === true,
   };

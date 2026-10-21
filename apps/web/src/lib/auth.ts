@@ -16,6 +16,7 @@ import {
   type User,
 } from "firebase/auth";
 import { LOGIN_PATH, authGateOn, loginUrl } from "./authGate";
+import { desktop, signInThroughBrowser } from "./desktop";
 import { firebaseAuth, firebaseConfigured } from "./firebase";
 
 export interface Account {
@@ -115,6 +116,9 @@ export function initAuth() {
   started = true;
   const a = firebaseAuth()!;
   onAuthStateChanged(a, (u) => set({ status: u ? "signed-in" : "signed-out", account: toAccount(u) }));
+  // The desktop app never redirects to Google (see signInWithGoogle), and asking would load
+  // Firebase's sign-in frame, which refuses the app's own address.
+  if (desktop) return;
   // Coming back from Google after a full-page redirect (when pop-ups weren't possible).
   getRedirectResult(a).catch((e) => {
     redirectError = googleProblem(e);
@@ -158,6 +162,18 @@ export const auth = {
   async signInWithGoogle(): Promise<boolean> {
     const a = firebaseAuth();
     if (!a) throw new AuthError("Sign-in isn't set up on this copy of Dovli.", "not-configured");
+    if (desktop) {
+      // Google's page won't open inside an app window, so the system browser signs in on dovli.in
+      // and hands back a one-time token (see app/desktop/sign-in).
+      const token = await signInThroughBrowser(desktop);
+      if (!token) return false;
+      try {
+        await signInWithCustomToken(a, token);
+      } catch (e) {
+        throw friendly(e);
+      }
+      return true;
+    }
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
     try {
