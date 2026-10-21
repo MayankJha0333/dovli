@@ -49,7 +49,7 @@ export function Landing({ accounts = true, signedIn = false, desktop = null }: {
       <Glow />
       <Header showSignIn={showSignIn} start={start} desktop={desktop} />
       <main id="main">
-        <Hero free={showSignIn} start={start} />
+        <Hero free={showSignIn} start={start} desktop={desktop} />
         <Platforms desktop={desktop} />
         <div className="flex flex-col gap-24 py-24 sm:gap-28 sm:py-28">
           <Features />
@@ -348,7 +348,7 @@ const heroLines: { text: string; verb?: { t: Tone; icon: IconName } }[][] = [
   [{ text: "and" }, { text: "sketch", verb: { t: "pink", icon: "brush" } }, { text: "." }],
 ];
 
-function Hero({ free, start }: { free: boolean; start: Start }) {
+function Hero({ free, start, desktop }: { free: boolean; start: Start; desktop: string | null }) {
   let i = 0;
   return (
     <section aria-labelledby="hero-title" className="relative px-2 pt-2 sm:px-4 sm:pt-4">
@@ -358,17 +358,30 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
         <Scene kind="paper" />
       </div>
       <div className={cn(container, "flex flex-col items-center pt-24 text-center sm:pt-28")}>
-        <a
-          href="#android"
+        {/* The newest app gets the announcement: Mac and Windows once released, Android until then. */}
+        <Link
+          href={desktop ? "/download" : "#android"}
           className="lp-fade group inline-flex h-9 items-center gap-2.5 rounded-full bg-panel/85 pl-1.5 pr-3.5 text-sm font-semibold text-ink shadow-sm ring-1 ring-line transition-colors hover:bg-panel"
           style={{ "--d": "0s" } as CSSProperties}
         >
           <span className="rounded-full px-2 py-0.5 text-xs font-bold" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
             New
           </span>
-          Dovli for Android is on Google Play
+          {desktop ? (
+            <>
+              <span aria-hidden="true" className="-mr-0.5 flex items-center gap-1.5 text-ink-2">
+                <Icon name="apple" size={14} />
+                <WindowsIcon size={12} />
+              </span>
+              <span>
+                Dovli for Mac and Windows<span className="hidden sm:inline"> is here</span>
+              </span>
+            </>
+          ) : (
+            "Dovli for Android is on Google Play"
+          )}
           <Icon name="arrowRight" size={14} className="text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
-        </a>
+        </Link>
         <h1 id="hero-title" className="m-0 mt-7 font-serif text-[44px] font-semibold leading-[1.04] tracking-[-0.035em] text-ink sm:text-[72px] lg:text-[88px]">
           <span className="sr-only">A calm place to write, plan and sketch.</span>
           {heroLines.map((line, li) => (
@@ -402,7 +415,7 @@ function Hero({ free, start }: { free: boolean; start: Start }) {
           ))}
         </h1>
         <p className={cn(leadClass, "lp-fade mt-7 max-w-[580px] text-balance sm:text-xl sm:leading-relaxed")} style={{ "--d": "0.55s" } as CSSProperties}>
-          Your notes, docs and whiteboards, together in one place. Free on the web and on Android, with AI that helps when you ask.
+          Your notes, docs and whiteboards, together in one place. Free on the web{desktop ? ", Android, Mac and Windows" : " and on Android"}, with AI that helps when you ask.
         </p>
         <div className="lp-fade mt-8 flex flex-wrap items-center justify-center gap-3" style={{ "--d": "0.7s" } as CSSProperties}>
           <Link href={start.href} onClick={startClick(start, "hero")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
