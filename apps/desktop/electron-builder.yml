@@ -1,0 +1,63 @@
+# Packaging Dovli for Mac and Windows (pnpm --filter @dovli/desktop dist:mac / dist:win).
+# Signing turns on by itself when its secrets are set (see README.md → Releasing):
+#   Mac:      CSC_LINK + CSC_KEY_PASSWORD (Developer ID Application), and for notarizing
+#             APPLE_ID + APPLE_APP_SPECIFIC_PASSWORD + APPLE_TEAM_ID
+#   Windows:  WIN_CSC_LINK + WIN_CSC_KEY_PASSWORD (or Azure Trusted Signing, below)
+appId: app.dovli.desktop
+productName: Dovli
+copyright: Copyright © 2026 Dovli
+directories:
+  output: release
+  buildResources: resources
+# Only the built app goes in; the window's code is already bundled into dist/.
+files:
+  - dist/**/*
+  - "!dist/**/*.map"
+  - package.json
+asar: true
+artifactName: Dovli-${version}-${os}-${arch}.${ext}
+
+mac:
+  category: public.app-category.productivity
+  icon: resources/icon.png
+  target:
+    - target: dmg
+      arch: [universal]
+    - target: zip
+      arch: [universal]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+  # Notarizing runs when APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID are set.
+  notarize: true
+  extendInfo:
+    NSMicrophoneUsageDescription: Dovli uses the microphone only when you dictate into a page.
+dmg:
+  title: Dovli ${version}
+  window: { width: 540, height: 380 }
+  contents:
+    - { x: 140, y: 190 }
+    - { x: 400, y: 190, type: link, path: /Applications }
+
+win:
+  icon: resources/icon-win.png
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Dovli
+  deleteAppDataOnUninstall: false
+
+# Auto-updates come from this repo's GitHub releases (src/main/updater.ts).
+publish:
+  provider: github
+  owner: MayankJha0333
+  repo: dovli
+  # A draft: nothing reaches people (or their auto-updates) until you publish it on GitHub.
+  releaseType: draft

@@ -68,5 +68,8 @@ apps/web/public/excalidraw/
 .sync/
 firebase-debug.log
 
+# Desktop installers (pnpm --filter @dovli/desktop dist:mac / dist:win)
+apps/desktop/release/
+
 # Packed browser extension for the Chrome Web Store (pnpm --filter @dovli/extension zip)
 apps/extension/dovli-extension.zip
