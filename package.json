@@ -9,6 +9,7 @@
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@dovli/web",
     "dev:mobile": "pnpm --filter @dovli/mobile start",
+    "dev:desktop": "pnpm --filter @dovli/desktop dev",
     "mobile": "pnpm --filter @dovli/mobile start --clear",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
