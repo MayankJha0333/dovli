@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { displayTitle, type Page, type Template } from "@dovli/core";
 import { toast } from "@dovli/ui";
+import { siteOrigin } from "@/lib/desktop";
 import { store } from "@/lib/store";
 import { requestTitleFocus, ui } from "@/lib/ui";
 
@@ -51,7 +52,7 @@ export async function moveWithPicker(page: Page) {
 
 export async function copyLink(page: Page) {
   try {
-    await navigator.clipboard.writeText(`${location.origin}${location.pathname}#p-${page.id}`);
+    await navigator.clipboard.writeText(`${siteOrigin()}/app#p-${page.id}`);
     toast("Link copied. It opens this page for anyone signed in to your account.");
   } catch {
     toast("Couldn't reach the clipboard.", { tone: "danger" });

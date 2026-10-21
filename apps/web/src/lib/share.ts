@@ -4,6 +4,7 @@
 import { useSyncExternalStore } from "react";
 import { auth } from "./auth";
 import { authGateOn } from "./authGate";
+import { siteOrigin } from "./desktop";
 import { waitForPage } from "./sync";
 
 export type ShareRole = "viewer" | "editor";
@@ -97,8 +98,8 @@ export const share = {
     call<{ ok: true; rev: number } | { ok: false; rev: number; page: import("@dovli/core").Page }>("/api/shared/save", { ...target, ...change }, false),
 };
 
-export const linkUrl = (id: string) => `${location.origin}/s/${id}`;
-export const invitedUrl = (workspaceId: string, pageId: string) => `${location.origin}/p/${encodeURIComponent(workspaceId)}/${encodeURIComponent(pageId)}`;
+export const linkUrl = (id: string) => `${siteOrigin()}/s/${id}`;
+export const invitedUrl = (workspaceId: string, pageId: string) => `${siteOrigin()}/p/${encodeURIComponent(workspaceId)}/${encodeURIComponent(pageId)}`;
 
 /* ---------- "Shared with me", for the sidebar ---------- */
 

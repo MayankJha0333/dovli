@@ -42,6 +42,7 @@ you type, so it works offline, then syncs across the web and your phone when you
 | 🤖 **Android** | In testing on Google Play | Public listing coming soon (`app.dovli`) |
 | 🧩 **Chrome extension** | In Chrome Web Store review | [Load it unpacked](#try-the-extension-now) in the meantime |
 | 🤝 **AI apps (MCP)** | Live | Claude Desktop, Claude Code, Codex, Cursor and others ([how](#connect-your-ai-apps)) |
+| 💻 **Mac & Windows** | In development | Works offline and syncs when you're back online ([build it](apps/desktop/README.md)) |
 | 🍎 **iOS** | Planned | After the Android launch |
 
 ## Features

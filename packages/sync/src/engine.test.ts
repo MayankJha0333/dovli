@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Page } from "@dovli/core";
 import { SyncEngine } from "./engine";
-import { MAX_PAGE_CHARS, type PendingChange, type SyncHost, type SyncTransport, type SyncedCopy } from "./types";
+import { MAX_PAGE_CHARS, type PendingChange, type PushResult, type SyncHost, type SyncTransport, type SyncedCopy } from "./types";
 
 // A fake cloud that behaves like the Supabase table + push_page function in supabase/migrations.
 class FakeCloud {
   rows = new Map<string, { id: string; data: Page | null; rev: number; purged: boolean }>();
   seq = 0;
   online = true;
+  /** Runs as a push arrives, before the cloud looks at it (another device getting there first). */
+  beforePush: (() => void) | null = null;
+  /** Runs while a push is on its way back, as if the person kept typing during the request. */
+  duringPush: (() => void) | null = null;
   client(): any {
     const cloud = this;
     const query = () => {
@@ -50,11 +54,21 @@ function transportFor(cloud: FakeCloud): SyncTransport {
     },
     async push(c) {
       if (!cloud.online) throw new Error("Failed to fetch");
+      const before = cloud.beforePush;
+      cloud.beforePush = null;
+      before?.();
       const cur = cloud.rows.get(c.id);
-      if (cur && c.baseRev !== cur.rev) return { ok: false, rev: cur.rev, data: structuredClone(cur.data), purged: cur.purged };
-      const rev = ++cloud.seq;
-      cloud.rows.set(c.id, { id: c.id, data: structuredClone(c.data), rev, purged: c.purged });
-      return { ok: true, rev };
+      let answer: PushResult;
+      if (cur && c.baseRev !== cur.rev) answer = { ok: false, rev: cur.rev, data: structuredClone(cur.data), purged: cur.purged };
+      else {
+        const rev = ++cloud.seq;
+        cloud.rows.set(c.id, { id: c.id, data: structuredClone(c.data), rev, purged: c.purged });
+        answer = { ok: true, rev };
+      }
+      const during = cloud.duringPush;
+      cloud.duringPush = null;
+      during?.();
+      return answer;
     },
   };
 }
@@ -167,6 +181,52 @@ describe("SyncEngine", () => {
     expect(a.pages.p1.title).toBe(b.pages.p1.title);
     expect(a.pend.size + b.pend.size).toBe(0);
     expect(a.engine.syncsFiles).toBe(false);
+  });
+
+  it("keeps typing done while its push was on the way, when the cloud had a newer copy", async () => {
+    const cloud = new FakeCloud();
+    const a = new FakeDevice(cloud, "transport");
+    const b = new FakeDevice(cloud, "transport");
+    a.edit("p1", { blocks: [para("1", "one"), para("2", "two")] });
+    await a.sync();
+    await b.sync();
+
+    // a sends its edit to block 1, but b's edit to block 2 reaches the cloud first; and while the
+    // cloud's answer is on its way back, a types more.
+    a.edit("p1", { blocks: [para("1", "one from a"), para("2", "two")] });
+    cloud.beforePush = () => {
+      b.edit("p1", { blocks: [para("1", "one"), para("2", "two from b")] });
+      const rev = ++cloud.seq;
+      cloud.rows.set("p1", { id: "p1", data: structuredClone(b.pages.p1), rev, purged: false });
+      b.pend.clear();
+      b.synced.set("p1", { id: "p1", rev, page: structuredClone(b.pages.p1) });
+      b.cursor = rev;
+    };
+    cloud.duringPush = () => a.edit("p1", { blocks: [para("1", "one from a, still typing"), para("2", "two")] });
+    await a.sync();
+    await b.sync();
+    const text = (p: Page) => p.blocks!.map((x: any) => x.content[0].text);
+    expect(text(a.pages.p1)).toEqual(["one from a, still typing", "two from b"]);
+    expect(b.pages.p1).toEqual(a.pages.p1);
+    expect(a.pend.size + b.pend.size).toBe(0);
+  });
+
+  it("merges, not replaces, an edit made here that the outbox hasn't noted yet", async () => {
+    const cloud = new FakeCloud();
+    const a = new FakeDevice(cloud, "transport");
+    const b = new FakeDevice(cloud, "transport");
+    a.edit("p1", { blocks: [para("1", "one"), para("2", "two")] });
+    await a.sync();
+    await b.sync();
+    b.edit("p1", { blocks: [para("1", "one"), para("2", "two from b")] });
+    await b.sync();
+
+    // a's change is in its page but not yet in its outbox (that write is still on its way).
+    a.edit("p1", { blocks: [para("1", "one from a"), para("2", "two")] });
+    a.pend.delete("p1");
+    await a.sync();
+    const text = (p: Page) => p.blocks!.map((x: any) => x.content[0].text);
+    expect(text(a.pages.p1)).toEqual(["one from a", "two from b"]);
   });
 
   it("keeps a page that's too big on the device, says so, and still sends the rest", async () => {

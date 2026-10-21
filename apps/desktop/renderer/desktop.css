@@ -1,0 +1,48 @@
+/* The desktop window's own chrome. The app draws its title bar (the system's is hidden): a strip
+   across the top that drags the window, with the Mac's traffic lights at the left or Windows'
+   buttons at the right. Everything else is the web app's own styles. */
+
+:root {
+  --dt-bar: 40px;
+  /* Room for the window buttons: the traffic lights on a Mac, minimise / maximise / close on Windows. */
+  --dt-bar-left: 84px;
+  --dt-bar-right: 12px;
+}
+:root[data-platform="win32"] {
+  --dt-bar: 36px;
+  --dt-bar-left: 12px;
+  --dt-bar-right: 146px;
+}
+
+/* The workspace sits under the title bar, which takes the place of the shell's top gap. */
+:root[data-platform] [data-print="shell"] {
+  height: calc(100dvh - var(--dt-bar));
+  margin-top: var(--dt-bar);
+  padding-top: 0;
+}
+
+.dt-drag {
+  -webkit-app-region: drag;
+  app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Drag areas are worked out from the page's layout, not what's on top. So anything that can float
+   over the title bar must say it isn't one, or it couldn't be clicked there. */
+.dt-no-drag,
+.dt-drag button,
+[role="dialog"],
+[role="menu"],
+[role="listbox"],
+[role="tooltip"],
+[data-radix-popper-content-wrapper],
+[cmdk-root] {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+@media print {
+  .dt-titlebar { display: none !important; }
+  :root[data-platform] [data-print="shell"] { margin-top: 0; height: auto; }
+}

@@ -12,6 +12,7 @@ rules_version = '2';
 //   users/{uid}/shared/{ws~page}         "Shared with me"
 //   pendingInvites/{emailKey}            invites waiting for that email to sign up
 //   authEmailCodes/*, authRateLimits/*, aiUsage/*   sign-in codes, send limits, AI use
+//   authDesktopCodes/*                   the desktop app's one-time sign-in codes (two minutes)
 // Browsers and phones may read and write nothing directly.
 service cloud.firestore {
   match /databases/{database}/documents {

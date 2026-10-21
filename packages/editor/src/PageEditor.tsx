@@ -21,7 +21,7 @@ import {
 import { BlockNoteView } from "@blocknote/mantine";
 import { SlashMenu } from "./SlashMenu";
 import "@blocknote/mantine/style.css";
-import { classify, displayTitle, isLikelyUrl, livePages, normalizeUrl, toEmbedProps, type Page } from "@dovli/core";
+import { classify, displayTitle, isLikelyUrl, livePages, mergeBlocks, normalizeUrl, toEmbedProps, type Page } from "@dovli/core";
 import { getStyle } from "@dovli/theme";
 import { Icon, type IconName } from "@dovli/ui";
 import { schema, type DovliEditor } from "./schema";
@@ -283,17 +283,19 @@ export default function PageEditor({
   // The page changed somewhere else (another device, or an AI app through Dovli's MCP server)
   // while it is open here: show the new version at once, keeping the cursor in the same block.
   // Our own saves come back the same way; those match what the editor already shows.
+  // The incoming page already holds everything saved from here (sync merges, never goes back), so
+  // it's shown as is; typing not saved yet is merged with it, so neither side is lost.
   const incoming = useMemo(() => JSON.stringify(page.blocks ?? []), [page.blocks]);
   const seen = useRef(incoming);
   const applying = useRef(false);
-  /** When the last change typed here was saved. An older copy coming back from the cloud (the
-   *  answer to our own save, while typing went on) must never replace newer typing. */
-  const typedAt = useRef(0);
   useEffect(() => {
     if (incoming === seen.current) return;
     seen.current = incoming;
-    if (incoming === saved.current || incoming === JSON.stringify(editor.document)) return;
-    if ((page.updatedAt ?? 0) <= typedAt.current) return;
+    const shown = JSON.stringify(editor.document);
+    if (incoming === saved.current || incoming === shown) return;
+    const remote = (page.blocks?.length ? page.blocks : [{ type: "paragraph" }]) as any[];
+    const unsaved = shown !== saved.current;
+    const next = unsaved ? mergeBlocks(JSON.parse(saved.current), editor.document as any[], remote) : remote;
     let at: string | undefined;
     try {
       at = editor.getTextCursorPosition().block.id;
@@ -303,11 +305,12 @@ export default function PageEditor({
     const focused = !!editor.domElement?.contains(document.activeElement);
     applying.current = true;
     try {
-      editor.replaceBlocks(editor.document, page.blocks?.length ? (page.blocks as any) : [{ type: "paragraph" }]);
+      editor.replaceBlocks(editor.document, next);
     } finally {
       applying.current = false;
     }
     saved.current = JSON.stringify(editor.document);
+    if (unsaved) bridge.saveBlocks(page.id, editor.document as any[]);
     if (focused && at && editor.getBlock(at)) {
       try {
         editor.setTextCursorPosition(at, "end");
@@ -412,7 +415,6 @@ export default function PageEditor({
             const json = JSON.stringify(editor.document);
             if (json === saved.current) return;
             saved.current = json;
-            typedAt.current = Date.now();
             bridge.saveBlocks(page.id, editor.document as any[]);
           }}
           className="dovli-editor"

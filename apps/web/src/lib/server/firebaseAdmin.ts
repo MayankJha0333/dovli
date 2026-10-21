@@ -87,9 +87,12 @@ export interface RequestUser {
   signInMethod?: string;
 }
 
-/** Firebase's provider names, in Dovli's words. Email-code sign-ins use a custom token. */
+/**
+ * Firebase's provider names, in Dovli's words. Email-code sign-ins use a custom token, and so does
+ * the desktop app (its claim says how the browser signed in).
+ */
 export function signInMethodOf(provider?: string, claim?: unknown): string | undefined {
   if (provider === "google.com") return "google";
-  if (provider === "custom") return claim === "email-code" ? "email-code" : "custom";
+  if (provider === "custom") return claim === "email-code" || claim === "google" ? claim : "custom";
   return provider;
 }

@@ -18,8 +18,8 @@ export class SessionError extends Error {
   }
 }
 
-/** Swap a Firebase ID token from a sign-in that just happened for a session cookie. */
-export async function createSession(idToken: unknown): Promise<{ cookie: string; maxAge: number; uid: string; signInMethod?: string }> {
+/** Check a Firebase ID token from a sign-in that just happened (not one copied from somewhere). */
+export async function freshSignIn(idToken: unknown) {
   const auth = adminAuth();
   if (!auth)
     throw new SessionError("not_configured", "Sign-in isn't finished on this server yet: it needs the Firebase service account (FIREBASE_SERVICE_ACCOUNT).", 503);
@@ -38,10 +38,16 @@ export async function createSession(idToken: unknown): Promise<{ cookie: string;
     if (code === "auth/user-disabled") throw new SessionError("disabled", "This account has been turned off. Contact support if that's a mistake.", 403);
     throw new SessionError("invalid", "That sign-in has run out. Please sign in again.", 401);
   }
-  // An older sign-in (say, a token copied from somewhere) can't be turned into a two-week session.
+  // An older sign-in (say, a token copied from somewhere) can't be turned into a lasting session.
   if (Date.now() / 1000 - authTime > RECENT_SIGN_IN_SECONDS) throw new SessionError("stale", "Please sign in again to continue.", 401);
+  return { auth, uid, signInMethod };
+}
+
+/** Swap a Firebase ID token from a sign-in that just happened for a session cookie. */
+export async function createSession(idToken: unknown): Promise<{ cookie: string; maxAge: number; uid: string; signInMethod?: string }> {
+  const { auth, uid, signInMethod } = await freshSignIn(idToken);
   const maxAge = SESSION_DAYS * 24 * 60 * 60;
-  const cookie = await auth.createSessionCookie(idToken, { expiresIn: maxAge * 1000 });
+  const cookie = await auth.createSessionCookie(idToken as string, { expiresIn: maxAge * 1000 });
   return { cookie, maxAge, uid, signInMethod };
 }
 

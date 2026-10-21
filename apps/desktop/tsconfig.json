@@ -1,0 +1,9 @@
+{
+  "extends": "@dovli/config/tsconfig/react-library.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"],
+    "paths": { "@/*": ["../web/src/*"] }
+  },
+  "include": ["src", "renderer", "test", "scripts", "*.ts"],
+  "exclude": ["node_modules", "dist", "release"]
+}

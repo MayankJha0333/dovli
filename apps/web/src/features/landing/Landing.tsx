@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_THEME_PREFERENCE, type ThemePreference } from "@dovli/theme";
 import { DovliLogo, DovliMark, Icon, Kbd, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
+import { WindowsIcon } from "@/features/download/DesktopPicture";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
@@ -32,7 +33,7 @@ const startClick = (start: Start, place: string) => () =>
  * `accounts`: sign-in is set up. Without it, Dovli runs on this device only, so the buttons open the app.
  * `signedIn`: this visitor already has a session, so the buttons go straight into the app.
  */
-export function Landing({ accounts = true, signedIn = false }: { accounts?: boolean; signedIn?: boolean }) {
+export function Landing({ accounts = true, signedIn = false, desktop = null }: { accounts?: boolean; signedIn?: boolean; desktop?: string | null }) {
   // One name for the main action everywhere on the page.
   const start: Start = accounts && !signedIn ? { href: SIGNUP_PATH, label: "Create free account" } : { href: APP_PATH, label: "Open Dovli" };
   const showSignIn = accounts && !signedIn;
@@ -46,10 +47,10 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
   return (
     <div ref={motionRoot} className="lp-root relative isolate min-h-dvh overflow-x-clip bg-bg text-ink">
       <Glow />
-      <Header showSignIn={showSignIn} start={start} />
+      <Header showSignIn={showSignIn} start={start} desktop={desktop} />
       <main id="main">
         <Hero free={showSignIn} start={start} />
-        <Platforms />
+        <Platforms desktop={desktop} />
         <div className="flex flex-col gap-24 py-24 sm:gap-28 sm:py-28">
           <Features />
           <Android />
@@ -57,23 +58,27 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
           <Ai />
           <Coming />
         </div>
-        <Closing free={showSignIn} start={start} />
+        <Closing free={showSignIn} start={start} desktop={desktop} />
       </main>
-      <Footer showSignIn={showSignIn} start={start} />
+      <Footer showSignIn={showSignIn} start={start} desktop={desktop} />
     </div>
   );
 }
 
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
+type ProductItemData = { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon"; soon?: "extension" | "desktop" };
+
 // Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
-const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon" }[] = [
+// `desktop`: the newest Mac and Windows version, or null before the first release.
+const productItems = (desktop: string | null): ProductItemData[] => [
   { href: "#features", icon: "pencil", t: "blue", title: "Pages and blocks", text: "Type / for to-dos, tables, callouts and more" },
   { href: "#features", icon: "board", t: "mint", title: "Whiteboards", text: "Sketch and flowchart beside your notes" },
   { href: "#templates", icon: "templates", t: "butter", title: "Templates", text: "Meeting notes, briefs, reviews and boards" },
   { href: "#mcp", icon: "sparkles", t: "lilac", title: "AI", text: "An assistant in the page, and your AI apps through MCP" },
   { href: "#android", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", tag: "New" },
-  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon" },
+  { href: "/download", icon: "monitor", t: "butter", title: "Mac and Windows", text: "Its own window, offline too", tag: desktop ? "New" : "Soon", soon: desktop ? undefined : "desktop" },
+  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon", soon: "extension" },
 ];
 
 // The links in the bar, and which sections light each one up.
@@ -85,13 +90,13 @@ const navLinks: { href: string; label: string; sections: string[]; menu?: boolea
 ];
 const watched = ["features", "android", "templates", "mcp", "coming"];
 
-function ProductItem({ item, onPick, large }: { item: (typeof productItems)[number]; onPick: () => void; large?: boolean }) {
+function ProductItem({ item, onPick, large }: { item: ProductItemData; onPick: () => void; large?: boolean }) {
   const c = tone(item.t);
   return (
     <a
       href={item.href}
       onClick={() => {
-        if (item.tag === "Soon") trackEvent("Coming soon click", { app: "extension" });
+        if (item.soon) trackEvent("Coming soon click", { app: item.soon });
         onPick();
       }}
       className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
@@ -120,7 +125,7 @@ function ProductItem({ item, onPick, large }: { item: (typeof productItems)[numb
   );
 }
 
-function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
+function Header({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
   const [menu, setMenu] = useState(false); // the phone menu
   const [product, setProduct] = useState(false); // the Product dropdown on wide screens
   const [scrolled, setScrolled] = useState(false);
@@ -247,7 +252,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                       >
                         {/* An invisible bridge so the mouse can travel from the button to the menu. */}
                         <span aria-hidden="true" className="absolute inset-x-0 -top-4 h-4" />
-                        {productItems.map((it) => (
+                        {productItems(desktop).map((it) => (
                           <ProductItem key={it.title} item={it} onPick={() => setProduct(false)} />
                         ))}
                       </div>
@@ -307,7 +312,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
             style={{ background: "var(--c-pill)" }}
           >
             <div className="grid gap-0.5 sm:grid-cols-2">
-              {productItems.map((it) => (
+              {productItems(desktop).map((it) => (
                 <ProductItem key={it.title} item={it} large onPick={() => setMenu(false)} />
               ))}
             </div>
@@ -438,7 +443,8 @@ const pledges: { title: string; text: string }[] = [
   { title: "Take it with you", text: "Bring pages in from Notion, Evernote or Obsidian, and export to Word, PDF or Markdown." },
 ];
 
-function Closing({ free, start }: { free: boolean; start: Start }) {
+function Closing({ free, start, desktop }: { free: boolean; start: Start; desktop: string | null }) {
+  const where = desktop ? "on the web, on Android, and on Mac and Windows" : "on the web and on Android";
   return (
     <section aria-labelledby="cta-title" className="px-2 pb-8 sm:px-4 sm:pb-12">
       {/* The hero's sky again, so the page ends where it began. */}
@@ -459,7 +465,9 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                   Type <Kbd className="mx-0.5 h-6 min-w-6 align-[0.1em] text-sm">/</Kbd> for to-dos, tables, whiteboards and more
                 </p>
                 <p className={cn(leadClass, "mt-8 max-w-[500px]")}>
-                  {free ? "Free on the web and on Android. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them, on the web and on your phone."}
+                  {free
+                    ? `Free ${where}. Sign in with Google or an email code, no password.`
+                    : `Your pages are waiting where you left them, on the web, your phone${desktop ? " and your computer" : ""}.`}
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
@@ -467,6 +475,23 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                   </Link>
                   <GooglePlayBadge place="closing" />
                 </div>
+                {/* A third way in, kept quieter than the two buttons. */}
+                <Link
+                  href="/download"
+                  onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}
+                  className="group mt-5 inline-flex items-center gap-2.5 text-sm font-medium text-ink-2 transition-colors hover:text-ink"
+                >
+                  <span aria-hidden="true" className="flex items-center gap-1.5 text-ink-3 transition-colors group-hover:text-ink">
+                    <Icon name="apple" size={15} />
+                    <WindowsIcon size={13} />
+                  </span>
+                  <span className="whitespace-nowrap">
+                    {desktop ? "Also for Mac and Windows" : "Mac and Windows"}
+                    {!desktop && <span className="hidden sm:inline"> app</span>}
+                  </span>
+                  <span className="whitespace-nowrap rounded-full bg-well px-2 py-0.5 text-xs font-semibold text-ink-2">{desktop ? `v${desktop}` : "Coming soon"}</span>
+                  <Icon name="arrowRight" size={13} aria-hidden="true" className="-ml-0.5 text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
               </div>
 
               <div className="border-t border-line pt-10 lg:border-l lg:border-t-0 lg:pl-14 lg:pt-1">
@@ -554,7 +579,7 @@ function FooterLink({ href, children, tag, onClick }: { href: string; children: 
   );
 }
 
-function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
+function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
   const toTop = () => {
     window.scrollTo({ top: 0, behavior: prefersLessMotion() ? "auto" : "smooth" });
     // Keep keyboard users in step with the scroll: focus lands back at the top of the page.
@@ -587,6 +612,9 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
                 <FooterLink href={PLAY_STORE_URL} tag="New" onClick={() => trackEvent("Play Store click", { place: "footer-link" })}>
                   Android app
+                </FooterLink>
+                <FooterLink href="/download" tag={desktop ? "New" : "Soon"} onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}>
+                  Mac and Windows
                 </FooterLink>
                 <FooterLink href="#coming" tag="Soon" onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
                   Browser extension

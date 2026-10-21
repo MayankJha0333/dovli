@@ -39,6 +39,22 @@
     "test": {},
     "clean": {
       "cache": false
+    },
+    "@dovli/desktop#build": {
+      "dependsOn": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "../web/src/**",
+        "../web/public/**",
+        "../web/.env*",
+        "../../packages/*/src/**"
+      ],
+      "env": [
+        "NEXT_PUBLIC_*"
+      ],
+      "outputs": [
+        "dist/**"
+      ]
     }
   }
 }

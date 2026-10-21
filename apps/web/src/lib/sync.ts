@@ -94,6 +94,8 @@ export function startSync() {
   // Check for changes from other devices whenever Dovli comes back into view (plus every 30 s).
   document.addEventListener("visibilitychange", () => document.visibilityState === "visible" && engine?.syncSoon(0));
   window.addEventListener("focus", () => engine?.syncSoon(0));
+  // Losing the connection: say "offline" now, not at the next try.
+  window.addEventListener("offline", () => engine?.syncSoon(0));
 
   let current: string | null = null;
   const onAuth = async () => {

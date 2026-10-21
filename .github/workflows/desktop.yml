@@ -1,0 +1,238 @@
+# Builds Dovli for Mac and Windows, and releases it.
+#
+# - A pull request or a merge to main that can affect the app: checks, then builds both installers
+#   and keeps them on the run for a week (Summary → Artifacts), to try before releasing.
+# - A release (Actions → Desktop → Run workflow, from main): pick patch, minor or major. It works
+#   out the version from the last release (scripts/version.ts), makes a draft release v<version>,
+#   builds and uploads both installers into it, then publishes it. Once it's published, the website
+#   (/download) offers it and installed apps update themselves to it. Untick "Publish" to keep it a
+#   draft and publish it yourself on GitHub after trying it.
+#
+# One-time setup, outside this repo (Settings → Secrets and variables → Actions):
+#   Variables (public, the same as the web app's): NEXT_PUBLIC_FIREBASE_API_KEY, _AUTH_DOMAIN,
+#     _PROJECT_ID, _APP_ID, _STORAGE_BUCKET, _MESSAGING_SENDER_ID.
+#   Secrets, optional until you have the certificates. Without them Windows warns before
+#   installing, and Mac people have to allow Dovli in System Settings once; a Mac app also can't
+#   update itself until it's signed (macOS refuses updates it can't verify):
+#     MAC_CSC_LINK, MAC_CSC_KEY_PASSWORD   Developer ID Application certificate (.p12, base64)
+#     APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID   for notarizing
+#     WIN_CSC_LINK, WIN_CSC_KEY_PASSWORD   Windows code-signing certificate (.pfx, base64)
+
+name: Desktop
+
+on:
+  pull_request:
+    paths:
+      - "apps/desktop/**"
+      # The window is the web app's workspace, built from its code and the shared packages.
+      - "apps/web/src/**"
+      - "packages/**"
+      - "patches/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/desktop.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/desktop/**"
+      - "apps/web/src/**"
+      - "packages/**"
+      - "patches/**"
+      - "pnpm-lock.yaml"
+      - "package.json"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Which part of the version goes up
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+      publish:
+        description: Publish when built (untick to keep it a draft)
+        type: boolean
+        default: true
+
+# Releases run one at a time; a newer push to the same pull request replaces its older build.
+concurrency:
+  group: desktop-${{ github.event_name == 'workflow_dispatch' && 'release' || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  RELEASE: ${{ github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The release tags, to work out the next version.
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @dovli/desktop typecheck
+      - run: pnpm --filter @dovli/desktop test
+      - run: pnpm --filter @dovli/sync test
+      - name: Next version
+        id: version
+        if: env.RELEASE == 'true'
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          if [ "$GITHUB_REF_NAME" != "main" ]; then
+            echo "::error::Releases only run from main (this run is on $GITHUB_REF_NAME)."
+            exit 1
+          fi
+          version=$(node apps/desktop/scripts/version.ts "$BUMP")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Releasing Dovli $version ($BUMP)" >> "$GITHUB_STEP_SUMMARY"
+
+  # Made before the builds so both upload into the same release (two builds racing to make it
+  # would leave two drafts). A draft from a failed run of the same version is reused.
+  draft:
+    name: Draft release
+    if: github.event_name == 'workflow_dispatch'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: v${{ needs.check.outputs.version }}
+      VERSION: ${{ needs.check.outputs.version }}
+    steps:
+      - run: |
+          if draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$draft" != "true" ]; then
+              echo "::error::$TAG is already released. Raise the version in apps/desktop/package.json, or pick a bigger bump."
+              exit 1
+            fi
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" --title "Dovli $VERSION" --generate-notes
+          fi
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: [check, draft]
+    # The draft is skipped outside releases; the builds still run then.
+    if: ${{ !cancelled() && needs.check.result == 'success' && needs.draft.result != 'failure' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: Mac, os: macos-latest, target: --mac, files: "*.dmg" }
+          - { name: Windows, os: windows-latest, target: --win, files: "*.exe" }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.NEXT_PUBLIC_FIREBASE_API_KEY }}
+      NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_APP_ID }}
+      NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ vars.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
+      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Without the Firebase settings the app would have no sign-in
+        shell: bash
+        run: |
+          if [ -z "$NEXT_PUBLIC_FIREBASE_API_KEY" ] || [ -z "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ]; then
+            if [ "$RELEASE" = "true" ]; then
+              echo "::error::Set the NEXT_PUBLIC_FIREBASE_* repository variables first (see the top of this file)."
+              exit 1
+            fi
+            echo "::warning::No NEXT_PUBLIC_FIREBASE_* variables: this build can't sign in."
+          fi
+      # Only for this build; the version in the repo stays as it is.
+      - name: Set the version
+        if: env.RELEASE == 'true'
+        shell: bash
+        working-directory: apps/desktop
+        run: npm pkg set version="$VERSION"
+      - run: pnpm --filter @dovli/desktop build
+
+      # electron-builder signs when it finds a certificate. Without one, the Mac app is signed
+      # ad hoc: an unsealed app shows as "damaged" on Apple silicon, an ad-hoc one can be allowed
+      # in System Settings. (Ad hoc can't use the hardened runtime: macOS would refuse Electron's
+      # framework, which isn't from the same team.)
+      - name: Package${{ github.event_name == 'workflow_dispatch' && ' and upload to the draft release' || '' }}
+        shell: bash
+        working-directory: apps/desktop
+        env:
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          WIN_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          args=(${{ matrix.target }} --publish "$([ "$RELEASE" = "true" ] && echo always || echo never)")
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            if [ -n "$MAC_CSC_LINK" ]; then
+              export CSC_LINK="$MAC_CSC_LINK" CSC_KEY_PASSWORD="$MAC_CSC_KEY_PASSWORD"
+            else
+              # Ad hoc needs no secret, so it's safe on pull requests too.
+              export CSC_IDENTITY_AUTO_DISCOVERY=false CSC_FOR_PULL_REQUEST=true
+              args+=(-c.mac.identity=- -c.mac.hardenedRuntime=false)
+            fi
+          elif [ -n "$WIN_LINK" ]; then
+            export WIN_CSC_LINK="$WIN_LINK" WIN_CSC_KEY_PASSWORD="$WIN_PASSWORD"
+          fi
+          npx electron-builder "${args[@]}"
+      - name: Keep the installer on this run
+        if: env.RELEASE != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dovli-${{ matrix.name }}
+          path: apps/desktop/release/${{ matrix.files }}
+          retention-days: 7
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    if: github.event_name == 'workflow_dispatch'
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: v${{ needs.check.outputs.version }}
+    steps:
+      - name: Publish, or leave the draft to check first
+        env:
+          PUBLISH: ${{ inputs.publish }}
+        run: |
+          url=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
+          if [ "$PUBLISH" = "true" ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+            echo "Published [$TAG]($url). Installed apps pick it up on their next update check; dovli.in/download shows it within half an hour." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "[$TAG]($url) is built and waiting as a draft. Publish it on GitHub when you're happy." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import { displayTitle, childrenOf, fileIdFromUrl, withBlockIds, type Page } from "@dovli/core";
 import { getStyle } from "@dovli/theme";
 import { backupFile, parseBackupFile } from "./backups";
+import { siteOrigin } from "./desktop";
 import { getFile, saveFile } from "./files";
 import { confluencePage, confluenceTree, finishBlocks, isConfluencePage, mhtPart, parseEnex, parseHtml, parseMht, tidy } from "./importers";
 import { store } from "./store";
@@ -73,7 +74,7 @@ const placeholder = (id: string) => `data:,dovli-file-${id}`;
 const fillPaths = (text: string, path: (id: string) => string) => text.replace(/data:,dovli-file-([\w-]+)/g, (_, id: string) => path(id));
 
 /** A page in Dovli itself, for links to pages that aren't in the export. */
-const appLink = (id: string) => `${window.location.origin}/app#p-${id}`;
+const appLink = (id: string) => `${siteOrigin()}/app#p-${id}`;
 
 /** Links to other pages come out of the converter as #p-<id>, which leads nowhere outside Dovli. */
 const linkPages = (text: string, to: (id: string) => string) => text.replace(/(\]\(|href=")#p-([\w-]+)/g, (_, lead: string, id: string) => lead + to(id));

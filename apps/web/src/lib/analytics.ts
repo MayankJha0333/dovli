@@ -13,8 +13,10 @@ type Events = {
   "Open app click": { place: string };
   /** A link to Dovli on Google Play (the badge, or the footer link). `place`: which one. */
   "Play Store click": { place: string };
+  /** A Mac or Windows download (the download page, or the landing page). `place`: which button. */
+  "Desktop download click": { os: "mac" | "windows"; place: string };
   /** Interest in something that isn't out yet. */
-  "Coming soon click": { app: "extension" };
+  "Coming soon click": { app: "extension" | "desktop" };
   /** Someone finished signing in. `flow`: the sign-in page, the sign-up page, or the in-app dialog. */
   "Signed in": { method: "google" | "email"; flow: "login" | "signup" | "dialog" };
 };

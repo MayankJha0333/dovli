@@ -18,7 +18,8 @@ export const HOME_DESCRIPTION =
  * the same change: the sitemap gives it to search engines, and the legal pages show it.
  */
 export const UPDATED = {
-  home: "2026-10-21",
+  home: "2026-10-22",
+  download: "2026-10-22",
   compare: "2026-10-21",
   signup: "2026-10-21",
   privacy: "2026-10-20",

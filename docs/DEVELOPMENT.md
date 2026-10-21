@@ -21,6 +21,7 @@ by adding keys (see [Turning on cloud features](#turning-on-cloud-features)).
 |---|---|
 | `pnpm dev:web` | Web app at http://localhost:3000 |
 | `pnpm dev:mobile` | Phone app. Press `i` for the iOS Simulator or `a` for Android |
+| `pnpm dev:desktop` | Mac and Windows app (needs `pnpm dev:web` for sign-in and sync) |
 | `pnpm typecheck` | Type-checks every app and package |
 | `pnpm test` | Unit tests (page tools, merging, sync) |
 | `pnpm build` | Production build of the web app |
@@ -32,6 +33,14 @@ If Expo Go can't open it, make a development build once with
 `pnpm --filter @dovli/mobile exec expo run:ios` (or `run:android`). Bundles for the web or for
 updates must be made with bundle splitting off (`pnpm --filter @dovli/mobile export`, and the
 `update:*` scripts below do it): Expo's split bundles break DOM components when exported.
+
+## Mac and Windows app
+
+`apps/desktop` is the web app's workspace in an Electron window, built into the app so it works
+offline and syncs when it's back online. Pull requests that touch it get both installers built
+(`.github/workflows/desktop.yml`); to release, open Actions → Desktop → Run workflow on `main` and
+pick patch, minor or major, and installed apps update themselves. How it works, how to build
+installers and how releases and signing go: [apps/desktop/README.md](../apps/desktop/README.md).
 
 ## Phone builds and releases (EAS)
 

@@ -4,6 +4,7 @@
 
 import { nanoid } from "nanoid";
 import { auth } from "./auth";
+import { desktop } from "./desktop";
 
 const KEY = "dovli.device.v1";
 
@@ -11,7 +12,7 @@ function deviceId(): string {
   try {
     let id = localStorage.getItem(KEY);
     if (!id || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) {
-      id = `web-${nanoid(16)}`;
+      id = `${desktop ? "desktop" : "web"}-${nanoid(16)}`;
       localStorage.setItem(KEY, id);
     }
     return id;
@@ -34,11 +35,13 @@ export async function checkInDevice() {
   try {
     const token = await auth.accessToken();
     if (!token) return void (sent = false);
-    const installed = typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches;
+    const installed = !!desktop || (typeof matchMedia === "function" && matchMedia("(display-mode: standalone)").matches);
+    const platform = desktop ? (desktop.platform === "darwin" ? "macos" : "windows") : "web";
+    const name = desktop ? (desktop.platform === "darwin" ? "Dovli for Mac" : "Dovli for Windows") : deviceName();
     const res = await fetch("/api/me/device", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
-      body: JSON.stringify({ deviceId: deviceId(), platform: "web", name: deviceName(), appVersion: process.env.NEXT_PUBLIC_APP_VERSION ?? "", installed }),
+      body: JSON.stringify({ deviceId: deviceId(), platform, name, appVersion: desktop?.version ?? process.env.NEXT_PUBLIC_APP_VERSION ?? "", installed }),
     });
     await res.text(); // read the reply, so the browser closes the request
     if (!res.ok) sent = false;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { unstable_rethrow } from "next/navigation";
 import { Landing } from "@/features/landing/Landing";
 import { authGateOn } from "@/lib/authGate";
+import { latestDesktopRelease } from "@/lib/server/desktopRelease";
 import { HOME_DESCRIPTION, HOME_TITLE, SHARE_IMAGE, homeJsonLd, ldJson } from "@/lib/seo";
 
 // The words people search for come first ("free note-taking app"), then what makes Dovli different.
@@ -24,7 +25,7 @@ export default async function HomePage() {
     <>
       {/* Who makes Dovli, and the web and Android apps, for search engines (see lib/seo.ts). */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(homeJsonLd()) }} />
-      <Landing accounts={authGateOn} signedIn={await isSignedIn()} />
+      <Landing accounts={authGateOn} signedIn={await isSignedIn()} desktop={(await latestDesktopRelease())?.version ?? null} />
     </>
   );
 }
