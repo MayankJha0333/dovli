@@ -155,27 +155,32 @@ export class SyncEngine {
     for (;;) {
       const rows = await this.transport.pull(cursor, PULL_PAGE);
       if (!rows.length) break;
-      const pending = new Map((await this.host.pending()).map((p) => [p.id, p]));
+      const pending = new Set((await this.host.pending()).map((p) => p.id));
+      const synced = new Map(await Promise.all(rows.map(async (r) => [r.id, (await this.host.getSynced(r.id))?.page ?? null] as const)));
+      // Nothing waits from here until the pages are applied, so every merge uses this device's very
+      // latest copy, including typing done while the cloud was answering.
       const apply: Page[] = [];
       const removed: string[] = [];
       for (const row of rows) {
         if (row.purged || !row.data) {
           removed.push(row.id);
-          await this.host.removeSynced(row.id);
-          await this.host.clearPending(row.id, null);
           continue;
         }
         const remote = { ...row.data, id: row.id };
         const local = this.host.getPage(row.id);
-        if (pending.has(row.id) && local) {
-          const synced = await this.host.getSynced(row.id);
-          apply.push(mergePage(synced?.page ?? null, local, remote));
-        } else {
-          apply.push(remote);
-        }
-        await this.host.setSynced({ id: row.id, rev: row.rev, page: remote });
+        const base = synced.get(row.id) ?? null;
+        // Changed here since the last sync: merge. That's known from the outbox, or from the page
+        // itself when its outbox note is still being written.
+        const changedHere = local && (pending.has(row.id) || (base && !same(local, base)));
+        apply.push(changedHere ? mergePage(base, local, remote) : remote);
       }
       this.host.applyFromCloud(apply, removed);
+      for (const row of rows) {
+        if (row.purged || !row.data) {
+          await this.host.removeSynced(row.id);
+          await this.host.clearPending(row.id, null);
+        } else await this.host.setSynced({ id: row.id, rev: row.rev, page: { ...row.data, id: row.id } });
+      }
       cursor = rows[rows.length - 1].rev;
       await this.host.setCursor(cursor);
       if (rows.length < PULL_PAGE) break;
@@ -215,9 +220,11 @@ export class SyncEngine {
         continue;
       }
       const remote = { ...res.data, id: change.id };
-      const merged = local ? mergePage(synced?.page ?? null, local, remote) : remote;
+      // This device's copy as it is now: typing may have gone on while the request was out.
+      const current = this.host.getPage(change.id) ?? local;
+      const merged = current ? mergePage(synced?.page ?? null, current, remote) : remote;
+      if (!same(merged, current)) this.host.applyFromCloud([merged], []);
       await this.host.setSynced({ id: change.id, rev: res.rev, page: remote });
-      if (!same(merged, local)) this.host.applyFromCloud([merged], []);
       this.again = true;
     }
   }
