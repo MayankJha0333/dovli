@@ -83,11 +83,25 @@ Both installers can be made on a Mac.
 
 ## Releasing
 
-1. Raise `version` in `apps/desktop/package.json`.
-2. Push a tag `desktop-v<version>`. [Desktop release](../../.github/workflows/desktop-release.yml)
-   checks, builds both installers and uploads them to a **draft** GitHub release.
-3. Publish the draft. Installed apps find it within a few hours (or with Check for Updates…) and
-   offer to restart.
+[Desktop](../../.github/workflows/desktop.yml) does it in GitHub Actions:
+
+- **Every pull request and merge to main** that touches the app (or the web code and packages it's
+  built from) runs the checks and builds both installers. They stay on the run for a week, under
+  *Summary → Artifacts*, so a change can be tried as the real app before it's released.
+- **A release**: *Actions → Desktop → Run workflow* on main, and pick **patch**, **minor** or
+  **major**. The version comes from the last release (`scripts/version.ts`: the newest `v1.2.3`
+  tag, bumped; the first release is `package.json`'s version, and raising `package.json` by hand
+  wins). It makes a draft release `v<version>` with notes from the merged pull requests, builds
+  and uploads both installers and the update files into it, then publishes it.
+- **Once it's published**, installed apps find it on their next check (15 seconds after opening,
+  then every 4 hours, or *Check for Updates…*), download it in the background and offer to
+  restart. dovli.in/download offers the new installers within half an hour.
+
+Untick *Publish* to keep the release a draft, try its installers, then publish it on GitHub. A run
+that fails part-way leaves its draft; running the same bump again reuses it.
+
+Release tags must stay `v<version>`: that's where the apps look for updates and the website looks
+for installers (`apps/web/src/lib/desktopRelease.ts`, by the file names in `electron-builder.yml`).
 
 Before the first release, deploy the web app: the desktop sign-in needs `/desktop/sign-in` and
 `/api/auth/desktop/*` on dovli.in. In Firestore, a TTL policy on `authDesktopCodes.expiresAt`
@@ -95,9 +109,13 @@ clears sign-in codes nobody used (they stop working after two minutes either way
 
 ### Signing
 
-Unsigned apps work, but macOS says it "can't check" Dovli for malware, and Windows SmartScreen says
-"Windows protected your PC". Mac auto-updates also need a signed app. To sign, add these GitHub
-Actions secrets; the workflow picks them up:
+Unsigned apps work, but macOS says it "can't check" Dovli for malware (people allow it once, in
+*System Settings → Privacy & Security → Open Anyway*), and Windows SmartScreen says "Windows
+protected your PC". Without a certificate the workflow signs the Mac app *ad hoc*, which is what
+lets it open on Apple silicon at all. **Mac auto-updates need a real Developer ID**: macOS refuses
+an update it can't tie to the same developer, so until then Mac people update by downloading the
+new version. Windows updates itself either way. To sign, add these GitHub Actions secrets; the
+workflow picks them up:
 
 - **Mac** (Apple Developer Program, $99 a year): a *Developer ID Application* certificate as
   `MAC_CSC_LINK` (the .p12, base64) and `MAC_CSC_KEY_PASSWORD`; for notarizing, `APPLE_ID`,

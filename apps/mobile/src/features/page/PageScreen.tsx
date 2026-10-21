@@ -100,8 +100,17 @@ export function PageScreen() {
   const p = usePalette();
   const page = usePages((x) => x[id]);
   const pages = usePages((x) => x);
-  // The editor keeps its own copy while you type; give it the page once, when it opens.
-  const [initial] = useState<Page | undefined>(() => store.getPages()[id]);
+  // The editor keeps its own copy while you type: it gets the page when it opens, and again only
+  // when the page changed somewhere else (another device), so its own saves never cross back over.
+  const [initial, setInitial] = useState<Page | undefined>(() => store.getPages()[id]);
+  const ownBlocks = useRef(JSON.stringify(initial?.blocks ?? []));
+  useEffect(() => {
+    if (!page || page.kind !== "doc") return;
+    const json = JSON.stringify(page.blocks ?? []);
+    if (json === ownBlocks.current) return;
+    ownBlocks.current = json;
+    setInitial(page);
+  }, [page]);
   // What the editor needs to know about other pages (for links and sub-page cards). Kept stable unless
   // one of those fields really changes: every new value is sent across to the editor's web view, and
   // sending while the screen is closing fails with "Unable to find the 'DomWebView'".
@@ -125,7 +134,13 @@ export function PageScreen() {
 
   const titleRef = useRef<TextInputInstance>(null);
   const editorRef = useRef<PageEditorHandle>(null);
-  const onSave = useCallback(async (blocks: any[]) => store.updatePage(id, { blocks }), [id]);
+  const onSave = useCallback(
+    async (blocks: any[]) => {
+      ownBlocks.current = JSON.stringify(blocks);
+      store.updatePage(id, { blocks });
+    },
+    [id],
+  );
   const onOpenPage = useCallback(async (to: string) => void router.push({ pathname: "/page/[id]", params: { id: to } }), [router]);
   const onCreatePage = useCallback(async (newId: string, kind: "doc" | "board", title: string) => void store.createPage({ id: newId, kind, title, parentId: id }), [id]);
   const onSaveBoard = useCallback(async (board: BoardData, quiet: boolean) => store.updatePage(id, { board }, !quiet), [id]);

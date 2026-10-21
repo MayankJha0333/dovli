@@ -1,12 +1,13 @@
 "use client";
 
-// "Wherever you work": where Dovli runs today, each with a small picture of it there. Wide screens
-// get three tiles sized by how much each one does; phones get a row to swipe through, so the
+// "Wherever you work": where Dovli runs, each with a small picture of it there. Wide screens get
+// the four tiles in a row (two by two on tablets); phones get a row to swipe through, so the
 // section stays short. The browser extension isn't out yet, so it's a small link beside the title.
 
 import type { ReactNode } from "react";
 import { COVER_PRESETS } from "@dovli/theme";
 import { DovliMark, Icon, cn } from "@dovli/ui";
+import { DesktopPicture } from "@/features/download/DesktopPicture";
 import { trackEvent } from "@/lib/analytics";
 import { MiniPhone } from "./Android";
 import { Status, container } from "./Sections";
@@ -126,7 +127,8 @@ function AiPicture() {
   );
 }
 
-export function Platforms() {
+/** `desktop`: the newest Mac and Windows version, or null before the first release. */
+export function Platforms({ desktop = null }: { desktop?: string | null }) {
   return (
     <section aria-labelledby="eco-title" className={cn(container, "pt-16 sm:pt-24 xl:pt-28")}>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -150,14 +152,17 @@ export function Platforms() {
         </a>
       </div>
 
-      <ul className="m-0 -mx-4 mt-6 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 py-1 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 md:mx-0 md:mt-8 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:p-0 lg:grid-cols-12 [&::-webkit-scrollbar]:hidden">
-        <Tile href="#features" t="blue" status="Available now" name="Web app" text="Every feature, in any modern browser." className="w-[86%] md:col-span-2 md:w-auto lg:col-span-5">
+      <ul className="m-0 -mx-4 mt-6 flex list-none snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 py-1 [scrollbar-width:none] sm:-mx-8 sm:scroll-px-8 sm:px-8 md:mx-0 md:mt-8 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:p-0 xl:grid-cols-4 [&::-webkit-scrollbar]:hidden">
+        <Tile href="#features" t="blue" status="Available now" name="Web app" text="Every feature, in any modern browser." className="w-[86%] md:w-auto">
           <WebPicture />
         </Tile>
-        <Tile href="#android" t="mint" status="New on Google Play" name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto lg:col-span-3">
+        <Tile href="/download" t="butter" status={desktop ? `New · v${desktop}` : "Coming soon"} name="Mac and Windows" text="Its own window on your computer, offline too." className="w-[86%] md:w-auto">
+          <DesktopPicture compact className="absolute inset-0 rounded-b-none ring-0 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
+        </Tile>
+        <Tile href="#android" t="mint" status="New on Google Play" name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto">
           <MiniPhone className="absolute left-1/2 top-0 w-[180px] -translate-x-1/2 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
         </Tile>
-        <Tile href="#mcp" t="lilac" status="Available now" name="AI apps" text="Claude, Codex or any MCP app can work in your pages." className="w-[86%] md:w-auto lg:col-span-4">
+        <Tile href="#mcp" t="lilac" status="Available now" name="AI apps" text="Claude, Codex or any MCP app can work in your pages." className="w-[86%] md:w-auto">
           <AiPicture />
         </Tile>
       </ul>

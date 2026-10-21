@@ -32,7 +32,7 @@ const startClick = (start: Start, place: string) => () =>
  * `accounts`: sign-in is set up. Without it, Dovli runs on this device only, so the buttons open the app.
  * `signedIn`: this visitor already has a session, so the buttons go straight into the app.
  */
-export function Landing({ accounts = true, signedIn = false }: { accounts?: boolean; signedIn?: boolean }) {
+export function Landing({ accounts = true, signedIn = false, desktop = null }: { accounts?: boolean; signedIn?: boolean; desktop?: string | null }) {
   // One name for the main action everywhere on the page.
   const start: Start = accounts && !signedIn ? { href: SIGNUP_PATH, label: "Create free account" } : { href: APP_PATH, label: "Open Dovli" };
   const showSignIn = accounts && !signedIn;
@@ -46,10 +46,10 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
   return (
     <div ref={motionRoot} className="lp-root relative isolate min-h-dvh overflow-x-clip bg-bg text-ink">
       <Glow />
-      <Header showSignIn={showSignIn} start={start} />
+      <Header showSignIn={showSignIn} start={start} desktop={desktop} />
       <main id="main">
         <Hero free={showSignIn} start={start} />
-        <Platforms />
+        <Platforms desktop={desktop} />
         <div className="flex flex-col gap-24 py-24 sm:gap-28 sm:py-28">
           <Features />
           <Android />
@@ -59,21 +59,25 @@ export function Landing({ accounts = true, signedIn = false }: { accounts?: bool
         </div>
         <Closing free={showSignIn} start={start} />
       </main>
-      <Footer showSignIn={showSignIn} start={start} />
+      <Footer showSignIn={showSignIn} start={start} desktop={desktop} />
     </div>
   );
 }
 
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
+type ProductItemData = { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon"; soon?: "extension" | "desktop" };
+
 // Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
-const productItems: { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon" }[] = [
+// `desktop`: the newest Mac and Windows version, or null before the first release.
+const productItems = (desktop: string | null): ProductItemData[] => [
   { href: "#features", icon: "pencil", t: "blue", title: "Pages and blocks", text: "Type / for to-dos, tables, callouts and more" },
   { href: "#features", icon: "board", t: "mint", title: "Whiteboards", text: "Sketch and flowchart beside your notes" },
   { href: "#templates", icon: "templates", t: "butter", title: "Templates", text: "Meeting notes, briefs, reviews and boards" },
   { href: "#mcp", icon: "sparkles", t: "lilac", title: "AI", text: "An assistant in the page, and your AI apps through MCP" },
   { href: "#android", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", tag: "New" },
-  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon" },
+  { href: "/download", icon: "monitor", t: "butter", title: "Mac and Windows", text: "Its own window, offline too", tag: desktop ? "New" : "Soon", soon: desktop ? undefined : "desktop" },
+  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon", soon: "extension" },
 ];
 
 // The links in the bar, and which sections light each one up.
@@ -85,13 +89,13 @@ const navLinks: { href: string; label: string; sections: string[]; menu?: boolea
 ];
 const watched = ["features", "android", "templates", "mcp", "coming"];
 
-function ProductItem({ item, onPick, large }: { item: (typeof productItems)[number]; onPick: () => void; large?: boolean }) {
+function ProductItem({ item, onPick, large }: { item: ProductItemData; onPick: () => void; large?: boolean }) {
   const c = tone(item.t);
   return (
     <a
       href={item.href}
       onClick={() => {
-        if (item.tag === "Soon") trackEvent("Coming soon click", { app: "extension" });
+        if (item.soon) trackEvent("Coming soon click", { app: item.soon });
         onPick();
       }}
       className="group flex items-start gap-3 rounded-[12px] p-2.5 transition-colors hover:bg-hover focus-visible:outline-offset-[-2px]">
@@ -120,7 +124,7 @@ function ProductItem({ item, onPick, large }: { item: (typeof productItems)[numb
   );
 }
 
-function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
+function Header({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
   const [menu, setMenu] = useState(false); // the phone menu
   const [product, setProduct] = useState(false); // the Product dropdown on wide screens
   const [scrolled, setScrolled] = useState(false);
@@ -247,7 +251,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                       >
                         {/* An invisible bridge so the mouse can travel from the button to the menu. */}
                         <span aria-hidden="true" className="absolute inset-x-0 -top-4 h-4" />
-                        {productItems.map((it) => (
+                        {productItems(desktop).map((it) => (
                           <ProductItem key={it.title} item={it} onPick={() => setProduct(false)} />
                         ))}
                       </div>
@@ -307,7 +311,7 @@ function Header({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
             style={{ background: "var(--c-pill)" }}
           >
             <div className="grid gap-0.5 sm:grid-cols-2">
-              {productItems.map((it) => (
+              {productItems(desktop).map((it) => (
                 <ProductItem key={it.title} item={it} large onPick={() => setMenu(false)} />
               ))}
             </div>
@@ -554,7 +558,7 @@ function FooterLink({ href, children, tag, onClick }: { href: string; children: 
   );
 }
 
-function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
+function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
   const toTop = () => {
     window.scrollTo({ top: 0, behavior: prefersLessMotion() ? "auto" : "smooth" });
     // Keep keyboard users in step with the scroll: focus lands back at the top of the page.
@@ -587,6 +591,9 @@ function Footer({ showSignIn, start }: { showSignIn: boolean; start: Start }) {
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
                 <FooterLink href={PLAY_STORE_URL} tag="New" onClick={() => trackEvent("Play Store click", { place: "footer-link" })}>
                   Android app
+                </FooterLink>
+                <FooterLink href="/download" tag={desktop ? "New" : "Soon"} onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}>
+                  Mac and Windows
                 </FooterLink>
                 <FooterLink href="#coming" tag="Soon" onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
                   Browser extension

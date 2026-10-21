@@ -15,6 +15,7 @@ files:
   - "!dist/**/*.map"
   - package.json
 asar: true
+# The Mac files are Dovli-<version>-mac-universal.dmg / .zip; the website looks for that name.
 artifactName: Dovli-${version}-${os}-${arch}.${ext}
 
 mac:
@@ -46,6 +47,9 @@ win:
     - target: nsis
       arch: [x64, arm64]
 nsis:
+  # One installer for 64-bit Intel/AMD and Arm PCs; it installs the right one. The website looks
+  # for this name (apps/web/src/lib/desktopRelease.ts).
+  artifactName: Dovli-${version}-win-setup.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true

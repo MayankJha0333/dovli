@@ -7,6 +7,7 @@ import { SITE, UPDATED } from "@/lib/seo";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${SITE}/`, lastModified: UPDATED.home, changeFrequency: "weekly", priority: 1, images: [`${SITE}/landing/og.jpg`] },
+    { url: `${SITE}/download`, lastModified: UPDATED.download, changeFrequency: "weekly", priority: 0.9 },
     { url: `${SITE}/compare`, lastModified: UPDATED.compare, changeFrequency: "monthly", priority: 0.8 },
     ...rivals.map((r) => ({ url: `${SITE}/vs/${r.slug}`, lastModified: UPDATED.compare, changeFrequency: "monthly" as const, priority: 0.8 })),
     { url: `${SITE}/signup`, lastModified: UPDATED.signup, changeFrequency: "monthly", priority: 0.5 },

@@ -37,8 +37,10 @@ updates must be made with bundle splitting off (`pnpm --filter @dovli/mobile exp
 ## Mac and Windows app
 
 `apps/desktop` is the web app's workspace in an Electron window, built into the app so it works
-offline and syncs when it's back online. How it works, how to build installers and how releases
-and signing go: [apps/desktop/README.md](../apps/desktop/README.md).
+offline and syncs when it's back online. Pull requests that touch it get both installers built
+(`.github/workflows/desktop.yml`); to release, open Actions → Desktop → Run workflow on `main` and
+pick patch, minor or major, and installed apps update themselves. How it works, how to build
+installers and how releases and signing go: [apps/desktop/README.md](../apps/desktop/README.md).
 
 ## Phone builds and releases (EAS)
 
