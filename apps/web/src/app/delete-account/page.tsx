@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, SUPPORT_EMAIL, Section } from "@/features/legal/LegalPage";
+import { UPDATED, longDate } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Delete your account · Dovli",
@@ -14,7 +15,7 @@ export default function DeleteAccountPage() {
   return (
     <LegalPage
       title="Delete your Dovli account"
-      updated="20 October 2026"
+      updated={longDate(UPDATED.deleteAccount)}
       lead={
         <p className="m-0">
           You can delete your Dovli account, and every page in it, at any time. It happens right away and can&rsquo;t be undone, so export your pages

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalPage, SUPPORT_EMAIL, Section } from "@/features/legal/LegalPage";
+import { UPDATED, longDate } from "@/lib/seo";
 
 export const metadata: Metadata = {
   title: "Privacy Policy · Dovli",
@@ -9,12 +10,12 @@ export const metadata: Metadata = {
 };
 
 // Every statement here should match what the code does. When storage, providers or deletion
-// change, update this page in the same change (and the "Last updated" date).
+// change, update this page in the same change (and its date in UPDATED, lib/seo.ts).
 export default function PrivacyPage() {
   return (
     <LegalPage
       title="Privacy Policy"
-      updated="20 October 2026"
+      updated={longDate(UPDATED.privacy)}
       lead={
         <p className="m-0">
           Dovli is a place to write, plan and sketch, on the web at dovli.in, in the Dovli app for phones, and in Dovli for Chrome, the browser

@@ -9,9 +9,24 @@ import { PLAY_STORE_URL } from "@/features/landing/playStore";
 export const SITE = (process.env.APP_URL || "https://dovli.in").replace(/\/$/, "");
 
 /** The search words, in the order people type them, for the home page's title and description. */
-export const HOME_TITLE = "Dovli: Free Note-Taking App for Docs, To-dos and Whiteboards";
+export const HOME_TITLE = "Dovli — Notes, Docs, Tasks & Whiteboards"; 
 export const HOME_DESCRIPTION =
-  "Dovli is a free note-taking app for the web and Android. Write docs, plan to-dos and sketch on whiteboards in one calm place. Import from Notion, Evernote or Craft.";
+  "Dovli is your workspace for notes, docs, tasks, and ideas. Capture your thoughts, organize your knowledge, and turn ideas into action with a beautifully connected workspace. Available on web and Android, with seamless imports from Notion, Evernote, and Craft.";
+
+/**
+ * When each public page last changed in a way a reader would notice (YYYY-MM-DD). Bump the date in
+ * the same change: the sitemap gives it to search engines, and the legal pages show it.
+ */
+export const UPDATED = {
+  home: "2026-10-21",
+  compare: "2026-10-21",
+  signup: "2026-10-21",
+  privacy: "2026-10-20",
+  deleteAccount: "2026-10-20",
+} as const;
+
+/** "2026-10-20" as "20 October 2026". */
+export const longDate = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 export const SHARE_IMAGE = { url: "/landing/og.jpg", width: 1200, height: 630, alt: "Dovli: a calm place to write, plan and sketch." };
 

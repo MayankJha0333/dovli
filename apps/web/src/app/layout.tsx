@@ -10,7 +10,6 @@ export const metadata: Metadata = {
   title: "Dovli",
   description: HOME_DESCRIPTION,
   applicationName: "Dovli",
-  alternates: { canonical: "/" },
   // How a dovli.in link looks when it's shared in chats and social apps.
   openGraph: { type: "website", url: "/", siteName: "Dovli", title: "Dovli", description: HOME_DESCRIPTION, images: [SHARE_IMAGE] },
   twitter: { card: "summary_large_image", title: "Dovli", description: HOME_DESCRIPTION, images: [SHARE_IMAGE] },

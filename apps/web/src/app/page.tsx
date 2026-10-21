@@ -12,6 +12,7 @@ const shareImage = SHARE_IMAGE;
 export const metadata: Metadata = {
   title,
   description,
+  alternates: { canonical: "/" },
   // Replaces the layout's openGraph as a whole, so its fields are repeated here.
   openGraph: { type: "website", url: "/", siteName: "Dovli", title: HOME_TITLE, description, images: [shareImage] },
   twitter: { card: "summary_large_image", title: HOME_TITLE, description, images: [shareImage] },
