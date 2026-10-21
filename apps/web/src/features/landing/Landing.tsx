@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { DEFAULT_THEME_PREFERENCE, type ThemePreference } from "@dovli/theme";
 import { DovliLogo, DovliMark, Icon, Kbd, Segmented, buttonStyles, cn, type IconName } from "@dovli/ui";
+import { WindowsIcon } from "@/features/download/DesktopPicture";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
@@ -57,7 +58,7 @@ export function Landing({ accounts = true, signedIn = false, desktop = null }: {
           <Ai />
           <Coming />
         </div>
-        <Closing free={showSignIn} start={start} />
+        <Closing free={showSignIn} start={start} desktop={desktop} />
       </main>
       <Footer showSignIn={showSignIn} start={start} desktop={desktop} />
     </div>
@@ -442,7 +443,8 @@ const pledges: { title: string; text: string }[] = [
   { title: "Take it with you", text: "Bring pages in from Notion, Evernote or Obsidian, and export to Word, PDF or Markdown." },
 ];
 
-function Closing({ free, start }: { free: boolean; start: Start }) {
+function Closing({ free, start, desktop }: { free: boolean; start: Start; desktop: string | null }) {
+  const where = desktop ? "on the web, on Android, and on Mac and Windows" : "on the web and on Android";
   return (
     <section aria-labelledby="cta-title" className="px-2 pb-8 sm:px-4 sm:pb-12">
       {/* The hero's sky again, so the page ends where it began. */}
@@ -463,7 +465,9 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                   Type <Kbd className="mx-0.5 h-6 min-w-6 align-[0.1em] text-sm">/</Kbd> for to-dos, tables, whiteboards and more
                 </p>
                 <p className={cn(leadClass, "mt-8 max-w-[500px]")}>
-                  {free ? "Free on the web and on Android. Sign in with Google or an email code, no password." : "Your pages are waiting where you left them, on the web and on your phone."}
+                  {free
+                    ? `Free ${where}. Sign in with Google or an email code, no password.`
+                    : `Your pages are waiting where you left them, on the web, your phone${desktop ? " and your computer" : ""}.`}
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-3">
                   <Link href={start.href} onClick={startClick(start, "closing")} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
@@ -471,6 +475,23 @@ function Closing({ free, start }: { free: boolean; start: Start }) {
                   </Link>
                   <GooglePlayBadge place="closing" />
                 </div>
+                {/* A third way in, kept quieter than the two buttons. */}
+                <Link
+                  href="/download"
+                  onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}
+                  className="group mt-5 inline-flex items-center gap-2.5 text-sm font-medium text-ink-2 transition-colors hover:text-ink"
+                >
+                  <span aria-hidden="true" className="flex items-center gap-1.5 text-ink-3 transition-colors group-hover:text-ink">
+                    <Icon name="apple" size={15} />
+                    <WindowsIcon size={13} />
+                  </span>
+                  <span className="whitespace-nowrap">
+                    {desktop ? "Also for Mac and Windows" : "Mac and Windows"}
+                    {!desktop && <span className="hidden sm:inline"> app</span>}
+                  </span>
+                  <span className="whitespace-nowrap rounded-full bg-well px-2 py-0.5 text-xs font-semibold text-ink-2">{desktop ? `v${desktop}` : "Coming soon"}</span>
+                  <Icon name="arrowRight" size={13} aria-hidden="true" className="-ml-0.5 text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </Link>
               </div>
 
               <div className="border-t border-line pt-10 lg:border-l lg:border-t-0 lg:pl-14 lg:pt-1">
