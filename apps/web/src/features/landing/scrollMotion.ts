@@ -17,7 +17,7 @@ const all = <T extends Element = HTMLElement>(root: ParentNode, selector: string
 
 /** Section headings rise into place line by line, the first time they come into view. */
 function headings(root: HTMLElement) {
-  for (const id of ["eco-title", "features-title", "android-title", "templates-title", "ai-title", "coming-title", "cta-title"]) {
+  for (const id of ["eco-title", "features-title", "android-title", "templates-title", "ai-title", "extension-title", "cta-title"]) {
     const el = root.querySelector<HTMLElement>(`#${id}`);
     if (!el) continue;
     let played = false;
@@ -167,8 +167,8 @@ function ai(root: HTMLElement) {
   if (strip) arrive([strip], { y: 70, opacity: 0, duration: 1.3 }, strip, "top 92%");
 }
 
-function coming(root: HTMLElement) {
-  const section = root.querySelector("#coming");
+function extension(root: HTMLElement) {
+  const section = root.querySelector("#extension");
   if (!section) return;
   const card = section.querySelector(".lp-clouds");
   // The browser rises out of the card's bottom edge as the card comes up.
@@ -256,7 +256,7 @@ export function start(root: HTMLElement): () => void {
     android(root);
     const stopMarquees = marquees(root);
     ai(root);
-    coming(root);
+    extension(root);
     closing(root);
     footer(root);
     return () => {

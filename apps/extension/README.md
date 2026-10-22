@@ -2,6 +2,8 @@
 
 Clip web pages into Dovli, have AI turn them into notes, and write in a Dovli page beside any website.
 
+**Install:** [Dovli – Web Clipper & Notes](https://chromewebstore.google.com/detail/eompomcfedlnlnbgbacbennoaehobodh) on the Chrome Web Store (item id `eompomcfedlnlnbgbacbennoaehobodh`).
+
 - **Clipper** (click the toolbar icon, `Alt+Shift+D`): clip the tab as **AI notes** (with an optional focus), the **Article**, the **Full page**, your **Selection** or a **Bookmark** (a link card with the page's summary). While it's open, the page outlines the part an article or AI notes will take, with − and + to make it smaller or bigger. Give the clip a title, choose where it goes (**Save in**: the top level, or inside one of your pages; selections and bookmarks are added to the end of that page), add **tags** and a **remark**. Arrow keys move between the kinds, Enter saves.
 - **Highlighter**: from the clipper, or right-click → Highlight with Dovli. Select text to highlight it, click a highlight to remove it, Esc or Done to stop. Highlights stay on the page until it reloads, and come through in whatever you clip from it.
 - **Drawer** (side panel, `Alt+Shift+S`, or right-click the toolbar icon): a Dovli page next to the website. Write notes, edit blocks, tick to-dos, delete with Undo. Changes made in Dovli elsewhere appear within a few seconds.
@@ -42,7 +44,7 @@ Tests: `pnpm --filter @dovli/extension test`. The server side is tested in `apps
 
 1. Bump `version` in `manifest.json` (and `package.json`). Every upload needs a higher version.
 2. `pnpm --filter @dovli/extension zip` makes `dovli-extension.zip` (tests are left out).
-3. Go to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole). A developer account needs a one-time fee. Click **New item** and upload the zip.
+3. Go to the [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole), open Dovli, then **Package** → **Upload new package** with the zip. (The first release used **New item**; a developer account needs a one-time fee.)
 4. Fill in the listing (below), add screenshots (1280×800: the popup, the drawer beside an article, the right-click menu), and a 440×280 promo tile.
 5. **Privacy**: link `https://dovli.in/privacy`, and make sure it describes what the extension sends (see below). Declare that it handles "Website content" and "Personally identifiable information" (the email shown after Connect), and that data isn't sold or used for anything unrelated.
 6. Submit for review. Review usually takes a few days; the broad optional host permission can lengthen it.

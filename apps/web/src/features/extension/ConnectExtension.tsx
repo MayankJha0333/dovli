@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, Icon, Spinner } from "@dovli/ui";
+import { CHROME_STORE_URL } from "@/features/landing/chromeStore";
 import { aiApps } from "@/lib/aiApps";
 import { useAuth } from "@/lib/auth";
 import { ui, useUI } from "@/lib/ui";
@@ -129,7 +130,11 @@ export function ConnectExtensionDialog() {
         )}
         {step === "no-extension" && (
           <p role="alert" className="m-0 rounded-lg bg-danger-soft px-3 py-2 text-danger">
-            The extension didn't answer. Check it's installed and switched on in Chrome, then click Connect in the extension again.
+            The extension didn't answer. Check it's{" "}
+            <a href={CHROME_STORE_URL} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-2">
+              installed
+            </a>{" "}
+            and switched on in Chrome, then click Connect in the extension again.
           </p>
         )}
         {step === "error" && error && (

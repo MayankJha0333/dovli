@@ -12,6 +12,7 @@ import { DovliMark, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { BlocksPicture, BoardPicture, FindPicture, LooksPicture, NestedPicture } from "./Pictures";
 import { SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
+import { CHROME_STORE_URL } from "./chromeStore";
 import { prefersLessMotion, useInView } from "./motion";
 import { Scene } from "./Scene";
 import { Sheet } from "./Sheet";
@@ -36,7 +37,7 @@ export function Ticks({ items, className, t }: { items: string[]; className?: st
   );
 }
 
-/** A small status pill: "Coming soon", "Now on Google Play". */
+/** A small status pill: "Coming soon", "New on Google Play". */
 export function Status({ children, className, t }: { children: ReactNode; className?: string; t?: Tone }) {
   return (
     <span
@@ -515,7 +516,7 @@ export function Ai() {
   );
 }
 
-/* ---------- Coming next: the browser extension ---------- */
+/* ---------- The browser extension ---------- */
 
 // Morning Sky, one of the page styles, behind the card in light themes (landing.css keeps the deep
 // sky tone in dark ones).
@@ -587,14 +588,14 @@ function BrowserDemo({ inViewRef }: { inViewRef: React.RefObject<HTMLDivElement 
   );
 }
 
-export function Coming() {
+export function Extension() {
   const { ref, replay } = useInView<HTMLDivElement>(0.45);
   return (
-    <section id="coming" aria-labelledby="coming-title" className={container}>
+    <section id="extension" aria-labelledby="extension-title" className={container}>
       <div className="lp-clouds grid grid-cols-1 overflow-clip rounded-[28px] sm:rounded-[36px] lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]" style={morningSky}>
         <div className="flex flex-col items-start px-6 pt-8 sm:px-10 sm:pt-10 lg:py-12 lg:pl-12 lg:pr-4">
-          <Status t="sky">Browser extension · coming soon</Status>
-          <h2 id="coming-title" className={cn(h3Class, "mt-5 text-ink sm:text-[34px]")}>
+          <Status t="sky">New on the Chrome Web Store</Status>
+          <h2 id="extension-title" className={cn(h3Class, "mt-5 text-ink sm:text-[34px]")}>
             Clip the web into Dovli
           </h2>
           <p className="m-0 mt-3 max-w-[440px] text-md leading-relaxed text-ink-2">
@@ -611,10 +612,19 @@ export function Coming() {
             <Icon name="panelRight" size={16} className="mt-0.5 flex-none" style={{ color: tone("sky").ink }} aria-hidden="true" />
             And a Dovli page beside any website, to write in while you read.
           </p>
-          <button type="button" onClick={replay} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "lp-motion-only -ml-3 mt-4 rounded-full")}>
-            <Icon name="restore" size={15} aria-hidden="true" />
-            Play the demo again
-          </button>
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <a
+              href={CHROME_STORE_URL}
+              onClick={() => trackEvent("Chrome Web Store click", { place: "extension" })}
+              className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}
+            >
+              Add to Chrome, it&apos;s free
+            </a>
+            <button type="button" onClick={replay} className={cn(buttonStyles({ variant: "ghost", size: "md" }), "lp-motion-only rounded-full")}>
+              <Icon name="restore" size={15} aria-hidden="true" />
+              Play the demo again
+            </button>
+          </div>
         </div>
         <div className="flex flex-col justify-end px-4 pt-8 sm:px-10 lg:pl-4 lg:pr-12 lg:pt-12">
           <BrowserDemo inViewRef={ref} />

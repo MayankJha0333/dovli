@@ -10,6 +10,7 @@ import { DovliMark, Icon, cn } from "@dovli/ui";
 import { DesktopPicture } from "@/features/download/DesktopPicture";
 import { trackEvent } from "@/lib/analytics";
 import { MiniPhone } from "./Android";
+import { CHROME_STORE_URL } from "./chromeStore";
 import { Status, container } from "./Sections";
 import { tone, type Tone } from "./tones";
 
@@ -139,15 +140,17 @@ export function Platforms({ desktop = null }: { desktop?: string | null }) {
           <p className="m-0 mt-2 text-md leading-relaxed text-ink-2 sm:text-lg">One account and the same pages on every screen, kept in sync.</p>
         </div>
         <a
-          href="#coming"
-          onClick={() => trackEvent("Coming soon click", { app: "extension" })}
+          href={CHROME_STORE_URL}
+          onClick={() => trackEvent("Chrome Web Store click", { place: "platforms" })}
           className="group inline-flex h-10 flex-none items-center gap-2.5 self-start rounded-full bg-panel pl-1.5 pr-4 text-sm font-semibold text-ink shadow-sm ring-1 ring-line transition-colors hover:bg-hover md:self-auto"
         >
           <span className="grid size-7 place-items-center rounded-full" style={{ background: tone("sky").bg, color: tone("sky").ink }} aria-hidden="true">
             <Icon name="paperclip" size={14} />
           </span>
-          Browser extension
-          <span className="rounded-full bg-well px-2 py-0.5 text-xs font-semibold text-ink-2">Coming soon</span>
+          Add to Chrome
+          <span className="rounded-full px-2 py-0.5 text-xs font-semibold" style={{ background: tone("mint").bg, color: tone("mint").ink }}>
+            New
+          </span>
           <Icon name="arrowRight" size={13} className="-ml-1 text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
         </a>
       </div>

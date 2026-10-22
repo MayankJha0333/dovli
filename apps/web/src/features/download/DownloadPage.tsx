@@ -10,6 +10,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { DovliLogo, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import "@/features/landing/landing.css";
 import { GooglePlayBadge } from "@/features/landing/Android";
+import { CHROME_STORE_URL } from "@/features/landing/chromeStore";
 import { Status, container } from "@/features/landing/Sections";
 import { tone, type Tone } from "@/features/landing/tones";
 import { trackEvent } from "@/lib/analytics";
@@ -101,7 +102,7 @@ function SystemCard({ system, file, release }: { system: System; file: DesktopFi
 
 function Other({ icon, t, title, text, children }: { icon: IconName; t: Tone; title: string; text: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-4 rounded-[24px] p-6 sm:flex-row sm:items-center" style={{ background: tone(t).bg }}>
+    <div className="flex flex-col gap-4 rounded-[24px] p-6 sm:flex-row sm:items-center lg:flex-col lg:items-start" style={{ background: tone(t).bg }}>
       <span className="grid size-11 flex-none place-items-center rounded-[12px] bg-panel/80" style={{ color: tone(t).ink }}>
         <Icon name={icon} size={20} />
       </span>
@@ -213,7 +214,7 @@ export function DownloadPage({ release }: { release: DesktopRelease | null }) {
           <h2 id="other-title" className="m-0 text-xl font-semibold text-ink">
             Other ways to use Dovli
           </h2>
-          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
             <Other icon="monitor" t="sky" title="On the web" text="Every feature in any modern browser, nothing to install.">
               <Link href={APP_PATH} className={cn(buttonStyles({ variant: "secondary", size: "md" }), "flex-none rounded-full px-4")}>
                 Open Dovli
@@ -221,6 +222,15 @@ export function DownloadPage({ release }: { release: DesktopRelease | null }) {
             </Other>
             <Other icon="device" t="pink" title="On Android" text="Your pages on your phone, offline too.">
               <GooglePlayBadge place="download-page" className="h-10" />
+            </Other>
+            <Other icon="paperclip" t="mint" title="In Chrome" text="Clip what you read into your pages, or write beside any website.">
+              <a
+                href={CHROME_STORE_URL}
+                onClick={() => trackEvent("Chrome Web Store click", { place: "download-page" })}
+                className={cn(buttonStyles({ variant: "secondary", size: "md" }), "flex-none rounded-full px-4")}
+              >
+                Add to Chrome
+              </a>
             </Other>
           </div>
         </section>

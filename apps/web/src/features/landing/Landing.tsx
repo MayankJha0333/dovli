@@ -15,11 +15,12 @@ import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
 import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL } from "./Android";
+import { CHROME_STORE_URL } from "./chromeStore";
 import { prefersLessMotion, useScrollMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
 import { Platforms } from "./Platforms";
 import { Scene } from "./Scene";
-import { Ai, Coming, Features, Templates, container, leadClass } from "./Sections";
+import { Ai, Extension, Features, Templates, container, leadClass } from "./Sections";
 import { Sheet } from "./Sheet";
 import { tone, type Tone } from "./tones";
 
@@ -56,7 +57,7 @@ export function Landing({ accounts = true, signedIn = false, desktop = null }: {
           <Android />
           <Templates start={start} />
           <Ai />
-          <Coming />
+          <Extension />
         </div>
         <Closing free={showSignIn} start={start} desktop={desktop} />
       </main>
@@ -67,7 +68,7 @@ export function Landing({ accounts = true, signedIn = false, desktop = null }: {
 
 /* ---------- Header: a floating glass pill, like the app's own top bar ---------- */
 
-type ProductItemData = { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon"; soon?: "extension" | "desktop" };
+type ProductItemData = { href: string; icon: IconName; t: Tone; title: string; text: string; tag?: "New" | "Soon"; soon?: "desktop" };
 
 // Everything in Dovli, for the Product menu (and the phone menu). Each part keeps its page colour.
 // `desktop`: the newest Mac and Windows version, or null before the first release.
@@ -78,17 +79,17 @@ const productItems = (desktop: string | null): ProductItemData[] => [
   { href: "#mcp", icon: "sparkles", t: "lilac", title: "AI", text: "An assistant in the page, and your AI apps through MCP" },
   { href: "#android", icon: "device", t: "pink", title: "Android app", text: "Your pages on your phone, offline too", tag: "New" },
   { href: "/download", icon: "monitor", t: "butter", title: "Mac and Windows", text: "Its own window, offline too", tag: desktop ? "New" : "Soon", soon: desktop ? undefined : "desktop" },
-  { href: "#coming", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "Soon", soon: "extension" },
+  { href: "#extension", icon: "paperclip", t: "sky", title: "Browser extension", text: "Clip what you read on the web", tag: "New" },
 ];
 
 // The links in the bar, and which sections light each one up.
 const navLinks: { href: string; label: string; sections: string[]; menu?: boolean; fresh?: boolean }[] = [
-  { href: "#features", label: "Product", sections: ["features", "coming"], menu: true },
+  { href: "#features", label: "Product", sections: ["features", "extension"], menu: true },
   { href: "#templates", label: "Templates", sections: ["templates"] },
   { href: "#mcp", label: "AI", sections: ["mcp"] },
   { href: "#android", label: "Android", sections: ["android"], fresh: true },
 ];
-const watched = ["features", "android", "templates", "mcp", "coming"];
+const watched = ["features", "android", "templates", "mcp", "extension"];
 
 function ProductItem({ item, onPick, large }: { item: ProductItemData; onPick: () => void; large?: boolean }) {
   const c = tone(item.t);
@@ -629,8 +630,8 @@ function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: St
                 <FooterLink href="/download" tag={desktop ? "New" : "Soon"} onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}>
                   Mac and Windows
                 </FooterLink>
-                <FooterLink href="#coming" tag="Soon" onClick={() => trackEvent("Coming soon click", { app: "extension" })}>
-                  Browser extension
+                <FooterLink href={CHROME_STORE_URL} tag="New" onClick={() => trackEvent("Chrome Web Store click", { place: "footer-link" })}>
+                  Chrome extension
                 </FooterLink>
               </FooterColumn>
               <FooterColumn title="Compare">

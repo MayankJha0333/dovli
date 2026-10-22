@@ -10,7 +10,7 @@ Docs, to-dos and whiteboards in one workspace, on the web, on your phone and bes
 <p>
   <a href="https://dovli.in"><img alt="Web: live" src="https://img.shields.io/badge/Web-live%20at%20dovli.in-6d5cff?style=for-the-badge&logo=googlechrome&logoColor=white" /></a>
   <img alt="Android: coming soon" src="https://img.shields.io/badge/Android-coming%20soon-3ddc84?style=for-the-badge&logo=android&logoColor=white" />
-  <img alt="Chrome extension: in review" src="https://img.shields.io/badge/Chrome%20extension-in%20review-4285f4?style=for-the-badge&logo=googlechrome&logoColor=white" />
+  <a href="https://chromewebstore.google.com/detail/eompomcfedlnlnbgbacbennoaehobodh"><img alt="Chrome extension: on the Chrome Web Store" src="https://img.shields.io/badge/Chrome%20extension-Web%20Store-4285f4?style=for-the-badge&logo=googlechrome&logoColor=white" /></a>
 </p>
 
 <p>
@@ -40,7 +40,7 @@ you type, so it works offline, then syncs across the web and your phone when you
 | --- | --- | --- |
 | 🌐 **Web** | Live | [dovli.in](https://dovli.in) |
 | 🤖 **Android** | In testing on Google Play | Public listing coming soon (`app.dovli`) |
-| 🧩 **Chrome extension** | In Chrome Web Store review | [Load it unpacked](#try-the-extension-now) in the meantime |
+| 🧩 **Chrome extension** | Live | [Chrome Web Store](https://chromewebstore.google.com/detail/eompomcfedlnlnbgbacbennoaehobodh) |
 | 🤝 **AI apps (MCP)** | Live | Claude Desktop, Claude Code, Codex, Cursor and others ([how](#connect-your-ai-apps)) |
 | 💻 **Mac & Windows** | In development | Works offline and syncs when you're back online ([build it](apps/desktop/README.md)) |
 | 🍎 **iOS** | Planned | After the Android launch |
@@ -132,6 +132,7 @@ look and behave the same everywhere. Source: [`apps/mobile`](apps/mobile).
 ## Dovli for Chrome
 
 Clip the web, make AI notes, and keep a Dovli page open beside any website.
+**[Add it to Chrome](https://chromewebstore.google.com/detail/eompomcfedlnlnbgbacbennoaehobodh)**, free on the Chrome Web Store.
 
 <p align="center">
   <img src="apps/extension/store-listing/marquee-1400x560.png" alt="Dovli for Chrome: clip the web, make AI notes, write beside any page" width="100%" />
@@ -156,9 +157,9 @@ Clip the web, make AI notes, and keep a Dovli page open beside any website.
 Nothing is read from a website until you click. Details, permissions and privacy notes are in
 [`apps/extension/README.md`](apps/extension/README.md).
 
-### Try the extension now
+### Run it from source
 
-While it's in Web Store review, you can load it from this repo:
+To try changes before they're on the Web Store, load it from this repo:
 
 1. Open `chrome://extensions` and switch on **Developer mode**.
 2. Click **Load unpacked** and choose the [`apps/extension`](apps/extension) folder.

@@ -126,7 +126,7 @@ export const rivals: Rival[] = [
       { label: "Made for", dovli: "Writing, planning and sketching", them: "Saving and finding everything" },
       { label: "Whiteboards", dovli: "Built into your pages, with flowcharts you can edit", them: "No built-in whiteboard" },
       { label: "Offline", dovli: "Every page saves on your device first, then syncs", them: "Offline notebooks need a paid plan" },
-      { label: "Web clipper", dovli: "Chrome extension coming soon", them: "Yes, mature and fast" },
+      { label: "Web clipper", dovli: "Yes, Dovli for Chrome", them: "Yes, mature and fast" },
       { label: "AI", dovli: "Assistant in every page, plus your own AI apps over MCP", them: "AI features on paid plans" },
       { label: "Where it runs", dovli: "Web and Android", them: "Web, Mac, Windows, iPhone and Android" },
       { label: "Moving your notes", dovli: "Imports .enex exports, pictures and links included", them: "Exports notes and notebooks as .enex" },
@@ -150,7 +150,7 @@ export const rivals: Rival[] = [
     faqs: [
       { q: "What is a free alternative to Evernote?", a: "Dovli is a free Evernote alternative with no note or notebook limit. It works on the web and Android, offline too, and imports your Evernote notebooks." },
       { q: "How do I move my notes from Evernote to Dovli?", a: "Export each notebook from Evernote as an .enex file, then drop the files into Dovli's Settings, under Import & export. Each notebook becomes a page with its notes, pictures included." },
-      { q: "Does Dovli have a web clipper like Evernote?", a: "Dovli for Chrome, a browser extension to save what you read on the web, is coming soon." },
+      { q: "Does Dovli have a web clipper like Evernote?", a: "Yes. Dovli for Chrome, free on the Chrome Web Store, saves what you read as an article, the whole page, a selection or a bookmark, or turns it into AI notes, in the page you pick." },
     ],
   },
 ];
