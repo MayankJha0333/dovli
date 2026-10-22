@@ -105,7 +105,25 @@
 .dovli-editor .bn-block-content[data-content-type="table"] tr > :last-child { border-right: 0 !important; }
 .dovli-editor .bn-block-content[data-content-type="table"] tr:last-child > * { border-bottom: 0 !important; }
 .dovli-editor .bn-block-content[data-content-type="table"] th { background: var(--d-well); color: var(--d-ink); font-weight: 650; text-align: left; }
-.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] { accent-color: var(--d-accent); width: 1.05em; height: 1.05em; }
+/* BlockNote pins the box's row at 24px, which only lines up with a 16px line; one line-height
+   keeps the box centred on the first line at any page size (phone, Present). */
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] > div:has(> input) { height: 1.5em; height: 1lh; display: flex; align-items: center; }
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex: none; position: relative; box-sizing: border-box;
+  width: 1.1em; height: 1.1em; margin: 0 0.6em 0 0.12em; border-radius: 0.34em; cursor: pointer;
+  border: 1.5px solid var(--d-line-strong); background: var(--d-well);
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"]:hover { border-color: color-mix(in srgb, var(--d-accent) 55%, var(--d-line-strong)); }
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"]:checked { background: var(--d-accent); border-color: var(--d-accent); }
+/* The tick is a mask so it takes the theme's ink-on-accent colour. */
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"]::before {
+  content: ""; position: absolute; inset: 0; background: var(--d-accent-ink); transform: scale(0.6); opacity: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.4l2.6 2.5L12 5.4' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.4l2.6 2.5L12 5.4' fill='none' stroke='black' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 100% no-repeat;
+}
+.dovli-editor .bn-block-content[data-content-type="checkListItem"] input[type="checkbox"]:checked::before { transform: none; opacity: 1; }
 .dovli-editor .bn-block-content[data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--d-ink-4); text-decoration: line-through; }
 .dovli-editor .bn-block-content[data-content-type="divider"] hr { border: 0; border-top: 1px solid var(--d-line); margin: 1.1em 0; }
 .dovli-editor [data-placeholder]::before,
