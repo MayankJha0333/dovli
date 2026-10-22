@@ -163,7 +163,7 @@ export function Platforms({ desktop = null }: { desktop?: string | null }) {
         <Tile href="/download" t="butter" status={desktop ? `New · v${desktop}` : "Coming soon"} name="Mac and Windows" text="Its own window on your computer, offline too." className="w-[86%] md:w-auto">
           <DesktopPicture compact className="absolute inset-0 rounded-b-none ring-0 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
         </Tile>
-        <Tile href="#android" t="mint" status={launched ? "New on Google Play" : "Out now as an APK"} name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto">
+        <Tile href="#android" t="mint" status={launched ? "New on Google Play" : "Coming to Google Play"} name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto">
           <MiniPhone className="absolute left-1/2 top-0 w-[180px] -translate-x-1/2 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
         </Tile>
         <Tile href="#mcp" t="lilac" status="Available now" name="AI apps" text="Claude, Codex or any MCP app can work in your pages." className="w-[86%] md:w-auto">

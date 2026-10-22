@@ -15,7 +15,6 @@ import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
 import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL, usePlayCountdown } from "./Android";
-import { APK_PATH } from "./playStore";
 import { CHROME_STORE_URL } from "./chromeStore";
 import { prefersLessMotion, useScrollMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
@@ -321,8 +320,8 @@ function Header({ showSignIn, start, desktop }: { showSignIn: boolean; start: St
             </div>
             <div className="mt-2 flex flex-col gap-3 border-t border-line p-2 pt-3">
               <div className="flex items-center gap-3">
-                <GooglePlayBadge place="menu" className="h-11" />
-                <span className="text-sm leading-snug text-ink-2">{launched ? "Dovli for Android is here" : "Dovli for Android, before Google Play"}</span>
+                <GooglePlayBadge place="menu" className="h-11" onClick={() => setMenu(false)} />
+                <span className="text-sm leading-snug text-ink-2">{launched ? "Dovli for Android is here" : "Coming to Google Play soon, or get the APK now"}</span>
               </div>
               <div className="flex gap-2">
                 {showSignIn && (
@@ -384,7 +383,7 @@ function Hero({ free, start, desktop }: { free: boolean; start: Start; desktop: 
           ) : launched ? (
             "Dovli for Android is on Google Play"
           ) : (
-            "Dovli for Android: get the APK now"
+            "Dovli for Android is coming to Google Play"
           )}
           <Icon name="arrowRight" size={14} className="text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
@@ -630,11 +629,7 @@ function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: St
               </FooterColumn>
               <FooterColumn title="Get Dovli">
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
-                <FooterLink
-                  href={launched ? PLAY_STORE_URL : APK_PATH}
-                  tag="New"
-                  onClick={() => trackEvent(launched ? "Play Store click" : "APK click", { place: "footer-link" })}
-                >
+                <FooterLink href={launched ? PLAY_STORE_URL : "#android"} tag="New" onClick={() => trackEvent("Play Store click", { place: "footer-link" })}>
                   Android app
                 </FooterLink>
                 <FooterLink href="/download" tag={desktop ? "New" : "Soon"} onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}>

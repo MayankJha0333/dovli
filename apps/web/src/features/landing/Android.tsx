@@ -62,37 +62,42 @@ const screens = {
   kyoto: { src: "/landing/android-kyoto-full.webp", width: 432, height: 960, alt: "Dovli on an Android phone: a trip plan called Weekend in Kyoto, in the Cherry Blossom page style" },
 } satisfies Record<string, Screen>;
 
+const badgeImage = <img src="/landing/google-play-badge.png" alt="Get it on Google Play" width={564} height={168} className="h-full w-auto" />;
+
 /**
  * Google's "Get it on Google Play" badge, used the way Google asks: their artwork, unchanged, linking
- * to the listing. Before the launch the listing isn't public, so in its place: the APK, with the
- * time left until Google Play. The same size as the badge, so it fits wherever the badge goes.
+ * to the listing. Before the launch the listing isn't public, so it leads to the Android section
+ * instead, which counts down to the launch and offers the APK meanwhile.
  */
-export function GooglePlayBadge({ place, className }: { place: string; className?: string }) {
-  const { launched, left } = usePlayCountdown();
-  if (!launched) {
-    const t = left === null ? null : split(left);
-    return (
-      <a
-        href={APK_PATH}
-        onClick={() => trackEvent("APK click", { place })}
-        className={cn(
-          "lp-badge inline-flex h-12 flex-none items-center gap-2.5 rounded-[8px] bg-[#15171D] pl-3 pr-4 text-left text-white ring-1 ring-white/15",
-          className,
-        )}
-      >
-        <Icon name="download" size={20} className="flex-none" aria-hidden="true" />
-        <span className="flex flex-col">
-          <span className="whitespace-nowrap text-[11px] leading-tight text-white/75 tabular-nums">
-            {t ? `Google Play in ${t.days}d ${two(t.hours)}:${two(t.minutes)}:${two(t.seconds)}` : `On Google Play ${launchDay}`}
-          </span>
-          <span className="whitespace-nowrap text-[15px] font-semibold leading-tight">Download the APK</span>
-        </span>
-      </a>
-    );
-  }
+export function GooglePlayBadge({ place, className, onClick }: { place: string; className?: string; onClick?: () => void }) {
+  const { launched } = usePlayCountdown();
   return (
-    <a href={PLAY_STORE_URL} onClick={() => trackEvent("Play Store click", { place })} className={cn("lp-badge inline-flex h-12 flex-none rounded-[8px]", className)}>
-      <img src="/landing/google-play-badge.png" alt="Get it on Google Play" width={564} height={168} className="h-full w-auto" />
+    <a
+      href={launched ? PLAY_STORE_URL : "/#android"}
+      onClick={() => {
+        trackEvent("Play Store click", { place });
+        onClick?.();
+      }}
+      className={cn("lp-badge inline-flex h-12 flex-none rounded-[8px]", className)}
+    >
+      {badgeImage}
+    </a>
+  );
+}
+
+/** The APK, for people who don't want to wait for Google Play. As tall as the badge beside it. */
+function ApkButton({ className }: { className?: string }) {
+  return (
+    <a
+      href={APK_PATH}
+      onClick={() => trackEvent("APK click", { place: "android" })}
+      className={cn("lp-badge inline-flex h-12 flex-none items-center gap-2.5 rounded-[8px] bg-panel pl-3 pr-4 text-left text-ink shadow-sm ring-1 ring-line", className)}
+    >
+      <Icon name="download" size={20} className="flex-none text-ink-2" aria-hidden="true" />
+      <span className="flex flex-col">
+        <span className="whitespace-nowrap text-[11px] leading-tight text-ink-3">Can&apos;t wait? It&apos;s free</span>
+        <span className="whitespace-nowrap text-[15px] font-semibold leading-tight">Download the APK</span>
+      </span>
     </a>
   );
 }
@@ -155,7 +160,7 @@ function PlayQr({ apk }: { apk: boolean }) {
           </svg>
         )}
       </span>
-      <figcaption className="max-w-[132px] text-sm leading-snug text-ink-2">Or scan it with your phone&apos;s camera</figcaption>
+      <figcaption className="max-w-[132px] text-sm leading-snug text-ink-2">{apk ? "Scan to get the APK on your phone" : "Or scan it with your phone's camera"}</figcaption>
     </figure>
   );
 }
@@ -171,7 +176,7 @@ function PlayCountdown({ left }: { left: number | null }) {
   ];
   return (
     <div className="mt-7 max-w-[400px]">
-      <p className="m-0 text-sm font-semibold text-ink-2">Opens on Google Play on {launchDay}</p>
+      <p className="m-0 text-sm font-semibold text-ink-2">On Google Play in</p>
       <div role="timer" aria-label={t ? `${t.days} days and ${t.hours} hours until Google Play` : `Until ${launchDay}`} className="mt-3 grid grid-cols-4 gap-2">
         {parts.map((p) => (
           <div key={p.label} className="rounded-[14px] bg-panel/85 py-2.5 text-center shadow-sm ring-1 ring-line">
@@ -232,14 +237,14 @@ export function Android() {
           {/* Above the phones (medium widths) the words take two columns, so the panel isn't half empty. */}
           <div className="pt-14 sm:pt-20 md:grid md:grid-cols-2 md:items-end md:gap-x-10 xl:block xl:py-20">
             <div>
-              <Status t="mint">{launched ? "Now on Google Play" : "Out now as an APK"}</Status>
+              <Status t="mint">{launched ? "Now on Google Play" : "Coming to Google Play"}</Status>
               <h2 id="android-title" className={cn(h2Class, "mt-5 text-ink")}>
                 Your pages, in your pocket
               </h2>
               <p className={cn(leadClass, "mt-4 max-w-[500px]")}>
                 {launched
                   ? "Dovli for Android is here. Jot something down on the train, and find it waiting on the web when you sit down. Free, with no ads."
-                  : "Dovli for Android is in its last days of testing on Google Play. Don't want to wait? Install the APK now: the same app, free, with no ads."}
+                  : `Dovli for Android is in its last days of testing, and opens on Google Play on ${launchDay}. Can't wait? Get the APK now: the same app, free, with no ads.`}
               </p>
               {!launched && <PlayCountdown left={left} />}
             </div>
@@ -258,7 +263,15 @@ export function Android() {
                 ))}
               </ul>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <GooglePlayBadge place="android" className="h-14" />
+                {launched ? (
+                  <GooglePlayBadge place="android" className="h-14" />
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Every other badge on the site leads here, so here it's only the picture. */}
+                    <span className="inline-flex h-14 flex-none rounded-[8px]">{badgeImage}</span>
+                    <ApkButton className="h-14" />
+                  </div>
+                )}
                 <PlayQr apk={!launched} />
               </div>
               {!launched && (
