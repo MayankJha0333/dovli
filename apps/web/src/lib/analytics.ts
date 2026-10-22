@@ -13,6 +13,8 @@ type Events = {
   "Open app click": { place: string };
   /** A link to Dovli on Google Play (the badge, or the footer link). `place`: which one. */
   "Play Store click": { place: string };
+  /** The Android APK, offered in the badge's place until the Google Play launch. `place`: which link. */
+  "APK click": { place: string };
   /** A Mac or Windows download (the download page, or the landing page). `place`: which button. */
   "Desktop download click": { os: "mac" | "windows"; place: string };
   /** A link to Dovli for Chrome on the Chrome Web Store. `place`: which one. */

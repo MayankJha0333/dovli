@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { DovliLogo, DovliMark, Icon, buttonStyles, cn, type IconName } from "@dovli/ui";
 import { SUPPORT_EMAIL } from "@/features/legal/LegalPage";
-import { PLAY_STORE_URL } from "@/features/landing/playStore";
+import { GooglePlayBadge } from "@/features/landing/Android";
 import { Sheet } from "@/features/landing/Sheet";
 import { tone, type Tone } from "@/features/landing/tones";
 import { LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
@@ -156,9 +156,7 @@ function Actions({ className }: { className?: string }) {
       <Link href={SIGNUP_PATH} className={cn(buttonStyles({ variant: "primary", size: "lg" }), "h-12 rounded-full px-6 text-md")}>
         Try Dovli free
       </Link>
-      <a href={PLAY_STORE_URL} className="lp-badge inline-flex h-12 flex-none rounded-[8px]">
-        <img src="/landing/google-play-badge.png" alt="Get it on Google Play" width={564} height={168} className="h-full w-auto" />
-      </a>
+      <GooglePlayBadge place="compare" />
     </div>
   );
 }

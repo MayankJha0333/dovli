@@ -9,7 +9,7 @@ import { COVER_PRESETS } from "@dovli/theme";
 import { DovliMark, Icon, cn } from "@dovli/ui";
 import { DesktopPicture } from "@/features/download/DesktopPicture";
 import { trackEvent } from "@/lib/analytics";
-import { MiniPhone } from "./Android";
+import { MiniPhone, usePlayCountdown } from "./Android";
 import { CHROME_STORE_URL } from "./chromeStore";
 import { Status, container } from "./Sections";
 import { tone, type Tone } from "./tones";
@@ -130,6 +130,7 @@ function AiPicture() {
 
 /** `desktop`: the newest Mac and Windows version, or null before the first release. */
 export function Platforms({ desktop = null }: { desktop?: string | null }) {
+  const { launched } = usePlayCountdown();
   return (
     <section aria-labelledby="eco-title" className={cn(container, "pt-16 sm:pt-24 xl:pt-28")}>
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -162,7 +163,7 @@ export function Platforms({ desktop = null }: { desktop?: string | null }) {
         <Tile href="/download" t="butter" status={desktop ? `New · v${desktop}` : "Coming soon"} name="Mac and Windows" text="Its own window on your computer, offline too." className="w-[86%] md:w-auto">
           <DesktopPicture compact className="absolute inset-0 rounded-b-none ring-0 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
         </Tile>
-        <Tile href="#android" t="mint" status="New on Google Play" name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto">
+        <Tile href="#android" t="mint" status={launched ? "New on Google Play" : "Out now as an APK"} name="Android app" text="Your pages on your phone, offline too." className="w-[70%] md:w-auto">
           <MiniPhone className="absolute left-1/2 top-0 w-[180px] -translate-x-1/2 transition-transform duration-500 ease-out group-hover:-translate-y-1.5" />
         </Tile>
         <Tile href="#mcp" t="lilac" status="Available now" name="AI apps" text="Claude, Codex or any MCP app can work in your pages." className="w-[86%] md:w-auto">

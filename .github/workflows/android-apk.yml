@@ -1,0 +1,85 @@
+# Builds the Android app as an APK on EAS and puts it on GitHub, for people who install it without
+# Google Play. It lands on the repo's "android" release as Dovli.apk, a name that never changes, so
+# https://github.com/MayankJha0333/dovli/releases/download/android/Dovli.apk (and dovli.in/apk,
+# which redirects there) always gives the newest one.
+#
+# Run it by hand (Actions → Android APK → Run workflow); it also runs once when this file changes.
+#
+# The APK is the production app (eas.json build "apk" extends "production": same settings, EAS
+# environment and update channel), signed with the EAS upload key. Copies from Google Play are
+# signed with Google's app-signing key instead, so a phone can't move from one to the other without
+# uninstalling. Google sign-in works in the APK only once the upload key's SHA-1 is on the Android
+# app in Firebase.
+#
+# The release is never marked "latest": the website and the desktop apps' updater read the latest
+# release as the newest Mac and Windows version.
+
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/android-apk.yml"
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    name: Build the APK and release it on GitHub
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG: android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @dovli/mobile typecheck
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build on EAS
+        working-directory: apps/mobile
+        run: |
+          eas build --platform android --profile apk --non-interactive --wait --json \
+            --message "APK ${GITHUB_REF_NAME} ${GITHUB_SHA::7}" > "$RUNNER_TEMP/build.json"
+          jq -r '.[0] | "url=\(.artifacts.buildUrl)\nversion=\(.appVersion)\ncode=\(.appBuildVersion)"' "$RUNNER_TEMP/build.json" >> "$GITHUB_ENV"
+
+      - name: Download the APK
+        run: curl -fsSL "$url" -o "$RUNNER_TEMP/Dovli.apk"
+
+      - name: Put it on the android release
+        run: |
+          notes="Dovli for Android ${version} (build ${code}), from ${GITHUB_SHA::7}.
+
+          Download **Dovli.apk** below on your Android phone and open it. Your phone will ask you to allow installs from your browser, as it does for any app from outside Google Play.
+
+          Moving to the Google Play version later? Uninstall this one first; your pages stay in your account."
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Dovli for Android ${version}" --notes "$notes" --latest=false
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Dovli for Android ${version}" --notes "$notes" --latest=false
+          fi
+          gh release upload "$TAG" "$RUNNER_TEMP/Dovli.apk" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Released: https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/Dovli.apk" >> "$GITHUB_STEP_SUMMARY"

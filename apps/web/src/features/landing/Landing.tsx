@@ -14,7 +14,8 @@ import { WindowsIcon } from "@/features/download/DesktopPicture";
 import { APP_PATH, LOGIN_PATH, SIGNUP_PATH } from "@/lib/authGate";
 import { trackEvent } from "@/lib/analytics";
 import { settings } from "@/lib/settings";
-import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL } from "./Android";
+import { Android, GooglePlayBadge, HeroPhone, PLAY_STORE_URL, usePlayCountdown } from "./Android";
+import { APK_PATH } from "./playStore";
 import { CHROME_STORE_URL } from "./chromeStore";
 import { prefersLessMotion, useScrollMotion } from "./motion";
 import { HeroPicture } from "./Pictures";
@@ -127,6 +128,7 @@ function ProductItem({ item, onPick, large }: { item: ProductItemData; onPick: (
 }
 
 function Header({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
+  const { launched } = usePlayCountdown();
   const [menu, setMenu] = useState(false); // the phone menu
   const [product, setProduct] = useState(false); // the Product dropdown on wide screens
   const [scrolled, setScrolled] = useState(false);
@@ -320,7 +322,7 @@ function Header({ showSignIn, start, desktop }: { showSignIn: boolean; start: St
             <div className="mt-2 flex flex-col gap-3 border-t border-line p-2 pt-3">
               <div className="flex items-center gap-3">
                 <GooglePlayBadge place="menu" className="h-11" />
-                <span className="text-sm leading-snug text-ink-2">Dovli for Android is here</span>
+                <span className="text-sm leading-snug text-ink-2">{launched ? "Dovli for Android is here" : "Dovli for Android, before Google Play"}</span>
               </div>
               <div className="flex gap-2">
                 {showSignIn && (
@@ -350,6 +352,7 @@ const heroLines: { text: string; verb?: { t: Tone; icon: IconName } }[][] = [
 ];
 
 function Hero({ free, start, desktop }: { free: boolean; start: Start; desktop: string | null }) {
+  const { launched } = usePlayCountdown();
   let i = 0;
   return (
     <section aria-labelledby="hero-title" className="relative px-2 pt-2 sm:px-4 sm:pt-4">
@@ -378,8 +381,10 @@ function Hero({ free, start, desktop }: { free: boolean; start: Start; desktop: 
                 Dovli for Mac and Windows<span className="hidden sm:inline"> is here</span>
               </span>
             </>
-          ) : (
+          ) : launched ? (
             "Dovli for Android is on Google Play"
+          ) : (
+            "Dovli for Android: get the APK now"
           )}
           <Icon name="arrowRight" size={14} className="text-ink-3 transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
@@ -594,6 +599,7 @@ function FooterLink({ href, children, tag, onClick }: { href: string; children: 
 }
 
 function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: Start; desktop: string | null }) {
+  const { launched } = usePlayCountdown();
   const toTop = () => {
     window.scrollTo({ top: 0, behavior: prefersLessMotion() ? "auto" : "smooth" });
     // Keep keyboard users in step with the scroll: focus lands back at the top of the page.
@@ -624,7 +630,11 @@ function Footer({ showSignIn, start, desktop }: { showSignIn: boolean; start: St
               </FooterColumn>
               <FooterColumn title="Get Dovli">
                 <FooterLink href={APP_PATH}>Web app</FooterLink>
-                <FooterLink href={PLAY_STORE_URL} tag="New" onClick={() => trackEvent("Play Store click", { place: "footer-link" })}>
+                <FooterLink
+                  href={launched ? PLAY_STORE_URL : APK_PATH}
+                  tag="New"
+                  onClick={() => trackEvent(launched ? "Play Store click" : "APK click", { place: "footer-link" })}
+                >
                   Android app
                 </FooterLink>
                 <FooterLink href="/download" tag={desktop ? "New" : "Soon"} onClick={desktop ? undefined : () => trackEvent("Coming soon click", { app: "desktop" })}>

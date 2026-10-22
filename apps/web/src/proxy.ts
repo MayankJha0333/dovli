@@ -5,7 +5,7 @@ import { LOGIN_PATH, SESSION_COOKIE, SIGNUP_PATH, authGateOn, loginUrl, sessionL
 // cookie); the app's page checks the cookie's signature on the server too. See lib/authGate.ts.
 
 // "/desktop/sign-in": the desktop app sends people there to sign in, so it can't need a session.
-const PUBLIC_PATHS = new Set(["/", "/welcome", "/privacy", "/delete-account", "/compare", "/download", "/desktop/sign-in"]);
+const PUBLIC_PATHS = new Set(["/", "/welcome", "/privacy", "/delete-account", "/compare", "/download", "/apk", "/desktop/sign-in"]);
 /** Pages under these are public too: Dovli vs Notion, Craft and Evernote. */
 const PUBLIC_PREFIXES = ["/vs/"];
 
