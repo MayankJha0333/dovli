@@ -73,3 +73,5 @@ apps/desktop/release/
 
 # Packed browser extension for the Chrome Web Store (pnpm --filter @dovli/extension zip)
 apps/extension/dovli-extension.zip
+# Packed by apps/web/next.config.ts
+apps/web/public/dovli-mcp.tgz

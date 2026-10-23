@@ -152,29 +152,56 @@ const Mono = ({ children }: { children: ReactNode }) => <code className="rounded
 
 function SetupSteps({ app, url }: { app: AppKind; url: string }) {
   const local = /\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url);
-  const desktop = JSON.stringify({ mcpServers: { dovli: { command: "node", args: ["/Users/YOU/dovli-mcp.mjs", url] } } }, null, 2);
+  // The bridge as an npm package (next.config.ts); the version makes npx fetch a new one, not reuse its cache.
+  const version = process.env.NEXT_PUBLIC_MCP_BRIDGE_VERSION;
+  const bridge = url.replace(/\/api\/mcp\/.*$/, version ? `/dovli-mcp-${version}.tgz` : "/dovli-mcp.tgz");
+  const command = `npx -y ${bridge} ${url}`;
+  const desktop = JSON.stringify({ mcpServers: { dovli: { command: "npx", args: ["-y", bridge, url] } } }, null, 2);
+  const [withConfigFile, setWithConfigFile] = useState(local);
   return (
     <div className="flex flex-col gap-4">
-      {app === "claude-desktop" && (
+      {app === "claude-desktop" && !withConfigFile && (
         <ol className="m-0 flex list-none flex-col gap-4 p-0">
           <Step n={1}>
-            <p className="m-0">Download Dovli's small connector file and save it in your home folder.</p>
-            <a href="/dovli-mcp.mjs" download="dovli-mcp.mjs" className="inline-flex h-9 w-fit items-center gap-2 rounded-md bg-well px-3 text-sm font-semibold text-ink shadow-sm transition-colors hover:bg-hover">
-              <Icon name="download" size={15} />
-              Download dovli-mcp.mjs
-            </a>
+            <p className="m-0">
+              In Claude open <Key>Settings → Connectors → Add custom connector</Key>.
+            </p>
           </Step>
           <Step n={2}>
             <p className="m-0">
-              In Claude Desktop open <Key>Settings → Developer → Edit Config</Key>, paste this in, and put your Mac user name in place of <Mono>YOU</Mono>.
-            </p>
-            <CodeBox title="claude_desktop_config.json" label="Claude Desktop settings" value={desktop} />
-            <p className="m-0 text-xs text-ink-3">
-              If Claude can't find <Mono>node</Mono>, run <Mono>which node</Mono> in Terminal and use the full path it shows.
+              Name it <Mono>Dovli</Mono>, paste the address above as its URL and click <Key>Add</Key>. Nothing else to fill in: the address is the key.
             </p>
           </Step>
           <Step n={3}>
+            <p className="m-0">Dovli is in the tools menu of a new chat, on the Claude app and claude.ai.</p>
+            <button type="button" onClick={() => setWithConfigFile(true)} className="w-fit text-xs font-medium text-accent hover:underline">
+              No Connectors in your Claude? Use its settings file instead
+            </button>
+          </Step>
+        </ol>
+      )}
+      {app === "claude-desktop" && withConfigFile && (
+        <ol className="m-0 flex list-none flex-col gap-4 p-0">
+          <Step n={1}>
+            <p className="m-0">
+              In Claude Desktop open <Key>Settings → Developer → Edit Config</Key> and paste this in. It's ready as it is: nothing to download or fill in.
+            </p>
+            <CodeBox title="claude_desktop_config.json" label="Claude Desktop settings" value={desktop} />
+            <p className="m-0 text-xs text-ink-3">
+              Already have other servers there? Add the <Mono>"dovli"</Mono> part inside your <Mono>"mcpServers"</Mono>. It needs{" "}
+              <a href="https://nodejs.org" target="_blank" rel="noreferrer" className="font-medium text-accent hover:underline">
+                Node.js
+              </a>{" "}
+              on this computer.
+            </p>
+          </Step>
+          <Step n={2}>
             <p className="m-0">Quit and reopen Claude Desktop. Dovli is in the tools menu of a new chat.</p>
+            {!local && (
+              <button type="button" onClick={() => setWithConfigFile(false)} className="w-fit text-xs font-medium text-accent hover:underline">
+                Use Claude's Connectors instead (no settings file)
+              </button>
+            )}
           </Step>
         </ol>
       )}
@@ -204,7 +231,7 @@ function SetupSteps({ app, url }: { app: AppKind; url: string }) {
               Start <Mono>codex</Mono> again and type <Mono>/mcp</Mono> to see Dovli's tools.
             </p>
             <p className="m-0 text-xs text-ink-3">
-              Older Codex? Download the connector file (see Claude Desktop) and run <Mono>codex mcp add dovli -- node ~/dovli-mcp.mjs {"<address>"}</Mono>
+              Older Codex? Run <Mono>codex mcp add dovli -- {command}</Mono>
             </p>
           </Step>
         </ol>
@@ -221,17 +248,17 @@ function SetupSteps({ app, url }: { app: AppKind; url: string }) {
             <dd className="m-0 text-ink">None: the address is the key</dd>
           </dl>
           <p className="m-0 text-xs text-ink-3">
-            For apps that run a command instead: <Mono>node dovli-mcp.mjs {"<address>"}</Mono> (download the file from the Claude Desktop steps).
+            App wants a key in a header? Use <Mono>{url.replace(/\/dvl_[^/]+$/, "")}</Mono> with the header <Mono>Authorization: Bearer {url.match(/dvl_[^/]+$/)?.[0] ?? "dvl_…"}</Mono>.
           </p>
+          <p className="m-0 text-xs text-ink-3">For apps that run a command instead (nothing to download):</p>
+          <CodeBox title="Command" label="Command for apps that start MCP servers" value={command} />
         </div>
       )}
       <p className="m-0 flex gap-2 rounded-lg bg-well px-3 py-2.5 text-xs leading-relaxed text-ink-2">
         <Icon name="info" size={14} className="mt-px flex-none text-ink-3" />
         {local
           ? "Dovli is running on this computer, so AI apps on this computer can use it. Apps that run in the cloud (ChatGPT, Claude's custom connectors) need Dovli to be online."
-          : app === "claude-desktop"
-            ? "Or skip the file: in Claude open Settings → Connectors → Add custom connector, and paste the address."
-            : "Your AI app asks before it changes anything, unless you tell it not to."}
+          : "Your AI app asks before it changes anything, unless you tell it not to. To check the address, open it in a browser: it says whether it works."}
       </p>
     </div>
   );

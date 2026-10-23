@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { blocksToMarkdown, markdownToBlocks } from "@dovli/core";
 import { createCloud, personalWorkspaceId, type Doc } from "./cloudCore";
 import { memoryCloudStore } from "./cloudMemory";
-import { MCP_LIMIT, TOOLS, createMcp, type Connection } from "./mcpCore";
+import { MCP_LIMIT, TOOLS, createMcp, findSecret, normalizeArgs, toolNamed, type Connection } from "./mcpCore";
 
 let store: ReturnType<typeof memoryCloudStore>;
 let cloud: ReturnType<typeof createCloud>;
@@ -208,6 +208,143 @@ describe("writing", () => {
     const [c] = await mcp.list("u1");
     expect(c).toMatchObject({ lastTool: "search", calls: 1 });
     expect(c.lastUsedAt).toBeGreaterThan(0);
+  });
+});
+
+describe("forgiving", () => {
+  it("finds the secret in a whole address, a Bearer header, quotes or URL-encoding", async () => {
+    const { secret } = await mcp.create("u1", { name: "Cursor" });
+    for (const raw of [secret, `Bearer ${secret}`, `"${secret}"`, ` ${secret}\n`, `https://dovli.in/api/mcp/${secret}/`, `https://dovli.in/api/mcp/${secret}/mcp`, encodeURIComponent(`Bearer ${secret}`)]) {
+      expect(findSecret(raw), raw).toBe(secret);
+      expect((await mcp.resolve(raw))?.name, raw).toBe("Cursor");
+    }
+    for (const raw of [null, "", "dvl_short", "Bearer nothing", 42]) expect(findSecret(raw)).toBeNull();
+  });
+
+  it("knows a tool by other spellings, and lists the tools when it doesn't", async () => {
+    for (const n of ["read_page", "dovli_read_page", "mcp__dovli__read_page", "readPage", "Read-Page", " dovli.read_page "]) expect(toolNamed(n)?.name, n).toBe("read_page");
+    expect(toolNamed("nope")).toBeUndefined();
+    expect((await tool(edit, "dovli_search", { q: "sushi" })).out.results[0].id).toBe("food");
+    expect((await tool(edit, "fly")).error).toMatch(/no tool called "fly". The tools are: get_overview, list_pages/);
+  });
+
+  it("takes arguments in camelCase, other names, other types and as a JSON string", async () => {
+    const t = TOOLS.find((x) => x.name === "move_blocks")!;
+    expect(normalizeArgs(t, { pageId: "trip", blockIds: "a, b c", toPageId: "work", position: "Below", blockId: "x", junk: 1 })).toEqual({ page_id: "trip", block_ids: ["a, b c"], to_page_id: "work", position: "after", block_id: "x" });
+    expect(normalizeArgs(t, { page_id: "trip", block_ids: '["a","b"]' }).block_ids).toEqual(["a", "b"]);
+    expect(normalizeArgs(TOOLS.find((x) => x.name === "delete_blocks")!, { page_id: "trip", block_id: "a" })).toEqual({ page_id: "trip", block_ids: ["a"] });
+    expect(normalizeArgs(TOOLS.find((x) => x.name === "set_task")!, '{"page_id":"trip","block_id":"t","done":"yes"}')).toEqual({ page_id: "trip", block_id: "t", done: true });
+    expect(normalizeArgs(TOOLS.find((x) => x.name === "list_pages")!, { where: "Favourites", limit: "5" })).toEqual({ where: "favorites", limit: 5 });
+    expect(normalizeArgs(TOOLS.find((x) => x.name === "update_page")!, { id: "trip", markdown: "x", parent_id: null })).toEqual({ page_id: "trip", content_markdown: "x", parent_id: null });
+    expect(normalizeArgs(TOOLS.find((x) => x.name === "read_page")!, { page_id: { id: "trip" }, format: "json" })).toEqual({ page_id: "trip", format: "blocks" });
+    const r: any = await rpc(edit, "tools/call", { name: "read_page", arguments: JSON.stringify({ pageId: "trip" }) });
+    expect(r.result.structuredContent.title).toBe("Japan trip");
+  });
+
+  it("finds a page by its title or a Dovli link, and suggests pages when it can't", async () => {
+    expect((await tool(edit, "read_page", { page_id: "Japan trip" })).out.id).toBe("trip");
+    expect((await tool(edit, "read_page", { page_id: "[[food list]]" })).out.id).toBe("food");
+    expect((await tool(edit, "read_page", { page_id: "dovli:page/work" })).out.id).toBe("work");
+    expect((await tool(edit, "add_blocks", { page: "Work notes", text: "Added by title" })).error).toBeNull();
+    expect(blocksToMarkdown((await get("work")).blocks)).toContain("Added by title");
+    expect((await tool(edit, "read_page", { page_id: "trip-x" })).error).toMatch(/no page with id "trip-x"/);
+    expect((await tool(edit, "read_page", { page_id: "food" })).error).toBeNull();
+    expect((await tool(edit, "read_page", { page_id: "list" })).error).toMatch(/Did you mean "Food list" \(food\)/);
+    // A title only counts inside what the connection can reach.
+    const some = (await mcp.create("u1", { scope: "pages", pageIds: ["trip"] })).connection;
+    expect((await tool(some, "read_page", { page_id: "Work notes" })).error).toMatch(/no page/);
+  });
+
+  it("finds a block by its exact text when given that instead of an id", async () => {
+    expect((await tool(edit, "set_task", { page_id: "trip", block_id: "book flights", done: true })).error).toBeNull();
+    expect((await get("trip")).blocks[2].props.checked).toBe(true);
+    expect((await tool(edit, "delete_blocks", { page_id: "trip", block_ids: ["- [x] get visa"] })).out.deleted).toBe(1);
+    expect(blocksToMarkdown((await get("trip")).blocks)).not.toContain("get visa");
+    await tool(edit, "add_blocks", { page_id: "work", markdown: "same\n\nsame" });
+    expect((await tool(edit, "delete_blocks", { page_id: "work", block_ids: ["same"] })).error).toMatch(/More than one block says "same"/);
+    const bl = (await tool(edit, "read_page", { page_id: "work", format: "blocks" })).out.blocks;
+    expect((await tool(edit, "delete_blocks", { page_id: "work", block_ids: `${bl[1].id}, ${bl[2].id}` })).out.deleted).toBe(2);
+    expect(blocksToMarkdown((await get("work")).blocks)).toBe("Quarterly server costs");
+  });
+
+  it("moves a block given by its text to another page without leaving a copy behind", async () => {
+    const r = await tool(edit, "move_blocks", { page_id: "trip", block_ids: "Pack the bags.", to_page_id: "work" });
+    expect(r.error).toBeNull();
+    expect(blocksToMarkdown((await get("trip")).blocks)).not.toContain("Pack");
+    expect(blocksToMarkdown((await get("work")).blocks)).toBe("Quarterly server costs\n\nPack the **bags**.");
+    const bl = (await tool(edit, "read_page", { page_id: "work", format: "blocks" })).out.blocks;
+    expect((await tool(edit, "move_blocks", { page_id: "work", block_ids: [bl[0].id], position: "after", block_id: bl[0].id })).error).toMatch(/next to or inside itself/);
+  });
+
+  it("deleting a block and a block inside it together works", async () => {
+    const bl = (await tool(edit, "read_page", { page_id: "trip", format: "blocks" })).out.blocks;
+    const r = await tool(edit, "delete_blocks", { page_id: "trip", block_ids: [bl[4].id, bl[5].id] });
+    expect(r.error).toBeNull();
+    expect(blocksToMarkdown((await get("trip")).blocks)).not.toMatch(/Ideas|Beach/);
+  });
+
+  it("answers messages without jsonrpc, newer protocol versions and the small extra methods", async () => {
+    const init: any = await mcp.handle(edit, { id: 7, method: "initialize", params: { protocolVersion: "2025-11-25" } });
+    expect(init.result.protocolVersion).toBe("2025-11-25");
+    const future: any = await rpc(edit, "initialize", { protocolVersion: "2099-01-01" });
+    expect(future.result.protocolVersion).toBe("2025-11-25");
+    expect(((await rpc(edit, "resources/templates/list")) as any).result).toEqual({ resourceTemplates: [] });
+    expect(((await rpc(edit, "logging/setLevel", { level: "info" })) as any).result).toEqual({});
+    expect(((await mcp.handle(edit, { jsonrpc: "1.0", id: 1, method: "ping" })) as any).error.code).toBe(-32600);
+  });
+
+  it("moving a page inside one given by its title stores that page's id, not the title", async () => {
+    expect((await tool(edit, "update_page", { page_id: "work", parent_id: "Japan trip" })).error).toBeNull();
+    expect((await get("work")).parentId).toBe("trip");
+    expect((await tool(edit, "update_page", { page_id: "work", parent: "dovli:page/food" })).error).toBeNull();
+    expect((await get("work")).parentId).toBe("food");
+    expect((await tool(edit, "update_page", { page_id: "work", parent_id: null })).error).toBeNull();
+    expect((await get("work")).parentId).toBeNull();
+  });
+
+  it("words of a phrase are never matched to other blocks' text", async () => {
+    await tool(edit, "add_blocks", { page_id: "work", markdown: "Milk\n\nEggs" });
+    expect((await tool(edit, "delete_blocks", { page_id: "work", block_ids: ["Milk Eggs"] })).error).toMatch(/no block "Milk Eggs"/);
+    expect(blocksToMarkdown((await get("work")).blocks)).toBe("Quarterly server costs\n\nMilk\n\nEggs");
+  });
+
+  it("\"under\" a block means inside it", async () => {
+    const bl = (await tool(edit, "read_page", { page_id: "trip", format: "blocks" })).out.blocks;
+    await tool(edit, "add_blocks", { page_id: "trip", markdown: "Hot springs", position: "under", block_id: bl[4].id });
+    expect(blocksToMarkdown((await get("trip")).blocks)).toContain("+ Ideas\n  Beach day\n\n  Hot springs");
+  });
+
+  it("moving a block together with a block inside it moves it once", async () => {
+    const bl = (await tool(edit, "read_page", { page_id: "trip", format: "blocks" })).out.blocks;
+    const toggle = bl[4].id;
+    const child = bl[5].id;
+    const r = await tool(edit, "move_blocks", { page_id: "trip", block_ids: [toggle, child], to_page_id: "work" });
+    expect(r.out.block_ids).toEqual([toggle]);
+    const ids = (await tool(edit, "read_page", { page_id: "work", format: "blocks" })).out.blocks.map((b: any) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(blocksToMarkdown((await get("work")).blocks)).toBe("Quarterly server costs\n\n+ Ideas\n  Beach day");
+    expect(blocksToMarkdown((await get("trip")).blocks)).not.toContain("Ideas");
+    const again = (await tool(edit, "read_page", { page_id: "work", format: "blocks" })).out.blocks;
+    expect((await tool(edit, "move_blocks", { page_id: "work", block_ids: [again[1].id, again[2].id], position: "start" })).error).toBeNull();
+    expect(blocksToMarkdown((await get("work")).blocks)).toBe("+ Ideas\n  Beach day\n\nQuarterly server costs");
+  });
+
+  it("says which block it changed by its id, also when it was given by text", async () => {
+    const bl = (await tool(edit, "read_page", { page_id: "trip", format: "blocks" })).out.blocks;
+    expect((await tool(edit, "set_task", { page_id: "trip", block_id: "book flights", done: true })).out.block_id).toBe(bl[2].id);
+    expect((await tool(edit, "update_block", { page_id: "trip", block_id: "Pack the bags.", markdown: "Pack light." })).out.updated).toBe(bl[1].id);
+  });
+
+  it("serves the same bridge it keeps in the repo", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const root = path.resolve(__dirname, "../../../../..");
+    expect(fs.readFileSync(path.join(root, "apps/web/public/dovli-mcp.mjs"), "utf8")).toBe(fs.readFileSync(path.join(root, "dovli-mcp.mjs"), "utf8"));
+  });
+
+  it("records the tool's real name when it was called by another spelling", async () => {
+    await tool(edit, "dovli_search", { query: "trip" });
+    expect((await mcp.list("u1"))[0]).toMatchObject({ lastTool: "search" });
   });
 });
 

@@ -170,12 +170,22 @@ To try changes before they're on the Web Store, load it from this repo:
 Dovli speaks the [Model Context Protocol](https://modelcontextprotocol.io), so AI apps can read
 and write your pages with your permission. Create a connection in **Settings → AI apps**, choose
 which pages it can reach and whether it can edit, and paste the address into your AI app. For
-apps that start MCP servers as a local command, use the small bridge in
-[`dovli-mcp.mjs`](dovli-mcp.mjs):
+apps that start MCP servers as a local command (Claude Desktop's settings file, older Codex), use
+the small bridge in [`dovli-mcp.mjs`](dovli-mcp.mjs). Dovli serves it as an npm package, so
+there's nothing to download:
 
 ```bash
-node dovli-mcp.mjs https://dovli.in/api/mcp/dvl_…
+npx -y https://dovli.in/dovli-mcp.tgz https://dovli.in/api/mcp/dvl_…
 ```
+
+In Claude Desktop's `claude_desktop_config.json` that's
+`{ "mcpServers": { "dovli": { "command": "npx", "args": ["-y", "https://dovli.in/dovli-mcp.tgz", "https://dovli.in/api/mcp/dvl_…"] } } }`
+(Settings → AI apps shows it with your address filled in). `node dovli-mcp.mjs <address>` works too.
+
+The address works however an app wants it: as the URL itself (more after it, like `/mcp`, is
+fine), or `https://dovli.in/api/mcp` with the `dvl_…` key as `Authorization: Bearer dvl_…`,
+`X-API-Key` or `?key=`. Open the address in a browser to check that it works. The bridge also
+takes just the `dvl_…` key, or `DOVLI_MCP_URL` / `DOVLI_MCP_TOKEN` from the environment.
 
 Your AI app can then search pages, read them, create pages, add and move blocks, and tick off
 to-dos. You can switch a connection off or delete it at any time.

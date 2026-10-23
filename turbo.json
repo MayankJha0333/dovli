@@ -40,6 +40,22 @@
     "clean": {
       "cache": false
     },
+    "@dovli/web#build": {
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*",
+        "../../dovli-mcp.mjs"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "public/dovli-mcp.tgz",
+        "public/excalidraw/**"
+      ]
+    },
     "@dovli/desktop#build": {
       "dependsOn": [],
       "inputs": [

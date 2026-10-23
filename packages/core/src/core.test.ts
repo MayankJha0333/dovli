@@ -58,6 +58,242 @@ describe("mergeBlocks", () => {
   });
 });
 
+describe("mergeBlocks: moves", () => {
+  const base = [p("1", "one"), p("2", "two"), p("3", "three")];
+  const nest = (id: string, text: string, kids: any[]) => ({ ...p(id, text), children: kids });
+  const show = (bs: any[], d = 0): string[] => bs.flatMap((b) => [`${"  ".repeat(d)}${b.id}:${b.content?.[0]?.text ?? ""}`, ...show(b.children ?? [], d + 1)]);
+  const both = (local: any[], remote: any[]) => [show(mergeBlocks(base, local, remote)), show(mergeBlocks(base, remote, local))];
+
+  it("a block moved inside another on one side and edited on the other: one block, edited, in its new place", () => {
+    const moved = [nest("1", "one", [p("3", "three")]), p("2", "two")];
+    const edited = [p("1", "one"), p("2", "two"), p("3", "THREE")];
+    for (const out of both(moved, edited)) expect(out).toEqual(["1:one", "  3:THREE", "2:two"]);
+  });
+
+  it("a block moved up on one side and edited on the other", () => {
+    const moved = [p("3", "three"), p("1", "one"), p("2", "two")];
+    const edited = [p("1", "one"), p("2", "two"), p("3", "THREE")];
+    for (const out of both(moved, edited)) expect(out).toEqual(["3:THREE", "1:one", "2:two"]);
+  });
+
+  it("a block taken out of another on one side and edited on the other", () => {
+    const start = [nest("1", "one", [p("2", "two"), p("3", "three")])];
+    const out = mergeBlocks(start, [p("1", "one"), p("3", "three"), p("2", "two")].map((b, i) => (i === 0 ? { ...b, children: [] } : b)), [nest("1", "one", [p("2", "two"), p("3", "THREE")])]);
+    expect(show(out)).toEqual(["1:one", "3:THREE", "2:two"]);
+  });
+
+  it("different blocks moved on each side: both moves stay", () => {
+    const local = [p("2", "two"), p("3", "three"), p("1", "one")]; // 1 to the end
+    const remote = [p("2", "two"), p("1", "one"), p("3", "three")]; // 2 to the top
+    expect(show(mergeBlocks([p("1", "one"), p("2", "two"), p("3", "three")], local, remote))).toEqual(["2:two", "3:three", "1:one"]);
+    const local2 = [p("1", "one"), p("2", "two"), p("4", "four"), p("3", "three")];
+    const remote2 = [p("2", "two"), p("1", "one"), p("3", "three"), p("4", "four")];
+    const base4 = [p("1", "one"), p("2", "two"), p("3", "three"), p("4", "four")];
+    // Swapping neighbours can be read as either one moving; both moves hold whichever it was.
+    const ids = mergeBlocks(base4, local2, remote2).map((b) => b.id);
+    expect(ids.sort()).toEqual(["1", "2", "3", "4"]);
+    const got = mergeBlocks(base4, local2, remote2).map((b) => b.id);
+    expect(got.indexOf("2")).toBeLessThan(got.indexOf("1"));
+    expect(got.indexOf("4")).toBeLessThan(got.indexOf("3"));
+  });
+
+  it("the same block moved to two places goes where this device put it, once", () => {
+    const local = [nest("1", "one", [p("3", "three")]), p("2", "two")];
+    const remote = [p("1", "one"), nest("2", "two", [p("3", "three")])];
+    expect(show(mergeBlocks(base, local, remote))).toEqual(["1:one", "  3:three", "2:two"]);
+    expect(show(mergeBlocks(base, remote, local))).toEqual(["1:one", "2:two", "  3:three"]);
+  });
+
+  it("a block moved and edited on one side while a new block is added next to it on the other", () => {
+    const local = [p("3", "THREE"), p("1", "one"), p("2", "two")];
+    const remote = [p("1", "one"), p("N", "new"), p("2", "two"), p("3", "three")];
+    expect(show(mergeBlocks(base, local, remote))).toEqual(["3:THREE", "1:one", "N:new", "2:two"]);
+  });
+
+  it("moving A into B here while B went into A there: no loop, nothing lost", () => {
+    const local = [nest("2", "two", [p("1", "one")]), p("3", "three")];
+    const remote = [nest("1", "one", [p("2", "two")]), p("3", "three")];
+    const out = show(mergeBlocks(base, local, remote));
+    expect(out).toEqual(["2:two", "  1:one", "3:three"]);
+  });
+
+  it("a block edited inside a block deleted on the other side keeps both", () => {
+    const start = [nest("1", "one", [p("2", "two")]), p("3", "three")];
+    const local = [nest("1", "one", [p("2", "TWO")]), p("3", "three")];
+    const remote = [p("3", "three")];
+    expect(show(mergeBlocks(start, local, remote))).toEqual(["1:one", "  2:TWO", "3:three"]);
+    expect(show(mergeBlocks(start, remote, local))).toEqual(["1:one", "  2:TWO", "3:three"]);
+  });
+
+  it("a moved block that the other side deleted is gone", () => {
+    const local = [p("3", "three"), p("1", "one"), p("2", "two")];
+    const remote = [p("1", "one"), p("2", "two")];
+    expect(show(mergeBlocks(base, local, remote))).toEqual(["1:one", "2:two"]);
+  });
+
+  it("a to-do ticked on one side and reworded on the other: one block with both, no copy", () => {
+    const todo = (text: string, checked: boolean) => ({ id: "t", type: "checkListItem", props: { checked, textColor: "default" }, content: [{ type: "text", text, styles: {} }], children: [] });
+    const out = mergeBlocks([todo("buy milk", false)], [todo("buy milk", true)], [todo("buy oat milk", false)]);
+    expect(out).toEqual([todo("buy oat milk", true)]);
+  });
+
+  it("the same words changed on both sides keep both, after a move too", () => {
+    const local = [p("3", "mine"), p("1", "one"), p("2", "two")];
+    const remote = [p("1", "one"), p("2", "two"), p("3", "theirs")];
+    expect(show(mergeBlocks(base, local, remote))).toEqual(["3:mine", "3-c:theirs", "1:one", "2:two"]);
+  });
+
+  it("merging the same conflict again (a sync cut short) doesn't add the copy twice", () => {
+    const local = [p("1", "mine"), p("2", "two"), p("3", "three")];
+    const remote = [p("1", "theirs"), p("2", "two"), p("3", "three")];
+    const once = mergeBlocks(base, local, remote);
+    expect(show(once)).toEqual(["1:mine", "1-c:theirs", "2:two", "3:three"]);
+    const twice = mergeBlocks(base, once, remote);
+    expect(show(twice)).toEqual(show(once));
+    expect(show(mergeBlocks(base, twice, remote))).toEqual(show(once));
+  });
+
+  it("a second conflict on a block doesn't overwrite the first one's copy", () => {
+    const start = [p("1", "one"), p("1-c", "older copy")];
+    const out = mergeBlocks(start, [p("1", "mine"), p("1-c", "older copy")], [p("1", "theirs"), p("1-c", "older copy")]);
+    expect(show(out)).toEqual(["1:mine", "1-c2:theirs", "1-c:older copy"]);
+  });
+
+  it("repairs a page that already has the same block id twice", () => {
+    const broken = [p("1", "one"), nest("2", "two", [p("3", "three")]), p("3", "THREE")];
+    const out = mergeBlocks(broken, broken, [...broken, p("4", "four")]);
+    const ids = show(out).map((l) => l.trim().split(":")[0]);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(show(out)).toEqual(["1:one", "2:two", "  3:three", "3-2:THREE", "4:four"]);
+  });
+
+  it("a toggle edited on one side and deleted on the other comes back with what was inside it", () => {
+    const start = [nest("1", "toggle", [p("2", "two"), nest("3", "three", [p("4", "four")])]), p("5", "five")];
+    const renamed = [nest("1", "TOGGLE", [p("2", "two"), nest("3", "three", [p("4", "four")])]), p("5", "five")];
+    const deleted = [p("5", "five")];
+    const want = ["1:TOGGLE", "  2:two", "  3:three", "    4:four", "5:five"];
+    expect(show(mergeBlocks(start, renamed, deleted))).toEqual(want);
+    expect(show(mergeBlocks(start, deleted, renamed))).toEqual(want);
+    // An edit inside it brings back the rest of it too, but not what the deleting side moved out.
+    const innerEdit = [nest("1", "toggle", [p("2", "TWO"), nest("3", "three", [p("4", "four")])]), p("5", "five")];
+    const movedOut = [p("4", "four"), p("5", "five")];
+    expect(show(mergeBlocks(start, innerEdit, movedOut))).toEqual(["4:four", "1:toggle", "  2:TWO", "  3:three", "5:five"]);
+  });
+
+  it("a block added next to one the other side moved stays next to it", () => {
+    const local = [p("2", "two"), p("3", "three"), p("1", "one")];
+    const remote = [p("1", "one"), p("N", "new"), p("2", "two"), p("3", "three")];
+    expect(show(mergeBlocks(base, local, remote))).toEqual(["2:two", "3:three", "1:one", "N:new"]);
+    expect(show(mergeBlocks(base, remote, local))).toEqual(["2:two", "3:three", "1:one", "N:new"]);
+  });
+
+  it("the same content written with its keys in another order is not a conflict", () => {
+    const a = { id: "x", type: "paragraph", props: { textColor: "default", level: 1 }, content: [{ type: "text", text: "hi", styles: {} }], children: [] };
+    const b = { children: [], content: [{ styles: {}, text: "hi", type: "text" }], props: { level: 1, textColor: "default" }, type: "paragraph", id: "x" };
+    expect(mergeBlocks([a], [b], [{ ...a, props: { ...a.props, textColor: "red" } }]).map((x) => x.props.textColor)).toEqual(["red"]);
+    expect(mergeBlocks([a], [b], [a])).toHaveLength(1);
+  });
+
+  it("keeps blocks without children as they were", () => {
+    const flat = [{ id: "d", type: "divider" }];
+    expect(mergeBlocks(flat, flat, [...flat, { id: "e", type: "divider" }])).toEqual([{ id: "d", type: "divider" }, { id: "e", type: "divider" }]);
+  });
+});
+
+describe("mergeBlocks: random edits on two devices", () => {
+  // Seeded, so a failing seed can be replayed.
+  const rng = (seed: number) => () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  type B = { id: string; type: string; props: { checked: boolean }; content: { type: "text"; text: string; styles: {} }[]; children: B[] };
+  const blk = (id: string, text: string, checked = false): B => ({ id, type: "checkListItem", props: { checked }, content: [{ type: "text", text, styles: {} }], children: [] });
+  const all = (bs: B[]): B[] => bs.flatMap((b) => [b, ...all(b.children)]);
+  const listOf = (root: B[], id: string): B[] => (all(root).find((b) => b.children.some((c) => c.id === id))?.children ?? root);
+  const insideOf = (b: B, id: string) => all(b.children).some((x) => x.id === id);
+
+  function randomTree(r: () => number, n: number): B[] {
+    const root: B[] = [];
+    for (let i = 0; i < n; i++) {
+      const lists = [root, ...all(root).map((b) => b.children)];
+      const into = lists[Math.floor(r() * lists.length)];
+      into.splice(Math.floor(r() * (into.length + 1)), 0, blk(`b${i}`, `text ${i}`));
+    }
+    return root;
+  }
+
+  function change(r: () => number, tree: B[], tag: string, steps: number) {
+    const t: B[] = structuredClone(tree);
+    const edited = new Map<string, string>();
+    const ticked = new Set<string>();
+    const deleted = new Set<string>();
+    let fresh = 0;
+    for (let s = 0; s < steps; s++) {
+      const blocks = all(t);
+      if (!blocks.length) break;
+      const b = blocks[Math.floor(r() * blocks.length)];
+      const op = r();
+      if (op < 0.25) {
+        b.content[0].text = `${b.content[0].text} +${tag}${s}`;
+        edited.set(b.id, b.content[0].text);
+      } else if (op < 0.35) {
+        b.props.checked = !b.props.checked;
+        ticked.add(b.id);
+      } else if (op < 0.65) {
+        const from = listOf(t, b.id);
+        from.splice(from.indexOf(b), 1);
+        const targets = [t, ...all(t).filter((x) => x.id !== b.id && !insideOf(b, x.id)).map((x) => x.children)];
+        const to = targets[Math.floor(r() * targets.length)];
+        to.splice(Math.floor(r() * (to.length + 1)), 0, b);
+      } else if (op < 0.8) {
+        const from = listOf(t, b.id);
+        from.splice(from.indexOf(b), 1);
+        for (const x of all([b])) deleted.add(x.id);
+      } else {
+        const to = r() < 0.5 ? t : b.children;
+        const id = `${tag}${fresh++}`;
+        to.splice(Math.floor(r() * (to.length + 1)), 0, blk(id, `new ${id}`));
+        edited.set(id, `new ${id}`);
+      }
+    }
+    for (const id of deleted) edited.delete(id), ticked.delete(id);
+    return { tree: t, edited, ticked, deleted };
+  }
+
+  it("never loses an edit, never repeats a block id, and always makes a tree", () => {
+    for (let seed = 1; seed <= 1500; seed++) {
+      const r = rng(seed);
+      const base = randomTree(r, 3 + Math.floor(r() * 10));
+      const L = change(r, base, "L", 1 + Math.floor(r() * 6));
+      const R = change(r, base, "R", 1 + Math.floor(r() * 6));
+      const out = mergeBlocks(base, L.tree, R.tree) as B[];
+      const flat = all(out);
+      const ids = flat.map((b) => b.id);
+      const at = `seed ${seed}`;
+
+      expect(new Set(ids).size, at).toBe(ids.length);
+      const text = new Map(flat.map((b) => [b.id, b.content[0].text]));
+      const texts = new Set(text.values());
+      // Every edit is on the page: in its own block, or in a conflict copy next to it.
+      for (const [id, t] of [...L.edited, ...R.edited]) {
+        if (!L.deleted.has(id) && !R.deleted.has(id)) expect(text.get(id) === t || texts.has(t), `${at}: edit of ${id}`).toBe(true);
+        else expect(texts.has(t), `${at}: edit of ${id} deleted on the other side`).toBe(true);
+      }
+      // A tick made on one side only, on a block neither side deleted and the other didn't tick, stays.
+      for (const [mine, theirs] of [[L, R], [R, L]] as const)
+        for (const id of mine.ticked) {
+          if (theirs.ticked.has(id) || theirs.deleted.has(id) || mine.deleted.has(id)) continue;
+          const want = all(mine.tree).find((b) => b.id === id)!.props.checked;
+          expect(flat.find((b) => b.id === id)?.props.checked, `${at}: tick of ${id}`).toBe(want);
+        }
+      // Untouched blocks that neither side deleted are all still there.
+      for (const b of all(base)) if (!L.deleted.has(b.id) && !R.deleted.has(b.id)) expect(ids, `${at}: ${b.id}`).toContain(b.id);
+      // Merging again with the result as one side changes nothing more.
+      expect(mergeBlocks(base, out, out), at).toEqual(out);
+    }
+  });
+});
+
 describe("mergePage", () => {
   it("merges fields changed on different sides", () => {
     const base = page({ title: "Old", favorite: false });

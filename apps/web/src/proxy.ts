@@ -25,6 +25,6 @@ export const config = {
   matcher: [
     // Everything except: API routes (they check sign-in themselves), Next's own files, public share
     // links (/s/…, meant for people without an account), and static files like icons and fonts.
-    "/((?!api/|_next/|s/|excalidraw/|favicon\\.ico|icon\\.svg|.*\\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|css|m?js|map|txt|json|webmanifest|xml)$).*)",
+    "/((?!api/|_next/|s/|excalidraw/|favicon\\.ico|icon\\.svg|.*\\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2?|ttf|css|m?js|map|txt|json|webmanifest|xml|tgz)$).*)",
   ],
 };

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { filterSuggestionItems, insertOrUpdateBlockForSlashMenu } from "@blocknote/core";
 import { SideMenuExtension, SuggestionMenu } from "@blocknote/core/extensions";
+import { en } from "@blocknote/core/locales";
 import {
+  BasicTextStyleButton,
   BlockColorsItem,
   DragHandleMenu,
   FormattingToolbar,
@@ -127,6 +129,16 @@ function dovliItems(editor: DovliEditor, page: Page, bridge: EditorBridge): Defa
   return items;
 }
 
+// BlockNote's code button shows no shortcut, though ⌘E (Ctrl+E) toggles code.
+const dictionary = { ...en, formatting_toolbar: { ...en.formatting_toolbar, code: { tooltip: "Inline code", secondary_tooltip: "Mod+E" } } };
+
+function toolbarItems() {
+  const items = getFormattingToolbarItems();
+  const at = items.findIndex((item) => item.key === "strikeStyleButton");
+  items.splice(at + 1, 0, <BasicTextStyleButton basicTextStyle="code" key="codeStyleButton" />);
+  return items;
+}
+
 /** "Ask AI" in the toolbar that appears over selected text. */
 function AIButton() {
   const editor = useBlockNoteEditor() as unknown as DovliEditor;
@@ -241,6 +253,7 @@ export default function PageEditor({
   const editor = useCreateBlockNote(
     {
       schema,
+      dictionary,
       extensions: [tagsExtension],
       // The line that shows where a dragged block will land, in the theme's accent colour.
       dropCursor: { width: 3, color: "var(--d-accent)" },
@@ -431,7 +444,7 @@ export default function PageEditor({
               formattingToolbar={() => (
                 <FormattingToolbar>
                   <AIButton key="ai" />
-                  {getFormattingToolbarItems()}
+                  {toolbarItems()}
                 </FormattingToolbar>
               )}
             />

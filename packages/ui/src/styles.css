@@ -340,6 +340,9 @@
   --d-line-strong: color-mix(in srgb, var(--s-ink) 22%, var(--s-paper));
   --d-well: color-mix(in srgb, var(--s-ink) 5%, var(--s-paper));
   --d-hover: color-mix(in srgb, var(--s-ink) 7%, var(--s-paper));
+  /* The app theme's would vanish on a page of the other scheme. */
+  --d-active-bg: color-mix(in srgb, var(--s-ink) 11%, var(--s-paper));
+  --d-active-ink: var(--s-ink);
   --d-accent: var(--s-accent);
   --d-accent-soft: color-mix(in srgb, var(--s-accent) 12%, var(--s-paper));
   --d-sketch: color-mix(in srgb, var(--s-accent) 18%, var(--s-paper));

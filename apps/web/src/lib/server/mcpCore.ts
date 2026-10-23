@@ -35,7 +35,7 @@ import { CloudError, isId, type CloudStore, type Doc, type createCloud } from ".
 type Cloud = ReturnType<typeof createCloud>;
 
 export const MCP_LIMIT = 10;
-export const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
+export const PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const SERVER_INFO = { name: "dovli", title: "Dovli", version: "1.0.0" };
 const MAX_MARKDOWN = 200_000;
 const MAX_READ = 120_000;
@@ -81,6 +81,19 @@ const newId = (n = 10) => randomBytes(16).toString("base64url").replace(/[^A-Za-
 const connPath = (uid: string, id: string) => `users/${uid}/mcp/${id}`;
 const tokenPath = (hash: string) => `mcpTokens/${hash}`;
 const SECRET = /^dvl_[A-Za-z0-9_-]{20,64}$/;
+
+/** The secret in whatever was sent: a whole address, "Bearer …", quotes, URL-encoding. */
+export function findSecret(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  let s = raw;
+  try {
+    s = decodeURIComponent(raw);
+  } catch {
+    /* not URL-encoded */
+  }
+  const m = s.match(/dvl_[A-Za-z0-9_-]{20,64}/);
+  return m && SECRET.test(m[0]) ? m[0] : null;
+}
 
 function clean(input: ConnectionInput, prev?: Connection) {
   const name = typeof input.name === "string" ? input.name.trim().slice(0, 60) : prev?.name;
@@ -302,6 +315,102 @@ export const TOOLS: Tool[] = [
   },
 ];
 
+// ------------------------------------------------------------------ forgiving calls
+// AI apps prefix tool names (mcp__dovli__readPage) and send arguments in other shapes than the
+// schema (pageId, "true", one id for a list, "below"); they're mapped to what the tools expect.
+
+const snake = (k: string) => k.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
+const unquote = (s: string) => s.trim().replace(/^["'`]+|["'`]+$/g, "");
+const isPlain = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
+const parseJson = (s: string): unknown => {
+  try {
+    return JSON.parse(s);
+  } catch {
+    return undefined;
+  }
+};
+
+export function toolNamed(raw: unknown): Tool | undefined {
+  if (typeof raw !== "string") return undefined;
+  const n = snake(raw.trim())
+    .replace(/[-.\s/:]+/g, "_")
+    .replace(/^(mcp_+)?(dovli_+)?/, "");
+  return TOOLS.find((t) => t.name === n);
+}
+
+const SAME_AS: Record<string, string[]> = {
+  page_id: ["id", "page", "pageid", "page_ref"],
+  block_id: ["block", "target_block_id", "anchor_block_id", "anchor_id"],
+  block_ids: ["ids", "blocks"],
+  to_page_id: ["target_page_id", "destination_page_id", "to_page", "to"],
+  parent_id: ["parent", "parent_page_id", "inside"],
+  markdown: ["content", "text", "body", "md", "content_markdown"],
+  content_markdown: ["markdown", "content", "body", "md"],
+  query: ["q", "text", "search", "words", "term"],
+  title: ["name"],
+  icon: ["emoji", "mark"],
+  done: ["checked", "completed", "complete"],
+  favorite: ["favourite", "starred", "star"],
+};
+
+const ENUM_SAME_AS: Record<string, Record<string, string>> = {
+  position: { below: "after", next: "after", under: "inside", above: "before", top: "start", beginning: "start", first: "start", bottom: "end", last: "end", append: "end", prepend: "start", into: "inside", in: "inside", child: "inside", children: "inside" },
+  format: { md: "markdown", text: "markdown", json: "blocks", ids: "blocks", block: "blocks" },
+  where: { top: "tree", root: "tree", all: "tree", favourites: "favorites", starred: "favorites", recently_edited: "recent", latest: "recent", deleted: "trash", bin: "trash" },
+  status: { todo: "open", pending: "open", unchecked: "open", incomplete: "open", undone: "open", checked: "done", complete: "done", completed: "done", finished: "done", any: "all", both: "all" },
+};
+
+function coerce(schema: Doc | undefined, key: string, v: unknown): unknown {
+  const type = Array.isArray(schema?.type) ? schema!.type.find((t: string) => t !== "null") : schema?.type;
+  if (v === null && Array.isArray(schema?.type) && schema!.type.includes("null")) return null;
+  if (type === "boolean") {
+    if (typeof v === "string") {
+      const s = v.trim().toLowerCase();
+      if (["true", "yes", "1", "on", "done", "checked"].includes(s)) return true;
+      if (["false", "no", "0", "off", "open", "unchecked"].includes(s)) return false;
+    }
+    if (typeof v === "number") return v !== 0;
+    return v;
+  }
+  if (type === "integer" || type === "number") return typeof v === "string" && v.trim() && !Number.isNaN(Number(v)) ? Number(v) : v;
+  if (type === "array") {
+    if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? x.trim() : isPlain(x) && typeof x.id === "string" ? x.id : x));
+    if (typeof v === "string") {
+      const s = v.trim();
+      const list = s.startsWith("[") ? parseJson(s) : undefined;
+      return Array.isArray(list) ? list : s ? [s] : [];
+    }
+    return v;
+  }
+  if (type === "string") {
+    if (typeof v === "number") return String(v);
+    if (isPlain(v) && typeof v.id === "string" && key.endsWith("_id")) return v.id;
+    if (typeof v !== "string") return v;
+    const s = key.endsWith("_id") ? unquote(v) : v;
+    if (schema?.enum) {
+      const low = s.trim().toLowerCase().replace(/[\s-]+/g, "_");
+      return schema.enum.includes(low) ? low : (ENUM_SAME_AS[key]?.[low] ?? s);
+    }
+    return s;
+  }
+  return v;
+}
+
+/** Arguments under the tool's own names and types; anything it doesn't take is left out. */
+export function normalizeArgs(tool: Tool, raw: unknown): Args {
+  const given = typeof raw === "string" ? parseJson(raw) : raw;
+  const src: Args = {};
+  for (const [k, v] of Object.entries(isPlain(given) ? given : {})) src[snake(k)] = v;
+  const props: Record<string, Doc> = tool.inputSchema.properties ?? {};
+  const out: Args = {};
+  for (const key of Object.keys(props)) {
+    const from = [key, ...(SAME_AS[key] ?? [])].find((k) => src[k] !== undefined && !(k !== key && props[k]));
+    if (from !== undefined) out[key] = coerce(props[key], key, src[from]);
+  }
+  if (out.block_ids === undefined && props.block_ids && !props.block_id && src.block_id !== undefined) out.block_ids = coerce(props.block_ids, "block_ids", src.block_id);
+  return out;
+}
+
 export const INSTRUCTIONS = `Dovli is a notes app. Its pages hold blocks (paragraphs, headings, lists, to-dos, tables…) and can sit inside other pages. You reach the person's pages through these tools.
 
 How to work:
@@ -402,8 +511,9 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
   }
 
   /** The connection a secret belongs to, if it exists and is switched on. */
-  async function resolve(secret: string | null | undefined): Promise<Connection | null> {
-    if (!secret || !SECRET.test(secret)) return null;
+  async function resolve(raw: string | null | undefined): Promise<Connection | null> {
+    const secret = findSecret(raw);
+    if (!secret) return null;
     const hash = sha(secret);
     return store.transaction(async (tx) => {
       const tok = await tx.get(tokenPath(hash));
@@ -454,10 +564,29 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
   const reach = (c: Connection, pages: Record<string, Page>, id: string) => c.scope === "all" || c.pageIds.includes(id) || ancestorsOf(pages, id).some((a) => c.pageIds.includes(a));
   const visible = (c: Connection, data: Loaded) => Object.values(data.pages).filter((p) => reach(c, data.pages, p.id));
 
+  /** A page id from an id, a Dovli link, or a title that only one reachable page has. */
+  function pageRef(c: Connection, data: Loaded, raw: unknown): unknown {
+    if (typeof raw !== "string" || data.pages[raw]) return raw;
+    const s = raw.trim();
+    const linked = s.match(/(?:dovli:page\/|[?&]page=|\/p\/)([A-Za-z0-9_-]{1,128})/)?.[1];
+    if (linked && data.pages[linked]) return linked;
+    const title = s.replace(/^\[\[|\]\]$/g, "").trim().toLowerCase();
+    const named = visible(c, data).filter((p) => !p.deletedAt && displayTitle(p).trim().toLowerCase() === title);
+    return named.length === 1 ? named[0].id : s;
+  }
+
   function page(c: Connection, data: Loaded, id: unknown, { trash = false } = {}): Page {
-    if (!isId(id)) throw new ToolError("Give a page_id (from get_overview, list_pages or search).");
-    const p = data.pages[id];
-    if (!p || !reach(c, data.pages, id)) throw new ToolError(`There's no page with id "${id}" that this connection can reach.`);
+    if (typeof id === "string" && !data.pages[id]) id = pageRef(c, data, id);
+    if (typeof id !== "string" || !id.trim()) throw new ToolError("Give a page_id (from get_overview, list_pages or search).");
+    const p = isId(id) ? data.pages[id] : undefined;
+    if (!p || !reach(c, data.pages, id)) {
+      const words = id.toLowerCase();
+      const like = visible(c, data)
+        .filter((x) => !x.deletedAt && displayTitle(x).toLowerCase().includes(words))
+        .slice(0, 5)
+        .map((x) => `"${displayTitle(x)}" (${x.id})`);
+      throw new ToolError(`There's no page with id "${id}" that this connection can reach.${like.length ? ` Did you mean ${like.join(", ")}?` : " Use search or get_overview for page ids."}`);
+    }
     if (p.deletedAt && !trash) throw new ToolError(`"${displayTitle(p)}" is in the trash. Restore it first (trash_page with restore: true).`);
     return p;
   }
@@ -509,12 +638,45 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
     });
   };
 
-  /** Find a block anywhere in a tree: the list it sits in and its index. */
+  const plain = (block: any) => (Array.isArray(block.content) ? inlineText(block.content) : typeof block.content === "string" ? block.content : "").trim().toLowerCase();
+
+  /** Find a block anywhere in a tree, by id or by its exact text: the list it sits in and its index. */
   function locate(blocks: any[], id: unknown): { list: any[]; index: number; block: any } {
-    if (typeof id !== "string") throw new ToolError("Give a block_id (from read_page with format 'blocks').");
-    for (const { block, parent } of flattenBlocks(blocks)) if (block.id === id) return { list: parent, index: parent.indexOf(block), block };
-    throw new ToolError(`There's no block "${id}" in that page. Read it again with format 'blocks' for the current ids.`);
+    if (typeof id !== "string" || !id.trim()) throw new ToolError("Give a block_id (from read_page with format 'blocks').");
+    const all = flattenBlocks(blocks);
+    const at = (x: (typeof all)[number]) => ({ list: x.parent, index: x.parent.indexOf(x.block), block: x.block });
+    const byId = all.find((x) => x.block.id === id) ?? all.find((x) => x.block.id === unquote(id));
+    if (byId) return at(byId);
+    const said = id.trim().toLowerCase();
+    const byText = all.filter((x) => plain(x.block) === said || blockToMarkdown(x.block).join("\n").trim().toLowerCase() === said);
+    if (byText.length === 1) return at(byText[0]);
+    throw new ToolError(
+      byText.length > 1
+        ? `More than one block says "${id}". Use its id from read_page with format 'blocks'.`
+        : `There's no block "${id}" in that page. Read it again with format 'blocks' for the current ids.`,
+    );
   }
+
+  /**
+   * Real ids for blocks given by id or text. "a, b" is one block's text first, then a list whose
+   * parts must be ids: single words could match other blocks. Blocks inside listed ones go with them.
+   */
+  const blockIds = (blocks: any[], given: unknown[]): string[] => {
+    const all = flattenBlocks(blocks);
+    const ids = new Set(
+      given.flatMap((raw) => {
+        try {
+          return [locate(blocks, raw).block.id as string];
+        } catch (e) {
+          const parts = typeof raw === "string" ? raw.split(/[\s,;]+/).filter(Boolean) : [];
+          if (parts.length < 2 || !parts.every((part) => all.some((x) => x.block.id === part))) throw e;
+          return parts;
+        }
+      }),
+    );
+    const inside = new Set(all.filter((x) => ids.has(x.block.id)).flatMap((x) => flattenBlocks(x.block.children ?? []).map((y) => y.block.id as string)));
+    return [...ids].filter((id) => !inside.has(id));
+  };
 
   const cloneBlocks = (b: any[]) => structuredClone(b ?? []);
 
@@ -536,12 +698,14 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
 
   // ---------------------------------------------------------------- tool calls
 
-  async function call(c: Connection, name: string, a: Args): Promise<unknown> {
-    const tool = TOOLS.find((t) => t.name === name);
-    if (!tool) throw new ToolError(`There's no tool called "${name}".`);
+  async function call(c: Connection, asked: string, given: unknown): Promise<unknown> {
+    const tool = toolNamed(asked);
+    if (!tool) throw new ToolError(`There's no tool called "${asked}". The tools are: ${toolList(c).map((t) => t.name).join(", ")}.`);
     if (tool.write && c.permission !== "edit") throw new ToolError("This connection can only read. The person can allow editing in Dovli → Settings → AI apps.");
+    const a = normalizeArgs(tool, given);
     const data = await load(c.uid);
     const mine = visible(c, data);
+    const name = tool.name;
 
     switch (name) {
       case "get_overview": {
@@ -695,39 +859,43 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
           },
           data,
         );
-        return { updated: a.block_id, block_ids: ids };
+        return { updated: ids[0], block_ids: ids };
       }
 
       case "delete_blocks": {
         const p = page(c, data, a.page_id);
         if (!Array.isArray(a.block_ids) || !a.block_ids.length) throw new ToolError("Give the block_ids to delete.");
+        const ids = blockIds(editable(p), a.block_ids);
         await save(
           c,
           p.id,
           (cur) => {
             const blocks = cloneBlocks(editable(cur));
-            for (const id of a.block_ids) {
-              const at = locate(blocks, id);
-              at.list.splice(at.index, 1);
+            for (const id of ids) {
+              const at = flattenBlocks(blocks).find((x) => x.block.id === id);
+              if (at) at.parent.splice(at.parent.indexOf(at.block), 1);
             }
             return { ...cur, blocks };
           },
           data,
         );
-        return { deleted: a.block_ids.length };
+        return { deleted: ids.length, block_ids: ids };
       }
 
       case "move_blocks": {
         const from = page(c, data, a.page_id);
         const to = a.to_page_id ? page(c, data, a.to_page_id) : from;
         if (!Array.isArray(a.block_ids) || !a.block_ids.length) throw new ToolError("Give the block_ids to move.");
+        const ids = blockIds(editable(from), a.block_ids);
         if (to.id === from.id) {
+          if (a.block_id !== undefined && ["after", "before", "inside"].includes(a.position) && ids.includes(locate(editable(from), a.block_id).block.id))
+            throw new ToolError("A block can't be moved next to or inside itself.");
           await save(
             c,
             from.id,
             (cur) => {
               const blocks = cloneBlocks(editable(cur));
-              const moving = a.block_ids.map((id: string) => {
+              const moving = ids.map((id) => {
                 const at = locate(blocks, id);
                 at.list.splice(at.index, 1);
                 return at.block;
@@ -737,10 +905,10 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
             },
             data,
           );
-          return { moved: a.block_ids.length };
+          return { moved: ids.length, block_ids: ids };
         }
         // To another page: add them there first, then take them out here, so nothing is lost.
-        const moving = a.block_ids.map((id: string) => structuredClone(locate(editable(from), id).block));
+        const moving = ids.map((id) => structuredClone(locate(editable(from), id).block));
         await save(c, to.id, (cur) => {
           const blocks = cloneBlocks(editable(cur));
           insert(blocks, moving, a.position, a.block_id);
@@ -748,24 +916,27 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
         });
         await save(c, from.id, (cur) => {
           const blocks = cloneBlocks(editable(cur));
-          for (const id of a.block_ids) {
+          for (const id of ids) {
             const at = flattenBlocks(blocks).find((x) => x.block.id === id);
             if (at) at.parent.splice(at.parent.indexOf(at.block), 1);
           }
           return { ...cur, blocks };
         });
-        return { moved: a.block_ids.length, to_page_id: to.id };
+        return { moved: ids.length, to_page_id: to.id, block_ids: ids };
       }
 
       case "update_page": {
         const p = page(c, data, a.page_id);
+        // Resolved here: the parent may have been given by title or link.
+        let parentId: string | null | undefined;
         if (a.parent_id !== undefined) {
           if (a.parent_id === null && c.scope !== "all") throw new ToolError("This connection can only reach some pages, so it can't move a page to the top level.");
           if (a.parent_id !== null) {
             const parent = page(c, data, a.parent_id);
             if (parent.id === p.id || ancestorsOf(data.pages, parent.id).includes(p.id)) throw new ToolError("A page can't go inside itself or a page inside it.");
             if (parent.kind !== "doc") throw new ToolError("Pages can't go inside a whiteboard.");
-          }
+            parentId = parent.id;
+          } else parentId = null;
         }
         const changed: string[] = [];
         await save(
@@ -776,9 +947,9 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
             if (typeof a.title === "string") (next.title = a.title.trim().slice(0, 200)), changed.push("title");
             if (typeof a.icon === "string" && a.icon.trim()) (next.mark = [...a.icon.trim()].slice(0, 2).join("")), changed.push("icon");
             if (typeof a.favorite === "boolean") (next.favorite = a.favorite), changed.push("favorite");
-            if (a.parent_id !== undefined && a.parent_id !== cur.parentId) {
-              next.parentId = a.parent_id;
-              const sib = childrenOf(d.pages, a.parent_id);
+            if (parentId !== undefined && parentId !== cur.parentId) {
+              next.parentId = parentId;
+              const sib = childrenOf(d.pages, parentId);
               next.order = sib.length ? Math.max(...sib.map((s) => s.order)) + 1 : 0;
               changed.push("parent");
             }
@@ -796,6 +967,7 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
       case "set_task": {
         const p = page(c, data, a.page_id);
         if (typeof a.done !== "boolean") throw new ToolError("Say done: true or done: false.");
+        let id = a.block_id;
         await save(
           c,
           p.id,
@@ -804,11 +976,12 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
             const at = locate(blocks, a.block_id);
             if (at.block.type !== "checkListItem") throw new ToolError("That block isn't a to-do.");
             at.block.props = { ...(at.block.props ?? {}), checked: a.done };
+            id = at.block.id;
             return { ...cur, blocks };
           },
           data,
         );
-        return { block_id: a.block_id, done: a.done };
+        return { block_id: id, done: a.done };
       }
 
       case "trash_page": {
@@ -852,10 +1025,11 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
     const id = msg?.id ?? null;
     const reply = (result: unknown) => ({ jsonrpc: "2.0", id, result });
     const fail = (code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
-    if (!msg || msg.jsonrpc !== "2.0" || typeof msg.method !== "string") return fail(-32600, "Invalid request");
+    // Some hand-made clients leave out "jsonrpc".
+    if (!isPlain(msg) || (msg.jsonrpc !== undefined && msg.jsonrpc !== "2.0") || typeof msg.method !== "string") return fail(-32600, "Invalid request: send a JSON-RPC 2.0 message with a method.");
     const isNote = msg.id === undefined || msg.id === null;
     if (isNote) return null; // notifications/initialized, cancelled… need no answer
-    switch (msg.method) {
+    switch (msg.method.trim()) {
       case "initialize": {
         const asked = msg.params?.protocolVersion;
         return reply({
@@ -871,16 +1045,22 @@ export function createMcp(deps: { store: CloudStore; cloud: Cloud; now?: () => D
         return reply({ tools: toolList(c) });
       case "resources/list":
         return reply({ resources: [] });
+      case "resources/templates/list":
+        return reply({ resourceTemplates: [] });
       case "prompts/list":
         return reply({ prompts: [] });
+      case "logging/setLevel":
+        return reply({});
+      case "completion/complete":
+        return reply({ completion: { values: [], hasMore: false } });
       case "tools/call": {
-        const name = msg.params?.name;
-        const args = msg.params?.arguments ?? {};
-        if (typeof name !== "string" || typeof args !== "object" || Array.isArray(args)) return fail(-32602, "Invalid params");
+        const name = msg.params?.name ?? msg.params?.tool;
+        const args = msg.params?.arguments ?? msg.params?.args ?? msg.params?.input ?? {};
+        if (typeof name !== "string") return fail(-32602, "Invalid params: give the tool's name.");
         if (limited(c)) return reply({ isError: true, content: [{ type: "text", text: "Too many requests in a minute. Wait a moment and try again." }] });
         try {
           const out = await call(c, name, args);
-          await noteUse(c, name).catch(() => {});
+          await noteUse(c, toolNamed(name)?.name ?? name).catch(() => {});
           return reply({ content: [{ type: "text", text: JSON.stringify(out, null, 2) }], structuredContent: out });
         } catch (e) {
           if (e instanceof ToolError || e instanceof CloudError) return reply({ isError: true, content: [{ type: "text", text: e.message }] });

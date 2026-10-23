@@ -10,19 +10,21 @@
 .dovli-tag { color: var(--d-accent); background-color: var(--d-accent-soft); border-radius: 4px; padding: 0 1px; }
 
 /* ---------- Editor (BlockNote + Mantine), dressed in the theme ---------- */
-.dovli-editor.bn-container,
-.bn-container[data-color-scheme] {
+/* One class more than BlockNote's `.bn-root[data-color-scheme="dark"]`, which loads later. */
+.dovli-editor.bn-container.bn-root,
+.bn-root.bn-container[data-color-scheme] {
   --bn-colors-editor-background: transparent;
   --bn-colors-editor-text: var(--d-ink);
   --bn-colors-menu-background: var(--d-raised);
   --bn-colors-menu-text: var(--d-ink);
   --bn-colors-tooltip-background: var(--d-ink);
-  --bn-colors-tooltip-text: var(--d-bg);
+  /* Not --d-bg: page styles change --d-ink but not --d-bg. */
+  --bn-colors-tooltip-text: var(--d-raised);
   --bn-colors-hovered-background: var(--d-hover);
   --bn-colors-hovered-text: var(--d-ink);
   --bn-colors-selected-background: var(--d-active-bg);
   --bn-colors-selected-text: var(--d-active-ink);
-  --bn-colors-disabled-background: var(--d-well);
+  --bn-colors-disabled-background: transparent;
   --bn-colors-disabled-text: var(--d-ink-4);
   --bn-colors-border: var(--d-line);
   --bn-colors-side-menu: var(--d-ink-4);
@@ -87,7 +89,12 @@
 }
 .dovli-editor code,
 .dovli-editor .bn-block-content[data-content-type="codeBlock"] { font-family: var(--d-doc-mono); }
-.dovli-editor .bn-inline-content code { font-size: 0.86em; background: var(--d-well); color: var(--d-danger); padding: 2px 5px; border-radius: 5px; }
+.dovli-editor .bn-inline-content code {
+  font-size: 0.86em; line-height: 1; padding: 0.16em 0.4em; border-radius: 5px; color: var(--d-ink);
+  background: color-mix(in srgb, var(--d-ink) 7%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--d-ink) 11%, transparent);
+  -webkit-box-decoration-break: clone; box-decoration-break: clone; font-variant-ligatures: none; overflow-wrap: anywhere;
+}
+.dovli-editor .bn-inline-content a code { color: inherit; }
 /* Code and text diagrams: a framed panel. Lines never wrap (diagrams stay intact); wide ones scroll. */
 .dovli-editor .bn-block-content[data-content-type="codeBlock"] { margin-block: 0.42em; padding: 0; background: var(--d-well); color: var(--d-ink); border-radius: var(--d-radius-lg); font-size: 0.84em; line-height: 1.5; box-shadow: inset 0 0 0 1px var(--d-line); }
 .dovli-editor .bn-block-content[data-content-type="codeBlock"] pre { background: transparent; color: inherit; padding: 1.15em 1.35em; white-space: pre; overflow-x: auto; scrollbar-width: thin; }
@@ -142,6 +149,15 @@
 
 /* The "/" and "[[" menus are drawn by SlashMenu.tsx with the design tokens, not here. */
 .bn-mantine .bn-toolbar { padding: 4px; border-radius: var(--d-radius-md); background: var(--d-raised); box-shadow: var(--d-shadow-pop); backdrop-filter: var(--d-filter-raised, none); }
+/* Inset: the toolbar scrolls sideways and would clip Mantine's outside ring. */
+.bn-mantine .bn-toolbar .mantine-focus-auto:focus-visible { outline: 2px solid var(--d-accent); outline-offset: -2px; }
+.bn-mantine .bn-toolbar .mantine-Button-root[data-selected],
+.bn-mantine .bn-toolbar .mantine-ActionIcon-root[data-selected] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--d-ink) 8%, transparent); }
+.bn-mantine .bn-toolbar .mantine-Button-root[data-disabled],
+.bn-mantine .bn-toolbar .mantine-ActionIcon-root[data-disabled] { opacity: 0.45; }
+.bn-mantine .bn-tooltip { padding: 5px 9px; border-radius: var(--d-radius-sm); box-shadow: var(--d-shadow-pop); line-height: 1.3; }
+.bn-mantine .bn-tooltip .mantine-Text-root { font-size: 12px; font-weight: 500; }
+.bn-mantine .bn-tooltip .mantine-Text-root + .mantine-Text-root { font-size: 11px; font-weight: 400; opacity: 0.66; letter-spacing: 0.02em; }
 .bn-mantine .bn-side-menu .mantine-UnstyledButton-root:hover { background: var(--d-hover); }
 .bn-mantine [class*="mantine-Menu-dropdown"],
 .bn-mantine [class*="mantine-Popover-dropdown"] { border-radius: var(--d-radius-lg); box-shadow: var(--d-shadow-pop); border: 0; padding: 6px; background: var(--d-raised); backdrop-filter: var(--d-filter-raised, none); }
