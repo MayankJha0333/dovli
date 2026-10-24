@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { BrowserWindow, Menu, app, clipboard, ipcMain, nativeTheme, net, powerMonitor, protocol, screen, session, shell } from "electron";
+import { BrowserWindow, Menu, app, autoUpdater, clipboard, ipcMain, nativeTheme, net, powerMonitor, protocol, screen, session, shell } from "electron";
 import { SYSTEM_DARK_THEME, SYSTEM_LIGHT_THEME, getTheme } from "@dovli/theme";
 import type { DesktopCommand } from "@/lib/desktop";
 import { CONFIG_ARG, IPC, type BridgeConfig, type GoogleSignInReply } from "../shared/ipc";
@@ -43,6 +43,23 @@ const isAppUrl = (url: string) => url.startsWith(`${APP_ORIGIN}/`) || (!!DEV_URL
 const isWebLink = (url: string) => /^(https?|mailto):/i.test(url);
 const openExternal = (url: string) => void (isWebLink(url) && shell.openExternal(url));
 const send = (command: DesktopCommand) => win?.webContents.send(IPC.command, command);
+
+/** Asks the page to finish writing to this device (it saves a moment after each edit). 3 s at most. */
+function savePage(w: BrowserWindow): Promise<void> {
+  if (w.isDestroyed()) return Promise.resolve();
+  const contents = w.webContents;
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      ipcMain.removeListener(IPC.beforeCloseDone, onDone);
+      resolve();
+    };
+    const onDone = (ev: Electron.IpcMainEvent) => ev.sender === contents && done();
+    const timer = setTimeout(done, 3000);
+    ipcMain.on(IPC.beforeCloseDone, onDone);
+    contents.send(IPC.beforeClose);
+  });
+}
 
 function createWindow(state: ReturnType<typeof windowStateStore>) {
   const saved = state.get();
@@ -117,15 +134,9 @@ function createWindow(state: ReturnType<typeof windowStateStore>) {
     closing = true;
     remember();
     state.flush();
-    const done = () => {
-      clearTimeout(timer);
-      ipcMain.removeListener(IPC.beforeCloseDone, onDone);
+    void savePage(w).then(() => {
       if (!w.isDestroyed()) w.destroy();
-    };
-    const onDone = (ev: Electron.IpcMainEvent) => ev.sender === contents && done();
-    const timer = setTimeout(done, 3000);
-    ipcMain.on(IPC.beforeCloseDone, onDone);
-    contents.send(IPC.beforeClose);
+    });
   });
   w.on("closed", () => {
     if (win === w) win = null;
@@ -159,6 +170,11 @@ app.on("second-instance", show);
 app.on("before-quit", () => {
   quitting = true;
 });
+// An update about to install (src/main/updater.ts) closes the windows before it quits, so on a Mac
+// they must close for real rather than hide.
+autoUpdater.on("before-quit-for-update", () => {
+  quitting = true;
+});
 
 void app.whenReady().then(() => {
   const state = windowStateStore(app.getPath("userData"));
@@ -185,7 +201,11 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb, details) => cb(allowed.has(permission) && fromApp(details.requestingUrl)));
   session.defaultSession.setPermissionCheckHandler((_wc, permission, origin) => allowed.has(permission) && fromApp(origin));
 
-  const updates = setupUpdates(() => win, () => (quitting = true));
+  const updates = setupUpdates({
+    window: () => win,
+    beforeInstall: () => (win ? savePage(win) : Promise.resolve()),
+    downloadUrl: `${SITE}/download`,
+  });
   Menu.setApplicationMenu(
     Menu.buildFromTemplate(
       menuTemplate(process.platform, {

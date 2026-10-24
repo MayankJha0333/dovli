@@ -95,7 +95,8 @@ Both installers can be made on a Mac.
   and uploads both installers and the update files into it, then publishes it.
 - **Once it's published**, installed apps find it on their next check (15 seconds after opening,
   then every 4 hours, or *Check for Updates…*), download it in the background and offer to
-  restart. dovli.in/download offers the new installers within half an hour.
+  restart (or install it the next time Dovli quits). dovli.in/download offers the new installers
+  within half an hour.
 
 Untick *Publish* to keep the release a draft, try its installers, then publish it on GitHub. A run
 that fails part-way leaves its draft; running the same bump again reuses it.
@@ -112,9 +113,21 @@ clears sign-in codes nobody used (they stop working after two minutes either way
 Unsigned apps work, but macOS says it "can't check" Dovli for malware (people allow it once, in
 *System Settings → Privacy & Security → Open Anyway*), and Windows SmartScreen says "Windows
 protected your PC". Without a certificate the workflow signs the Mac app *ad hoc*, which is what
-lets it open on Apple silicon at all. **Mac auto-updates need a real Developer ID**: macOS refuses
-an update it can't tie to the same developer, so until then Mac people update by downloading the
-new version. Windows updates itself either way. To sign, add these GitHub Actions secrets; the
+lets it open on Apple silicon at all. Both update themselves either way (`src/main/updater.ts`):
+
+- **Windows** runs the new installer after Dovli quits, then opens Dovli again.
+- **Mac with a Developer ID**: macOS's own updater (Squirrel.Mac) installs it.
+- **Mac signed ad hoc**: macOS's updater refuses an update it can't tie to the same developer, so
+  Dovli installs it itself (`src/main/macInstall.ts`): it unzips the download (already checked
+  against the release's sha512), checks it's Dovli at the new version with an intact signature,
+  and once Dovli quits a small script swaps it into place and reopens it. Dovli must be in a folder
+  the person can write to (Applications is); run from the disk image or from Downloads, it offers
+  the download instead. macOS asks for the microphone again after each ad hoc update, since its
+  permission is tied to the exact build.
+- Mac apps from **1.0.1 or older** have the earlier updater, which said the update was ready but
+  couldn't install it on an ad hoc build: download the new version by hand once.
+
+What happened is in `updates.log` (Mac: `~/Library/Logs/Dovli`, Windows: `%APPDATA%\Dovli\logs`). To sign, add these GitHub Actions secrets; the
 workflow picks them up:
 
 - **Mac** (Apple Developer Program, $99 a year): a *Developer ID Application* certificate as
